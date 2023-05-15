@@ -1,8 +1,7 @@
 import './globals.css'
-import { Inter } from 'next/font/google'
+import { inter } from '../fonts/fonts'
 import AppNavbar from '@/components/AppNavbar'
-
-const inter = Inter({ subsets: ['latin'] })
+import { ThemeProv } from '@/providers/ThemeProv'
 
 export const metadata = {
   title: 'Notes App | Home',
@@ -14,11 +13,16 @@ export default function RootLayout({
 }: {
   children: React.ReactNode
 }) {
+  
   return (
-    <html lang="en">
-      <body className={inter.className}>
-        <AppNavbar />
-        {children}
+    <html lang="en" suppressHydrationWarning={true}>
+      <body 
+        className={inter.className} 
+      >
+        <ThemeProv>
+          <AppNavbar />
+          {children}
+        </ThemeProv>
       </body>
     </html>
   )
