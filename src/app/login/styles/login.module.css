@@ -1,0 +1,83 @@
+.loginPageContainer {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-top: 5em;
+    margin-bottom: 15em;
+}
+
+.loginHeader {
+    margin-bottom: 3em;
+}
+
+.formWrapper {
+    display: flex;
+    flex-direction: column;
+}
+
+.formContainer {
+    display: flex;
+    flex-direction: column;
+    gap: 1em;
+    width: 20em;
+    margin-bottom: 1em;
+}
+
+.loginInput {
+    border: 1px solid var(--borders-color);
+    border-radius: 5px;
+    padding: 1.2em;
+}
+
+.loginInput:focus { 
+    outline: none !important;
+    border-color: var(--secondary-color);
+}
+
+.loginSubmitBtn {
+    border: 1px solid var(--primary-color);
+    border-radius: 5px;
+    background-color: transparent;
+    padding: 1.2em;
+    cursor: pointer;
+}
+
+.loginSubmitBtn[type=submit]
+{
+    font-size: 1.1rem; 
+    font-weight: 200;
+}
+
+.loginSubmitBtn:hover {
+    border: 1px solid var(--secondary-color);
+    color: var(--secondary-color);
+}
+
+.registerPageLink {
+    width: fit-content;
+    text-decoration: none;
+    color: var(--primary-color)
+}
+
+.registerPageLink:hover {
+    text-decoration: underline;
+    color: var(--secondary-color)
+}
+
+.socialLoginSection {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.6em;
+}
+
+.socialBtnsContainer {
+    display: flex;
+    justify-content: center;
+}
+
+.divider {
+    background-color: var(--primary-color);
+    width: 5.8em;
+    height: 1px;
+}

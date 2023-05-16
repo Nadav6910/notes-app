@@ -1,3 +1,7 @@
+import styles from './styles/login.module.css'
+import LoginForm from '@/components/LoginForm'
+import Link from 'next/link'
+
 export const metadata = {
     title: 'Notes App | Login',
     description: 'login page',
@@ -6,6 +10,16 @@ export const metadata = {
 export default function Login() {
 
   return (
-    <h1>Login</h1>
+    <main className={styles.loginPageContainer}>
+      <h1 className={styles.loginHeader}>Login</h1>
+
+      <section className={styles.formWrapper}>
+        <LoginForm />
+
+        <Link className={styles.registerPageLink} href={'/register'}>
+          Already have an Account?
+        </Link>
+      </section>
+    </main>
   )
 }
