@@ -9,11 +9,7 @@ export const metadata = {
   description: 'An app for taking notes for everything',
 }
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
+export default function RootLayout({children}: MainLayoutProps) {
   
   return (
     <html lang="en" suppressHydrationWarning={true}>
