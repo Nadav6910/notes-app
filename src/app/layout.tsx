@@ -1,7 +1,8 @@
 import './globals.css'
 import { inter } from '../fonts/fonts'
-import AppNavbar from '@/components/AppNavbar'
 import { ThemeProv } from '@/providers/ThemeProv'
+import AppNavbar from '@/components/AppNavbar'
+import AppFooter from '@/components/AppFooter'
 
 export const metadata = {
   title: 'Notes App | Home',
@@ -20,8 +21,13 @@ export default function RootLayout({
         className={inter.className} 
       >
         <ThemeProv>
+
           <AppNavbar />
+
           {children}
+
+          <AppFooter />
+          
         </ThemeProv>
       </body>
     </html>

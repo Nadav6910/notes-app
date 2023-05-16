@@ -11,7 +11,7 @@ export default function AppNavbar() {
     <nav className={styles.navbarContainer}>
       
         <Link href={'/'} className={`${rockSalt.className} ${styles.mainLogo}`}>
-          Notes App <GiNotebook color='#610c62' />
+          Notes App <GiNotebook className={styles.notebookIcon} />
         </Link>
 
       <div className={styles.linksContainer}>

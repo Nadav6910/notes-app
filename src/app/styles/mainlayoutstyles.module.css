@@ -1,3 +1,4 @@
+/* nav bar section  */
 .navbarContainer {
     display: flex;
     align-items: center;
@@ -8,6 +9,10 @@
     font-size: 1.8rem;
     text-decoration: none;
     color: var(--primary-color);
+}
+
+.notebookIcon {
+    color: var(--secondary-color);
 }
 
 .linksContainer {
@@ -31,6 +36,26 @@
 }
 
 .loginLink:hover, .registerLink:hover {
-    color: #610c62;
-    border: 1px solid #610c62;
+    color: var(--secondary-color);
+    border: 1px solid var(--secondary-color);
 }
+
+.themeSwitch span{
+    transition: 0.2s ease-in-out;
+}
+/* nav bar section  */
+
+
+/* footer section  */
+.footerContainer {
+    display: flex;
+    gap: 0.7em;
+    flex-direction: column;
+    margin-top: 7em;
+    margin-bottom: 0.7em;
+}
+
+.copyrightText {
+    font-size: 0.85rem;
+}
+/* footer section  */

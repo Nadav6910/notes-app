@@ -1,5 +1,6 @@
 'use client'
 
+import styles from "../app/styles/mainlayoutstyles.module.css"
 import { styled } from '@mui/material/styles'
 import Switch from '@mui/material/Switch'
 import NoSsr from '@mui/base/NoSsr'
@@ -30,7 +31,7 @@ const MaterialUISwitch = styled(Switch)(({thememode}: {thememode: string | undef
     },
   },
   '& .MuiSwitch-thumb': {
-    backgroundColor: thememode === 'dark' ? '#003892' : '#1f64cef5',
+    backgroundColor: thememode === 'dark' ? '#003892' : '#3678dcf5',
     width: 32,
     height: 32,
     '&:before': {
@@ -60,7 +61,8 @@ export default function ThemeSwitch() {
   
   return (
     <NoSsr>
-      <MaterialUISwitch 
+      <MaterialUISwitch
+        className={styles.themeSwitch}
         onChange={() => theme === "dark" ? setTheme('light') : setTheme('dark')}
         value={theme}
         thememode={theme} 
