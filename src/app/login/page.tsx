@@ -1,5 +1,5 @@
 import styles from './styles/login.module.css'
-import LoginForm from '@/components/LoginForm'
+import LoginForm from '../../components/login_page_components/LoginForm'
 import Link from 'next/link'
 
 export const metadata = {

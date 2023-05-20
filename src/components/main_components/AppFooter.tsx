@@ -1,4 +1,4 @@
-import styles from '../app/styles/mainlayoutstyles.module.css'
+import styles from '../../app/styles/mainlayoutstyles.module.css'
 
 export default function AppFooter() {
 

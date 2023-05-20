@@ -5,3 +5,8 @@ type ThemeProvProps = {
 type MainLayoutProps = {
     children: React.ReactNode
 }
+
+type LoginFormValues = {
+    userName: string;
+    password: string;
+}

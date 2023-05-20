@@ -3,11 +3,11 @@
     flex-direction: column;
     align-items: center;
     margin-top: 5em;
-    margin-bottom: 15em;
+    margin-bottom: 6em;
 }
 
 .loginHeader {
-    margin-bottom: 3em;
+    margin-bottom: 2em;
 }
 
 .formWrapper {
@@ -80,4 +80,31 @@
     background-color: var(--primary-color);
     width: 5.8em;
     height: 1px;
+}
+
+.forgotPassLink {
+    font-size: 0.85em;
+    color: var(--primary-color);
+    width: fit-content;
+    cursor: pointer;
+}
+
+.forgotPassLink:hover {
+    color: var(--secondary-color);
+    text-decoration: underline;
+}
+
+.googleLoginWrapper {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: white;
+    width: 3em;
+    height: 3em;
+    border-radius: 50%;
+    cursor: pointer;
+}
+
+.googleLoginWrapper:hover {
+    background-color: var(--google-button-background-hover);
 }

@@ -3,7 +3,7 @@
   --primary-color: white;
   --secondary-color: #19a29b;
   --borders-color: #868383;
-  --google-button-background-hover: rgb(84, 76, 76);
+  --google-button-background-hover: rgb(187, 183, 183);
 }
 
 [data-theme='light'] {
@@ -11,7 +11,7 @@
   --primary-color: black;
   --secondary-color: #610c62;
   --borders-color: #887c7c;
-  --google-button-background-hover: rgb(110, 104, 104);
+  --google-button-background-hover: rgb(207, 197, 197);
 }
 
 * {

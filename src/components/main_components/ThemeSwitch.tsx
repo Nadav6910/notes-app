@@ -1,6 +1,6 @@
 'use client'
 
-import styles from "../app/styles/mainlayoutstyles.module.css"
+import styles from "../../app/styles/mainlayoutstyles.module.css"
 import { styled } from '@mui/material/styles'
 import Switch from '@mui/material/Switch'
 import NoSsr from '@mui/base/NoSsr'

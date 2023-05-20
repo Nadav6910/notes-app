@@ -1,9 +1,9 @@
-import styles from '../app/styles/mainlayoutstyles.module.css'
-import { rockSalt } from '../fonts/fonts'
+import styles from '../../app/styles/mainlayoutstyles.module.css'
+import { rockSalt } from '../../fonts/fonts'
 import Link from 'next/link'
 import { GiNotebook } from 'react-icons/gi'
-import MotionWrap from '../wrappers/MotionWrap'
-import ThemeSwitch from "../components/ThemeSwitch"
+import MotionWrap from '../../wrappers/MotionWrap'
+import ThemeSwitch from "./ThemeSwitch"
 
 export default function AppNavbar() {
 
