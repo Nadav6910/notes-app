@@ -1,22 +1,49 @@
 'use client'
 
 import styles from '../../app/login/styles/login.module.css'
+import { useState } from 'react'
 import { useForm } from 'react-hook-form'
+import { signIn } from "next-auth/react"
+import { useTheme } from 'next-themes'
 import { FcGoogle } from 'react-icons/fc'
+import { CircularProgress } from '@mui/material'
 
 export default function LoginForm() {
+
+    const [userNameErr, setUserNameErr] = useState(false)
+    const [passwordErr, setPasswordErr] = useState(false)
+
+    const { resolvedTheme } = useTheme()
 
     const {
         register,
         handleSubmit,
-        formState: { errors },
-      } = useForm<LoginFormValues>()
+        formState: { errors, isSubmitting, isLoading },
+    } = useForm<LoginFormValues>()
 
-    const login = (data: LoginFormValues) => {
+    const login = async (data: LoginFormValues) => {
         
         const { userName, password } = data
 
-        console.log(userName, password)
+        const loginResponse = await signIn('credentials', {
+            userName: userName,
+            password: password,
+            redirect: false
+        })
+        
+        if (loginResponse?.error === 'wrong user name') {
+            setUserNameErr(true)
+            setTimeout(() => {
+                setUserNameErr(false)
+            }, 2000)
+        }
+
+        if (loginResponse?.error === 'wrong password') {
+            setPasswordErr(true)
+            setTimeout(() => {
+                setPasswordErr(false)
+            }, 2000)
+        }
     }
     
     return (
@@ -34,13 +61,13 @@ export default function LoginForm() {
                 type='text'
                 placeholder='Username'
                 
-                style={{borderColor: errors.userName && "red"}} 
+                style={{borderColor: errors.userName || userNameErr ? "red" : "initial"}} 
             />
             {
-                errors.userName && 
+                errors.userName || userNameErr ?
                 <span style={{color: "red", fontSize: "0.8rem"}}>
-                    {errors.userName?.message}
-                </span>
+                    {errors.userName?.message ?? "Username is incorrect!"}
+                </span> : null
             }
 
             <input 
@@ -56,17 +83,31 @@ export default function LoginForm() {
                 })} 
                 type='password'
                 placeholder='Password'
-                style={{borderColor: errors.password && "red"}} 
+                style={{borderColor: errors.password || passwordErr ? "red" : "initial"}} 
             />
             {
-                errors.password && 
+                errors.password || passwordErr ? 
                 <span style={{color: "red", fontSize: "0.8rem"}}>
-                    {errors.password?.message}
-                </span>
+                    {errors.password?.message ?? "Password is incorrect!"}
+                </span> : null
             }
             <p className={styles.forgotPassLink}>Forgot Password?</p>
 
-            <input className={styles.loginSubmitBtn} type='submit' value='Log In' />
+            <button className={styles.loginSubmitBtn} type='submit'>
+                {
+                    isSubmitting ?
+                    
+                    <CircularProgress 
+                        sx={
+                            {
+                                width: "1.2em !important", 
+                                height: "1.2em !important", 
+                                color: resolvedTheme === 'dark' ? "#19a29b" : "#610c62"
+                            }
+                        } 
+                    /> : "Log in"
+                }
+            </button>
 
             <section className={styles.socialLoginSection}>
 

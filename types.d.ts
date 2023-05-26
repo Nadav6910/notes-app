@@ -1,8 +1,4 @@
-type ThemeProvProps = {
-    children: React.ReactNode
-}
-
-type MainLayoutProps = {
+type BasicChildrenProps = {
     children: React.ReactNode
 }
 

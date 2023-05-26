@@ -49,13 +49,14 @@
 /* footer section  */
 .footerContainer {
     display: flex;
-    gap: 0.7em;
     flex-direction: column;
-    margin-top: 7em;
+    gap: 0.7em;
+    margin-top: 10em;
     margin-bottom: 0.7em;
 }
 
 .copyrightText {
     font-size: 0.85rem;
+    padding-left: 1em;
 }
 /* footer section  */
