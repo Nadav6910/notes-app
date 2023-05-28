@@ -1,20 +1,12 @@
 'use client'
 
-import styles from '../../app/login/styles/login.module.css'
-import { useState } from 'react'
+import styles from "../../app/register/styles/register.module.css"
 import { useForm } from 'react-hook-form'
-import { signIn } from "next-auth/react"
 import { useTheme } from 'next-themes'
 import { FcGoogle } from 'react-icons/fc'
 import { CircularProgress } from '@mui/material'
-import { useRouter } from 'next/navigation'
 
-export default function LoginForm() {
-
-    const router = useRouter()
-
-    const [userNameErr, setUserNameErr] = useState(false)
-    const [passwordErr, setPasswordErr] = useState(false)
+export default function RegisterForm() {
 
     const { resolvedTheme } = useTheme()
 
@@ -22,79 +14,86 @@ export default function LoginForm() {
         register,
         handleSubmit,
         formState: { errors, isSubmitting },
-    } = useForm<LoginFormValues>()
+    } = useForm<RegisterFormValues>()
 
-    const login = async (data: LoginFormValues) => {
+    const Register = async (data: RegisterFormValues) => {
         
-        const { userName, password } = data
+        const { name, userName, password } = data
 
-        const loginResponse = await signIn('credentials', {
-            userName: userName,
-            password: password,
-            redirect: false
+        fetch('/api/register', {
+            method: "POST",
+            body: JSON.stringify({name, userName, password})
         })
-        
-        if (loginResponse?.error === 'wrong user name') {
-            setUserNameErr(true)
-            setTimeout(() => {
-                setUserNameErr(false)
-            }, 2000)
-        }
-
-        if (loginResponse?.error === 'wrong password') {
-            setPasswordErr(true)
-            setTimeout(() => {
-                setPasswordErr(false)
-            }, 2000)
-        }
-
-        else {
-            router.refresh()
-        }
     }
     
     return (
+
         <form 
-            onSubmit={handleSubmit((data) => login(data))} 
+            onSubmit={handleSubmit((data) => Register(data))} 
             className={styles.formContainer}
         >
+
             <input 
-                className={styles.loginInput}
+                className={styles.RegisterInput}
+                {...register('name', 
+                { 
+                    required: {value: true, message: "Name Must Be Provided"}, 
+                    minLength: {value: 2, message: "Name Must Be At Least 2 characters"} 
+                })} 
+                type='text'
+                placeholder='Name'
+                
+                style={{borderColor: errors.name && "red"}} 
+            />
+            {
+                errors.name &&
+                <span style={{color: "red", fontSize: "0.8rem"}}>
+                    {errors.name?.message}
+                </span>
+            }
+
+            <input 
+                className={styles.RegisterInput}
                 {...register('userName', 
                 { 
                     required: {value: true, message: "Username Must Be Provided"}, 
+                    minLength: {value: 3, message: "Username Must Be At Least 3 characters"} 
                 })} 
                 type='text'
                 placeholder='Username'
                 
-                style={{borderColor: errors.userName || userNameErr ? "red" : "initial"}} 
+                style={{borderColor: errors.userName && "red"}} 
             />
             {
-                errors.userName || userNameErr ?
+                errors.userName &&
                 <span style={{color: "red", fontSize: "0.8rem"}}>
                     {errors.userName?.message ?? "Username is incorrect!"}
-                </span> : null
+                </span>
             }
 
             <input 
-                className={styles.loginInput}
+                className={styles.RegisterInput}
                 {...register('password', 
                 { 
                     required: {value: true, message: "Password Must Be Provided"}, 
+                    minLength: {value: 8, message: "Password Must Be At Least 8 characters"},
+                    pattern: {
+                        value: /^(?=.*[a-zA-Z])(?=.*\d).+$/, 
+                        message: "Password Must Contain 1 Letter And 1 Digit"
+                    }
                 })} 
                 type='password'
                 placeholder='Password'
-                style={{borderColor: errors.password || passwordErr ? "red" : "initial"}} 
+                style={{borderColor: errors.password && "red"}} 
             />
             {
-                errors.password || passwordErr ? 
+                errors.password && 
                 <span style={{color: "red", fontSize: "0.8rem"}}>
                     {errors.password?.message ?? "Password is incorrect!"}
-                </span> : null
+                </span>
             }
-            <p className={styles.forgotPassLink}>Forgot Password?</p>
 
-            <button className={styles.loginSubmitBtn} type='submit'>
+            <button className={styles.RegisterSubmitBtn} type='submit'>
                 {
                     isSubmitting ?
                     
@@ -106,20 +105,20 @@ export default function LoginForm() {
                                 color: resolvedTheme === 'dark' ? "#19a29b" : "#610c62"
                             }
                         } 
-                    /> : "Log in"
+                    /> : "Register"
                 }
             </button>
 
-            <section className={styles.socialLoginSection}>
+            <section className={styles.socialRegisterSection}>
 
                 <hr className={styles.divider} />
-                <p>Or Log In With</p>
+                <p>Or Continue In With</p>
                 <hr className={styles.divider} />
 
             </section>
 
             <section className={styles.socialBtnsContainer}>
-                <div className={styles.googleLoginWrapper}>
+                <div className={styles.googleRegisterWrapper}>
                     <FcGoogle style={{width: "1.7em", height: "1.7em"}} />
                 </div>
             </section>

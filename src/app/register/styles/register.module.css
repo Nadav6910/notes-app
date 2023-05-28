@@ -1,0 +1,98 @@
+.RegisterPageContainer {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-top: 5em;
+}
+
+.RegisterHeader {
+    margin-bottom: 2em;
+}
+
+.formWrapper {
+    display: flex;
+    flex-direction: column;
+}
+
+.formContainer {
+    display: flex;
+    flex-direction: column;
+    gap: 1em;
+    width: 20em;
+    margin-bottom: 1em;
+}
+
+.RegisterInput {
+    border: 1px solid var(--borders-color);
+    border-radius: 5px;
+    padding: 1.2em;
+}
+
+.RegisterInput:focus { 
+    outline: none !important;
+    border-color: var(--secondary-color);
+}
+
+.RegisterSubmitBtn {
+    border: 1px solid var(--primary-color);
+    border-radius: 5px;
+    background-color: transparent;
+    padding: 1.2em;
+    cursor: pointer;
+}
+
+.RegisterSubmitBtn[type=submit]
+{
+    font-size: 1.1rem; 
+    font-weight: 200;
+}
+
+.RegisterSubmitBtn:hover {
+    border: 1px solid var(--secondary-color);
+    color: var(--secondary-color);
+}
+
+.loginPageLink {
+    width: fit-content;
+    text-decoration: none;
+    color: var(--primary-color);
+    margin-bottom: 0.5em;
+}
+
+.loginPageLink:hover {
+    text-decoration: underline;
+    color: var(--secondary-color)
+}
+
+.socialRegisterSection {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.6em;
+}
+
+.socialBtnsContainer {
+    display: flex;
+    justify-content: center;
+}
+
+.divider {
+    background-color: var(--primary-color);
+    width: 4.7em;
+    height: 1px;
+}
+
+.googleRegisterWrapper {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: white;
+    width: 3em;
+    height: 3em;
+    border-radius: 50%;
+    cursor: pointer;
+}
+
+.googleRegisterWrapper:hover {
+    background-color: var(--google-button-background-hover);
+}

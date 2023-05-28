@@ -1,11 +1,15 @@
 import styles from './styles/home.module.css'
+import Link from 'next/link'
 import HeroSectionDrawing from '@/SvgDrawings/HeroSectionDrawing'
 import { oswald } from '@/fonts/fonts'
-import Link from 'next/link'
 import MotionWrap from '../wrappers/MotionWrap'
+import { getServerSession } from "next-auth/next"
+import { authOptions } from '../app/api/auth/[...nextauth]/route'
 
-export default function Home() {
+export default async function Home() {
 
+  const session = await getServerSession(authOptions)
+  
   return (
     <main className={styles.mainPageContainer}>
       <section className={styles.heroTextContainer}>
@@ -14,7 +18,7 @@ export default function Home() {
         </h5>
 
         <p className={styles.heroDesc}>
-          Effortlessly manage your life with NoteMaster, 
+          Effortlessly manage your life with NotesApp, 
           the ultimate notes app designed to streamline your productivity. 
           Whether you&apos;re a student, professional, 
           or simply someone who loves staying organized, 
@@ -27,7 +31,11 @@ export default function Home() {
           whileTap={{ scale: 0.9 }} 
           transition={{ type: "spring", stiffness: 400, damping: 10 }}
         >
-          <Link href={'/login'} className={styles.callToActionBtn}>Get started</Link>
+          <Link 
+            href={session ? '/my-notes' : '/login'} 
+            className={styles.callToActionBtn}>
+            {session ? 'My Notes' : 'Get started'}
+          </Link>
         </MotionWrap>
       </section>
 
