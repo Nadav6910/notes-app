@@ -5,6 +5,9 @@ import { useForm } from 'react-hook-form'
 import { useTheme } from 'next-themes'
 import { FcGoogle } from 'react-icons/fc'
 import { CircularProgress } from '@mui/material'
+import { BiUserPin } from 'react-icons/bi'
+import { AiOutlineUser } from 'react-icons/ai'
+import { RiLockPasswordLine } from 'react-icons/ri'
 
 export default function RegisterForm() {
 
@@ -32,19 +35,21 @@ export default function RegisterForm() {
             onSubmit={handleSubmit((data) => Register(data))} 
             className={styles.formContainer}
         >
-
-            <input 
-                className={styles.RegisterInput}
-                {...register('name', 
-                { 
-                    required: {value: true, message: "Name Must Be Provided"}, 
-                    minLength: {value: 2, message: "Name Must Be At Least 2 characters"} 
-                })} 
-                type='text'
-                placeholder='Name'
-                
-                style={{borderColor: errors.name && "red"}} 
-            />
+            <div className={styles.inputContainer}>
+                <input 
+                    className={styles.RegisterInput}
+                    {...register('name', 
+                    { 
+                        required: {value: true, message: "Name Must Be Provided"}, 
+                        minLength: {value: 2, message: "Name Must Be At Least 2 characters"} 
+                    })} 
+                    type='text'
+                    placeholder='Name'
+                    
+                    style={{borderColor: errors.name && "red"}} 
+                />
+                <div className={styles.inputIcon}><BiUserPin /></div>
+            </div>
             {
                 errors.name &&
                 <span style={{color: "red", fontSize: "0.8rem"}}>
@@ -52,18 +57,21 @@ export default function RegisterForm() {
                 </span>
             }
 
-            <input 
-                className={styles.RegisterInput}
-                {...register('userName', 
-                { 
-                    required: {value: true, message: "Username Must Be Provided"}, 
-                    minLength: {value: 3, message: "Username Must Be At Least 3 characters"} 
-                })} 
-                type='text'
-                placeholder='Username'
-                
-                style={{borderColor: errors.userName && "red"}} 
-            />
+            <div className={styles.inputContainer}>
+                <input 
+                    className={styles.RegisterInput}
+                    {...register('userName', 
+                    { 
+                        required: {value: true, message: "Username Must Be Provided"}, 
+                        minLength: {value: 3, message: "Username Must Be At Least 3 characters"} 
+                    })} 
+                    type='text'
+                    placeholder='Username'
+                    
+                    style={{borderColor: errors.userName && "red"}} 
+                />
+                <div className={styles.inputIcon}><AiOutlineUser /></div>
+            </div>
             {
                 errors.userName &&
                 <span style={{color: "red", fontSize: "0.8rem"}}>
@@ -71,21 +79,24 @@ export default function RegisterForm() {
                 </span>
             }
 
-            <input 
-                className={styles.RegisterInput}
-                {...register('password', 
-                { 
-                    required: {value: true, message: "Password Must Be Provided"}, 
-                    minLength: {value: 8, message: "Password Must Be At Least 8 characters"},
-                    pattern: {
-                        value: /^(?=.*[a-zA-Z])(?=.*\d).+$/, 
-                        message: "Password Must Contain 1 Letter And 1 Digit"
-                    }
-                })} 
-                type='password'
-                placeholder='Password'
-                style={{borderColor: errors.password && "red"}} 
-            />
+            <div className={styles.inputContainer}>
+                <input 
+                    className={styles.RegisterInput}
+                    {...register('password', 
+                    { 
+                        required: {value: true, message: "Password Must Be Provided"}, 
+                        minLength: {value: 8, message: "Password Must Be At Least 8 characters"},
+                        pattern: {
+                            value: /^(?=.*[a-zA-Z])(?=.*\d).+$/, 
+                            message: "Password Must Contain 1 Letter And 1 Digit"
+                        }
+                    })} 
+                    type='password'
+                    placeholder='Password'
+                    style={{borderColor: errors.password && "red"}} 
+                />
+                <div className={styles.inputIcon}><RiLockPasswordLine /></div>
+            </div>
             {
                 errors.password && 
                 <span style={{color: "red", fontSize: "0.8rem"}}>

@@ -22,10 +22,21 @@
     margin-bottom: 1em;
 }
 
+.inputContainer {
+    display: flex;
+}
+
+.inputIcon {
+    position: absolute;
+    padding: 1em;
+}
+
 .RegisterInput {
+    width: 100%;
     border: 1px solid var(--borders-color);
     border-radius: 5px;
     padding: 1.2em;
+    padding-left: 3em;
 }
 
 .RegisterInput:focus { 

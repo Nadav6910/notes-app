@@ -3,6 +3,9 @@
 import { useState } from 'react'
 import { signOut } from "next-auth/react"
 import { Avatar, Menu, MenuItem, Button, Divider } from '@mui/material'
+import { CgProfile } from 'react-icons/cg'
+import { CgNotes } from 'react-icons/cg'
+import { CgLogOut } from 'react-icons/cg'
 
 export default function NavbarAuthBtnsSection({userName}: NavbarBtnsSection) {
 
@@ -48,17 +51,34 @@ export default function NavbarAuthBtnsSection({userName}: NavbarBtnsSection) {
                 'aria-labelledby': 'basic-button',
                 }}
             >   
-                <MenuItem sx={{display: "flex", justifyContent: "center"}} disabled>
-                    {userName}
+                <MenuItem 
+                    sx={{display: "flex", flexDirection: "column", justifyContent: "center"}} 
+                    disabled
+                >
+                    <p style={{fontSize: "0.7em"}}>Logged in as:</p>
+                    <p>{userName}</p>
                 </MenuItem>
                 <Divider />
-                <MenuItem sx={{display: "flex", justifyContent: "center"}} onClick={handleClose}>
+                <MenuItem 
+                    sx={{display: "flex", justifyContent: "center", gap: "0.4em"}} 
+                    onClick={handleClose}
+                >
+                    <CgProfile />
                     Profile
                 </MenuItem>
-                <MenuItem sx={{display: "flex", justifyContent: "center"}} onClick={handleClose}>
+                <MenuItem 
+                    sx={{display: "flex", justifyContent: "center", gap: "0.4em"}} 
+                    onClick={handleClose}
+                >
+                    <CgNotes />
                     My notes
                 </MenuItem>
-                <MenuItem sx={{display: "flex", justifyContent: "center"}} onClick={logout}>
+                <Divider />
+                <MenuItem 
+                    sx={{display: "flex", justifyContent: "center", gap: "0.4em", color: "#EB5406"}} 
+                    onClick={logout}
+                >
+                    <CgLogOut />
                     Logout
                 </MenuItem>
             </Menu>   

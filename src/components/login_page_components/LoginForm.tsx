@@ -8,6 +8,8 @@ import { useTheme } from 'next-themes'
 import { FcGoogle } from 'react-icons/fc'
 import { CircularProgress } from '@mui/material'
 import { useRouter } from 'next/navigation'
+import { AiOutlineUser } from 'react-icons/ai'
+import { RiLockPasswordLine } from 'react-icons/ri'
 
 export default function LoginForm() {
 
@@ -58,34 +60,39 @@ export default function LoginForm() {
             onSubmit={handleSubmit((data) => login(data))} 
             className={styles.formContainer}
         >
-            <input 
-                className={styles.loginInput}
-                {...register('userName', 
-                { 
-                    required: {value: true, message: "Username Must Be Provided"}, 
-                })} 
-                type='text'
-                placeholder='Username'
-                
-                style={{borderColor: errors.userName || userNameErr ? "red" : "initial"}} 
-            />
+            <div className={styles.inputContainer}>
+                <input 
+                    className={styles.loginInput}
+                    {...register('userName', 
+                    { 
+                        required: {value: true, message: "Username Must Be Provided"}, 
+                    })} 
+                    type='text'
+                    placeholder='Username'
+                    
+                    style={{borderColor: errors.userName || userNameErr ? "red" : "initial"}} 
+                />
+                <div className={styles.inputIcon}><AiOutlineUser /></div>
+            </div>
             {
                 errors.userName || userNameErr ?
                 <span style={{color: "red", fontSize: "0.8rem"}}>
                     {errors.userName?.message ?? "Username is incorrect!"}
                 </span> : null
             }
-
-            <input 
-                className={styles.loginInput}
-                {...register('password', 
-                { 
-                    required: {value: true, message: "Password Must Be Provided"}, 
-                })} 
-                type='password'
-                placeholder='Password'
-                style={{borderColor: errors.password || passwordErr ? "red" : "initial"}} 
-            />
+            <div className={styles.inputContainer}>
+                <input 
+                    className={styles.loginInput}
+                    {...register('password', 
+                    { 
+                        required: {value: true, message: "Password Must Be Provided"}, 
+                    })} 
+                    type='password'
+                    placeholder='Password'
+                    style={{borderColor: errors.password || passwordErr ? "red" : "initial"}} 
+                />
+                <div className={styles.inputIcon}><RiLockPasswordLine /></div>
+            </div>
             {
                 errors.password || passwordErr ? 
                 <span style={{color: "red", fontSize: "0.8rem"}}>
