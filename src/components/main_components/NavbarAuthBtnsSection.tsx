@@ -6,8 +6,11 @@ import { Avatar, Menu, MenuItem, Button, Divider } from '@mui/material'
 import { CgProfile } from 'react-icons/cg'
 import { CgNotes } from 'react-icons/cg'
 import { CgLogOut } from 'react-icons/cg'
+import { useRouter } from 'next/navigation'
 
-export default function NavbarAuthBtnsSection({userName}: NavbarBtnsSection) {
+export default function NavbarAuthBtnsSection({userName, userImage}: NavbarBtnsSection) {
+
+    const router = useRouter()
 
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
     
@@ -39,11 +42,12 @@ export default function NavbarAuthBtnsSection({userName}: NavbarBtnsSection) {
                 disableTouchRipple
                 sx={{borderRadius: "50%"}}
             >
-                <Avatar sx={{backgroundColor: "#9e9797"}} />
+                <Avatar src={userImage ? userImage : ""} sx={{backgroundColor: "#9e9797"}} />
             </Button>
             <Menu
                 id="basic-menu"
-                sx={{width: "25em !important"}}
+                className='asdasdasd'
+                style={{padding: "5em !important"}}
                 anchorEl={anchorEl}
                 open={open}
                 onClose={handleClose}
@@ -52,30 +56,30 @@ export default function NavbarAuthBtnsSection({userName}: NavbarBtnsSection) {
                 }}
             >   
                 <MenuItem 
-                    sx={{display: "flex", flexDirection: "column", justifyContent: "center"}} 
+                    sx={{display: "flex", flexDirection: "column", justifyContent: "flex-start"}} 
                     disabled
                 >
                     <p style={{fontSize: "0.7em"}}>Logged in as:</p>
                     <p>{userName}</p>
                 </MenuItem>
-                <Divider />
+                <Divider sx={{marginTop: "0 !important"}} />
                 <MenuItem 
-                    sx={{display: "flex", justifyContent: "center", gap: "0.4em"}} 
-                    onClick={handleClose}
+                    sx={{display: "flex", justifyContent: "flex-start", gap: "0.4em", fontWeight: 100}} 
+                    onClick={() => router.push('/profile')}
                 >
                     <CgProfile />
                     Profile
                 </MenuItem>
                 <MenuItem 
-                    sx={{display: "flex", justifyContent: "center", gap: "0.4em"}} 
-                    onClick={handleClose}
+                    sx={{display: "flex", justifyContent: "flex-start", gap: "0.4em", fontWeight: 100}} 
+                    onClick={() => router.push('/my-notes')}
                 >
                     <CgNotes />
                     My notes
                 </MenuItem>
                 <Divider />
                 <MenuItem 
-                    sx={{display: "flex", justifyContent: "center", gap: "0.4em", color: "#EB5406"}} 
+                    sx={{display: "flex", justifyContent: "flex-start", gap: "0.4em", color: "#EB5406", fontWeight: 100}} 
                     onClick={logout}
                 >
                     <CgLogOut />

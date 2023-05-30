@@ -11,7 +11,7 @@ import { authOptions } from '../../app/api/auth/[...nextauth]/route'
 export default async function AppNavbar() {
 
   const session = await getServerSession(authOptions)
-
+  
   return (
     <nav className={styles.navbarContainer}>
       
@@ -25,7 +25,7 @@ export default async function AppNavbar() {
 
         {session ? 
         
-        <NavbarAuthBtnsSection userName={session?.user?.name} /> :
+        <NavbarAuthBtnsSection userName={session?.user?.name} userImage={session?.user?.image} /> :
 
           <>
             <MotionWrap 

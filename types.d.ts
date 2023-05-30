@@ -14,5 +14,6 @@ type RegisterFormValues = {
 }
 
 type NavbarBtnsSection = {
-    userName: string | null | undefined
+    userName: string | null | undefined,
+    userImage: string | null | undefined
 }
