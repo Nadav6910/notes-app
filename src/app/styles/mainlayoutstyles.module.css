@@ -59,4 +59,10 @@
     font-size: 0.85rem;
     padding-left: 1em;
 }
+
+@media (min-height: 1000px) {
+    .footerContainer {
+        margin-top: 15em;
+    }
+  }
 /* footer section  */

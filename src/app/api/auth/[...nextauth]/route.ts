@@ -1,6 +1,7 @@
 import NextAuth from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
 import GoogleProvider from "next-auth/providers/google"
+import GitHubProvider from "next-auth/providers/github"
 import type { NextAuthOptions } from 'next-auth'
 // import { PrismaAdapter } from "@next-auth/prisma-adapter"
 import { prisma } from '@/prisma'
@@ -38,7 +39,7 @@ export const authOptions: NextAuthOptions = {
                         throw new Error('wrong password')
                     }
 
-                    const user = { id: userData.id, name: userData.name }
+                    const user = { id: userData.id, name: userData.name, email: userData.id }
                 
                     return user  
                 } 
@@ -53,30 +54,36 @@ export const authOptions: NextAuthOptions = {
         GoogleProvider({
           clientId: process.env.GOOGLE_CLIENT_ID as string,
           clientSecret: process.env.GOOGLE_CLIENT_SECRET as string
+        }),
+        GitHubProvider({
+          clientId: process.env.GITHUB_ID as string,
+          clientSecret: process.env.GITHUB_SECRET as string
         })
       ],
       callbacks: {
         async signIn({account, user}: {account: any, user: any}) {
 
-          if (account.provider === "google") {
+          if (account.provider === "google" || account.provider === "github") {
             
             try {
               // Check if user exists
               const userData = await prisma.user.findUnique({where: {userName: user?.email}})
               
               if (userData) {
+                user.email = userData.id
                 return user
               }
 
               // create user
-              await prisma.user.create({
+              const newUser = await prisma.user.create({
                 data: {
                     name: user?.name,
                     userName: user?.email,
-                    password: "google-account"
+                    password: "social-account"
                 }
               })
 
+              user.email = newUser.id
               return user
             } 
             
@@ -88,9 +95,6 @@ export const authOptions: NextAuthOptions = {
           return true
         }
       },
-      pages: {
-        signIn: '/login'
-      }
   }
 
 const handler = NextAuth(authOptions)
