@@ -89,3 +89,9 @@
     }
 }
 /* footer section  */
+
+@media (max-width: 450px) {
+    .lottieAnimation {
+        height: 40em !important;
+    }
+}
