@@ -3,7 +3,7 @@ import styles from '../app/styles/home.module.css'
 export default function HeroSectionDrawing() {
 
     return (
-        <svg xmlns="http://www.w3.org/2000/svg" width="389.67" height="551.527" viewBox="0 0 389.67 551.527">
+        <svg className={styles.svgDrawing} xmlns="http://www.w3.org/2000/svg" width="389.67" height="551.527" viewBox="0 0 389.67 551.527">
             <g id="undraw_ideas_flow_re_bmea" transform="translate(0)">
                 <path id="Path_1" data-name="Path 1" d="M405.165,724.573a1.186,1.186,0,0,0,1.183,1.19h387.3a1.19,1.19,0,1,0,0-2.38H406.355a1.186,1.186,0,0,0-1.19,1.183Z" transform="translate(-405.165 -174.237)" fill="#ccc"/>
                 <path id="Path_2" data-name="Path 2" d="M559.937,561.593a44.326,44.326,0,0,1,12.828-.7,1.512,1.512,0,0,0,1.5-1.5,1.531,1.531,0,0,0-1.5-1.5,47.116,47.116,0,0,0-13.625.8,1.5,1.5,0,0,0,.8,2.893Z" transform="translate(-405.165 -174.237)" fill="#ccc" opacity="0.5"/>

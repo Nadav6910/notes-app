@@ -40,9 +40,32 @@
     border: 1px solid var(--secondary-color);
 }
 
+.menuIcon {
+    color: var(--primary-color);
+}
+
 .themeSwitch span{
     transition: 0.2s ease-in-out;
 }
+
+.desktopNavContainer {
+    display: flex;
+}
+
+.mobileNavContainer {
+    display: none;
+}
+
+@media (max-width: 750px) {
+    .mobileNavContainer {
+        display: initial;
+    }
+
+    .desktopNavContainer {
+        display: none;
+    }
+}
+
 /* nav bar section  */
 
 
@@ -64,5 +87,5 @@
     .footerContainer {
         margin-top: 15em;
     }
-  }
+}
 /* footer section  */

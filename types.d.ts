@@ -17,3 +17,9 @@ type NavbarBtnsSection = {
     userName: string | null | undefined,
     userImage: string | null | undefined
 }
+
+type NavbarDrawer = {
+    isSession: boolean,
+    userName: string | null | undefined,
+    userImage: string | null | undefined
+}
