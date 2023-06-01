@@ -2,12 +2,13 @@ import NextAuth from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
 import GoogleProvider from "next-auth/providers/google"
 import GitHubProvider from "next-auth/providers/github"
-import type { NextAuthOptions } from 'next-auth'
+import type { NextAuthOptions, User } from 'next-auth'
 // import { PrismaAdapter } from "@next-auth/prisma-adapter"
 import { prisma } from '@/prisma'
 import bcrypt from 'bcrypt'
 
 export const authOptions: NextAuthOptions = {
+    // adapter: PrismaAdapter(prisma),
     providers: [
         CredentialsProvider({
             type: "credentials",
@@ -38,8 +39,10 @@ export const authOptions: NextAuthOptions = {
                     if (!match) {
                         throw new Error('wrong password')
                     }
-
-                    const user = { id: userData.id, name: userData.name, email: userData.id }
+                    const user = {
+                      id: userData.id,
+                      name: userData.name,
+                    }
                 
                     return user  
                 } 
@@ -61,16 +64,17 @@ export const authOptions: NextAuthOptions = {
         })
       ],
       callbacks: {
-        async signIn({account, user}: {account: any, user: any}) {
+        signIn: async ({account, user}: any) => {
 
           if (account.provider === "google" || account.provider === "github") {
             
             try {
               // Check if user exists
-              const userData = await prisma.user.findUnique({where: {userName: user?.email}})
+              const userData = await prisma.user.findUnique({where: {userName: user?.email}}) as User
               
               if (userData) {
-                user.email = userData.id
+          
+                user.id = userData.id
                 return user
               }
 
@@ -83,9 +87,10 @@ export const authOptions: NextAuthOptions = {
                 }
               })
 
-              user.email = newUser.id
+              user.id = newUser.id
+
               return user
-            } 
+            }
             
             catch (error) {
               console.log(error)
@@ -93,8 +98,28 @@ export const authOptions: NextAuthOptions = {
           }
 
           return true
+        },
+        jwt: async ({token, user}: any) => {
+          if (user && token) {    
+            token.sub = user.id
+          }
+
+          return token
+        },
+        session: async ({session, token}: any) => {
+         
+          if (session.user && token.sub) {
+            session.user.id = token.sub 
+          }
+
+          return session
         }
       },
+      session: {
+        strategy: "jwt",
+        maxAge: 30 * 24 * 60 * 60,
+        updateAge: 24 * 60 * 60
+      }
   }
 
 const handler = NextAuth(authOptions)
