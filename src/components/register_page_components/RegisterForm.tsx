@@ -71,8 +71,9 @@ export default function RegisterForm() {
                         className={styles.RegisterInput}
                         {...register('name', 
                         { 
-                            required: {value: true, message: "Name Must Be Provided"}, 
-                            minLength: {value: 2, message: "Name Must Be At Least 2 characters"} 
+                            required: {value: true, message: "Name must be provided"}, 
+                            minLength: {value: 2, message: "Name must be at least 2 characters"},
+                            maxLength: {value: 20, message: "Name must be shorter then 20 characters"}
                         })} 
                         type='text'
                         placeholder='Name'
@@ -93,8 +94,9 @@ export default function RegisterForm() {
                         className={styles.RegisterInput}
                         {...register('userName', 
                         { 
-                            required: {value: true, message: "Username Must Be Provided"}, 
-                            minLength: {value: 3, message: "Username Must Be At Least 3 characters"} 
+                            required: {value: true, message: "Username must be provided"}, 
+                            minLength: {value: 3, message: "Username must be at least 3 characters"},
+                            maxLength: {value: 20, message: "Username must be shorter then 20 characters"}
                         })} 
                         type='text'
                         placeholder='Username'
@@ -115,11 +117,11 @@ export default function RegisterForm() {
                         className={styles.RegisterInput}
                         {...register('password', 
                         { 
-                            required: {value: true, message: "Password Must Be Provided"}, 
-                            minLength: {value: 8, message: "Password Must Be At Least 8 characters"},
+                            required: {value: true, message: "Password must be provided"}, 
+                            minLength: {value: 8, message: "Password must be at least 8 characters"},
                             pattern: {
                                 value: /^(?=.*[a-zA-Z])(?=.*\d).+$/, 
-                                message: "Password Must Contain 1 Letter And 1 Digit"
+                                message: "Password must contain 1 letter and 1 digit"
                             }
                         })} 
                         type='password'

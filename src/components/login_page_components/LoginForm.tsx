@@ -78,7 +78,7 @@ export default function LoginForm() {
                         className={styles.loginInput}
                         {...register('userName', 
                         { 
-                            required: {value: true, message: "Username Must Be Provided"}, 
+                            required: {value: true, message: "Username must be provided"}, 
                         })} 
                         type='text'
                         placeholder='Username'
@@ -98,7 +98,7 @@ export default function LoginForm() {
                         className={styles.loginInput}
                         {...register('password', 
                         { 
-                            required: {value: true, message: "Password Must Be Provided"}, 
+                            required: {value: true, message: "Password must be provided"}, 
                         })} 
                         type='password'
                         placeholder='Password'
