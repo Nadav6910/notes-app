@@ -78,18 +78,18 @@ export default function MenuDrawer({isSession, userName, userImage}: NavbarDrawe
                         <p style={{justifySelf: "center", marginBottom: "1em"}}>{userName}</p>
                     </div>
                 </div>
-                <Divider />
+                <Divider sx={{marginBottom: "0.55em"}} />
                 <ListItem disablePadding>
-                    <ListItemButton onClick={() => router.push('/profile')}>
-                        <ListItemIcon>
+                    <ListItemButton sx={{gap: "1em"}} onClick={() => router.push('/profile')}>
+                        <ListItemIcon sx={{display: "contents"}}>
                             <CgProfile style={{color: theme.theme === "dark" ? "white" : "black"}} />
                         </ListItemIcon>
                         <ListItemText primary={"Profile"} />
                     </ListItemButton>
                 </ListItem>
                 <ListItem disablePadding>
-                    <ListItemButton onClick={() => router.push('/my-notes')}>
-                        <ListItemIcon>
+                    <ListItemButton sx={{gap: "1em"}} onClick={() => router.push('/my-notes')}>
+                        <ListItemIcon sx={{display: "contents"}}>
                             <CgNotes style={{color: theme.theme === "dark" ? "white" : "black"}} />
                         </ListItemIcon>
                         <ListItemText primary={"My Notes"} />
@@ -99,8 +99,8 @@ export default function MenuDrawer({isSession, userName, userImage}: NavbarDrawe
             <Divider />
             <List>
                 <ListItem disablePadding>
-                    <ListItemButton onClick={() => signOut()}>
-                        <ListItemIcon sx={{color: "#EB5406"}}>
+                    <ListItemButton sx={{gap: "1em"}} onClick={() => signOut()}>
+                        <ListItemIcon sx={{color: "#EB5406", display: "contents"}}>
                             <CgLogOut />
                         </ListItemIcon>
                         <ListItemText sx={{color: "#EB5406"}} primary={"Logout"} />
@@ -108,19 +108,23 @@ export default function MenuDrawer({isSession, userName, userImage}: NavbarDrawe
                 </ListItem>
             </List>
         </> :
-        
+
         <List>
+            <p style={{paddingTop: "0.5em", paddingLeft: "1.3em", marginBottom: "1em", fontWeight: "bolder"}}>
+                Hello guest ,
+            </p>
+            <Divider />
             <ListItem disablePadding>
-                <ListItemButton onClick={() => router.push('/login')}>
-                    <ListItemIcon>
+                <ListItemButton sx={{gap: "1em"}} onClick={() => router.push('/login')}>
+                    <ListItemIcon sx={{display: "contents"}}>
                         <CgLogIn style={{color: theme.theme === "dark" ? "white" : "black"}} />
                     </ListItemIcon>
                     <ListItemText primary={"Login"} />
                 </ListItemButton>
             </ListItem>
             <ListItem disablePadding>
-                <ListItemButton onClick={() => router.push('/register')}>
-                    <ListItemIcon>
+                <ListItemButton sx={{gap: "1em"}} onClick={() => router.push('/register')}>
+                    <ListItemIcon sx={{display: "contents"}}>
                         <GiArchiveRegister style={{color: theme.theme === "dark" ? "white" : "black"}} />
                     </ListItemIcon>
                     <ListItemText primary={"Register"} />

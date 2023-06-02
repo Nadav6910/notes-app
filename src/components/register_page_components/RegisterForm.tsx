@@ -163,7 +163,7 @@ export default function RegisterForm() {
                     <div onClick={() => signIn('google')} className={styles.googleRegisterWrapper}>
                         <FcGoogle style={{width: "1.7em", height: "1.7em"}} />
                     </div>
-                    <div onClick={() => signIn('github')} className={styles.googleLoginWrapper}>
+                    <div onClick={() => signIn('github')} className={styles.googleRegisterWrapper}>
                         <GoMarkGithub style={{width: "1.7em", height: "1.7em", color: "#171515"}} />
                     </div>
                 </section>
