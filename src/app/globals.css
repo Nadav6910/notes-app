@@ -4,6 +4,7 @@
   --secondary-color: #19a29b;
   --borders-color: #868383;
   --google-button-background-hover: rgb(187, 183, 183);
+  --note-type-selector-selected-color: #5959537a;
 }
 
 [data-theme='light'] {
@@ -12,6 +13,7 @@
   --secondary-color: #610c62;
   --borders-color: #887c7c;
   --google-button-background-hover: rgb(207, 197, 197);
+  --note-type-selector-selected-color: #BFBFBF;
 }
 
 * {

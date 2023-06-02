@@ -22,7 +22,7 @@ export default async function Home() {
           the ultimate notes app designed to streamline your productivity. 
           Whether you&apos;re a student, professional, 
           or simply someone who loves staying organized, 
-          NoteMaster is here to make your life easier.
+          NotesApp is here to make your life easier.
         </p>
 
         <MotionWrap

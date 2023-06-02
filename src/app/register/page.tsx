@@ -20,7 +20,7 @@ export default async function Register() {
 
   return (
     <main className={styles.RegisterPageContainer}>
-        <h1 className={styles.RegisterHeader}>Register</h1>
+        <h2 className={styles.RegisterHeader}>Register</h2>
 
         <section className={styles.formWrapper}>
             <RegisterForm />

@@ -23,3 +23,7 @@ type NavbarDrawer = {
     userName: string | null | undefined,
     userImage: string | null | undefined
 }
+
+type NoteTypeSelectorProps = {
+    createdNoteType: Function
+}

@@ -20,7 +20,7 @@ export default async function Login() {
 
     return (
       <main className={styles.loginPageContainer}>
-          <h1 className={styles.loginHeader}>Login</h1>
+          <h2 className={styles.loginHeader}>Login</h2>
 
           <section className={styles.formWrapper}>
               <LoginForm />
