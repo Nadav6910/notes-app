@@ -91,7 +91,7 @@
 /* footer section  */
 
 @media (max-width: 450px) {
-    .lottieAnimation {
+    .lottieAnimationNotFound {
         height: 40em !important;
     }
 }

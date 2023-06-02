@@ -46,7 +46,6 @@ export default function NavbarAuthBtnsSection({userName, userImage}: NavbarBtnsS
             </Button>
             <Menu
                 id="basic-menu"
-                className='asdasdasd'
                 style={{padding: "5em !important"}}
                 anchorEl={anchorEl}
                 open={open}
@@ -65,14 +64,14 @@ export default function NavbarAuthBtnsSection({userName, userImage}: NavbarBtnsS
                 <Divider sx={{marginTop: "0 !important"}} />
                 <MenuItem 
                     sx={{display: "flex", justifyContent: "flex-start", gap: "0.4em", fontWeight: 100}} 
-                    onClick={() => router.push('/profile')}
+                    onClick={() => {router.push('/profile'); handleClose()}}
                 >
                     <CgProfile />
                     Profile
                 </MenuItem>
                 <MenuItem 
                     sx={{display: "flex", justifyContent: "flex-start", gap: "0.4em", fontWeight: 100}} 
-                    onClick={() => router.push('/my-notes')}
+                    onClick={() => {router.push('/my-notes'); handleClose()}}
                 >
                     <CgNotes />
                     My notes

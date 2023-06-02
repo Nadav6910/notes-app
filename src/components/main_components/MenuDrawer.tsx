@@ -75,7 +75,16 @@ export default function MenuDrawer({isSession, userName, userImage}: NavbarDrawe
                     gap: "0.5em"
                 }}>
                         <Avatar src={userImage ? userImage : ""} sx={{backgroundColor: "#9e9797"}} />
-                        <p style={{justifySelf: "center", marginBottom: "1em"}}>{userName}</p>
+                        <p style={
+                            {
+                                marginBottom: "1em", 
+                                textAlign: "end",
+                                fontSize: "0.9rem !important"
+                            }
+                        }
+                        >
+                            {userName}
+                        </p>
                     </div>
                 </div>
                 <Divider sx={{marginBottom: "0.55em"}} />
