@@ -13,6 +13,10 @@ type RegisterFormValues = {
     password: string
 }
 
+type CreateNoteFormValues = {
+    name: string
+}
+
 type NavbarBtnsSection = {
     userName: string | null | undefined,
     userImage: string | null | undefined

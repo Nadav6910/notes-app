@@ -31,7 +31,7 @@
 
 @media only screen and (max-width: 450px) {
     .typeSelectionArea {
-        width: 4.3em;
+        width: 4.6em;
     }
   }
 
@@ -40,4 +40,47 @@
     border: transparent;
     cursor: pointer;
     color: var(--primary-color);
+}
+
+.inputContainer {
+    display: flex;
+}
+
+.nameInput {
+    width: 100%;
+    border: 1px solid var(--borders-color);
+    border-radius: 5px;
+    padding: 1.2em;
+    padding-left: 3em;
+}
+
+.nameInput:focus { 
+    outline: none !important;
+    border-color: var(--secondary-color);
+}
+
+.inputIcon {
+    position: absolute;
+    padding: 1em;
+}
+
+.createNoteSubmitBtn {
+    border: 1px solid var(--primary-color);
+    border-radius: 5px;
+    background-color: transparent;
+    padding: 1.2em;
+    cursor: pointer;
+    width: 15em;
+    margin-bottom: 8em;
+}
+
+.createNoteSubmitBtn[type=submit]
+{
+    font-size: 1.1rem; 
+    font-weight: 200;
+}
+
+.createNoteSubmitBtn:hover {
+    border: 1px solid var(--secondary-color);
+    color: var(--secondary-color);
 }

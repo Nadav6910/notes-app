@@ -7,6 +7,10 @@ import animationData from '../../public/404.json'
 export default function NotFoundPage() {
 
   return (
-    <Lottie className={styles.lottieAnimationNotFound} style={{height: '52em', marginBottom: "-12em"}} animationData={animationData} />
+    <Lottie 
+      className={styles.lottieAnimationNotFound} 
+      style={{height: '45em', marginBottom: "-12em"}} 
+      animationData={animationData} 
+    />
   )
 }
