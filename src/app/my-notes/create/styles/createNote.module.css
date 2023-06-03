@@ -52,6 +52,7 @@
     border-radius: 5px;
     padding: 1.2em;
     padding-left: 3em;
+    font-size: 0.95rem;
 }
 
 .nameInput:focus { 
@@ -61,7 +62,7 @@
 
 .inputIcon {
     position: absolute;
-    padding: 1em;
+    padding: 1.35em;
 }
 
 .createNoteSubmitBtn {
