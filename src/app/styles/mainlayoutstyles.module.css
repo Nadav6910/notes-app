@@ -82,6 +82,13 @@
     width: 100%;
 }
 
+@media (max-width: 650px) {
+    .footerContainer {
+        position: unset;
+        margin-top: 10em;
+    }
+}
+
 .copyrightText {
     font-size: 0.85rem;
     padding-left: 1em;
