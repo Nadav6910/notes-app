@@ -2,26 +2,47 @@
 
 import styles from "../create/styles/createNote.module.css"
 import { useState } from "react"
+import { useSession } from "next-auth/react"
 import { useForm } from 'react-hook-form'
 import { useTheme } from 'next-themes'
 import NoteTypeSelector from "@/components/create-notes-page-components/NoteTypeSelector"
 import { GoNote } from "react-icons/go"
 import { CircularProgress } from "@mui/material"
+import { useRouter, redirect } from "next/navigation"
 
 export default function CreateNote() {
 
+  const session = useSession()
+  const router = useRouter()
   const { resolvedTheme } = useTheme()
 
   const [noteType, setNoteType] = useState<string>("Items list")
-
+ 
   const {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
   } = useForm<CreateNoteFormValues>()
 
-  const saveNote = (noteName: CreateNoteFormValues) => {
-    console.log(noteName)
+  const saveNote = async (data: CreateNoteFormValues) => {
+
+    const userId = session.data?.user.id
+    const noteName = data.name
+    
+    const res = await fetch('/api/create-note', {
+      method: "POST",
+      body: JSON.stringify({userId, noteName, noteType})
+    })
+
+    const response = await res.json()
+    
+    if (response.massage === "created note") {
+      router.push('my-notes')
+    }
+  }
+
+  if (!session) {
+    redirect('/')
   }
   
   return (
