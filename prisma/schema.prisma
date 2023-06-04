@@ -12,5 +12,24 @@ model User {
   userName  String   @unique
   password  String
   name      String
+  notes     Note[]
   createdAt DateTime @default(now())
+}
+
+model Note {
+  noteId    String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String   @db.ObjectId
+  noteType  String
+  noteName  String
+  entries   Entry[]
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+}
+
+model Entry {
+  entryId   String   @id @default(auto()) @map("_id") @db.ObjectId
+  noteId    String   @db.ObjectId
+  item      String
+  isChecked Boolean?
+  note      Note     @relation(fields: [noteId], references: [noteId])
 }
