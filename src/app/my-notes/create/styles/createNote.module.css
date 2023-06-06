@@ -9,6 +9,7 @@
     display: flex;
     gap: 1em;
     padding: 0.5em;
+    padding-right: 0.2em;
     border: 1px solid;
     border-radius: 35px;
 }
@@ -21,7 +22,7 @@
 
 .typeSelectionArea {
     width: 5em;
-    height: 2.9em;
+    height: 2.75em;
     transform: none;
     position: absolute;
     background-color: var(--note-type-selector-selected-color);
@@ -31,7 +32,7 @@
 
 @media only screen and (max-width: 450px) {
     .typeSelectionArea {
-        width: 4.8em;
+        width: 4.35em;
     }
   }
 

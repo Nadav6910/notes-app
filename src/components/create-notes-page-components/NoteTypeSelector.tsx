@@ -11,12 +11,12 @@ export default function NoteTypeSelector({createdNoteType}: NoteTypeSelectorProp
   const toggleButton = (e: React.MouseEvent) => {
 
     if (e.currentTarget.childNodes[0].textContent === "Items list") {
-        controls.start({x: 1})
+        controls.start({x: 0})
         createdNoteType("Items list")
     }
 
     if (e.currentTarget.childNodes[0].textContent === "Note book") {
-        controls.start({x: 97})
+        controls.start({x: 95})
         createdNoteType("Note book")
     }
   }

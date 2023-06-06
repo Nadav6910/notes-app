@@ -7,7 +7,7 @@ import { useForm } from 'react-hook-form'
 import { useTheme } from 'next-themes'
 import NoteTypeSelector from "@/components/create-notes-page-components/NoteTypeSelector"
 import { GoNote } from "react-icons/go"
-import { CircularProgress } from "@mui/material"
+import { CircularProgress, Snackbar, Alert } from "@mui/material"
 import { useRouter, redirect } from "next/navigation"
 
 export default function CreateNote() {
@@ -17,6 +17,8 @@ export default function CreateNote() {
   const { resolvedTheme } = useTheme()
 
   const [noteType, setNoteType] = useState<string>("Items list")
+  const [openSuccess, setOpenSuccess] = useState(false)
+  const [openError, setOpenError] = useState(false)
  
   const {
     register,
@@ -31,13 +33,26 @@ export default function CreateNote() {
     
     const res = await fetch('/api/create-note', {
       method: "POST",
-      body: JSON.stringify({userId, noteName, noteType})
+      body: JSON.stringify({ userId, noteName, noteType })
     })
 
     const response = await res.json()
     
     if (response.massage === "created note") {
-      router.push('my-notes')
+
+      setOpenSuccess(true)
+      setTimeout(() => {
+        setOpenSuccess(false)
+        router.refresh()
+        router.push('/my-notes')
+      }, 800)
+    }
+
+    else {
+      setOpenError(true)
+      setTimeout(() => {
+        setOpenError(false)
+      }, 2000)
     }
   }
 
@@ -51,7 +66,7 @@ export default function CreateNote() {
         <h4 style={{marginBottom: "0.5em"}}>Note type:</h4>
         <NoteTypeSelector createdNoteType={(type: string) => setNoteType(type)} />
         <form style={{marginTop: "2em"}} onSubmit={handleSubmit((data) => saveNote(data))}>
-        <h4 style={{marginBottom: "0.5em", textAlign: "center"}}>Note name:</h4>
+          <h4 style={{marginBottom: "0.5em", textAlign: "center"}}>Note name:</h4>
             <div style={{marginBottom: errors.name ? "0.5em" : "2em"}} className={styles.inputContainer}>
               <input 
                 className={styles.nameInput}
@@ -91,6 +106,28 @@ export default function CreateNote() {
                     }
                 </button>
         </form>
+      
+      <Snackbar
+        open={openSuccess}
+        autoHideDuration={2500}
+        onClose={() => setOpenSuccess(false)}
+        anchorOrigin={{horizontal: "center", vertical: "bottom"}}
+      >
+        <Alert onClose={() => setOpenSuccess(false)} severity="success" sx={{ width: '100%' }}>
+            Note created successfully!
+        </Alert>
+      </Snackbar>
+
+      <Snackbar
+        open={openError}
+        autoHideDuration={2500}
+        onClose={() => setOpenError(false)}
+        anchorOrigin={{horizontal: "center", vertical: "bottom"}}
+      >
+        <Alert onClose={() => setOpenError(false)} severity="error" sx={{ width: '100%' }}>
+            There was an issue creating note, please try again later!
+        </Alert>
+      </Snackbar>
     </main>
   )
 }
