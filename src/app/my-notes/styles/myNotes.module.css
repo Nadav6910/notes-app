@@ -16,6 +16,18 @@
     text-decoration: none;
 }
 
+.addNotesLinkWithNotes {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--secondary-color);
+    width: 4.5em;
+    height: 4.5em;
+    border-radius: 50%;
+    border: 1px solid var(--secondary-color);
+    margin-bottom: 2em;
+}
+
 .addNotesLinkWrapper {
     display: flex;
     align-items: center;
@@ -26,4 +38,74 @@
 
 .addIcon {
     color: var(--secondary-color);
+}
+
+.notesContainer {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    align-items: center;
+    gap: 1.5em;
+}
+
+@media (max-width: 775px) {
+    .notesContainer {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+@media (max-width: 530px) {
+    .notesContainer {
+        grid-template-columns: 1fr;
+    }
+}
+
+.listCardDrawing {
+    width: 100%;
+    height: 100%;
+    padding: 1.5em;
+    cursor: pointer;
+}
+
+.notebookCardDrawing {
+    width: 100%;
+    height: 100%;
+    padding: 2.5em;
+    cursor: pointer;
+}
+
+.noteName {
+    font-weight: bolder;
+    margin-bottom: 0.25em;
+    cursor: pointer;
+    width: fit-content;
+}
+
+.noteName:hover {
+    text-decoration: underline;
+}
+
+.Ellipse_1 {
+    fill: var(--secondary-color);
+}
+.Ellipse_2 {
+    fill: var(--secondary-color);
+}
+.Ellipse_3 {
+    fill: var(--secondary-color);
+}
+.Ellipse_4 {
+    fill: var(--secondary-color);
+}
+
+.Path_3 {
+    fill: var(--secondary-color);
+}
+
+.Path_4 {
+    fill: var(--secondary-color);
+}
+
+.Path_5 {
+    fill: var(--secondary-color);
+    stroke: var(--secondary-color);
 }

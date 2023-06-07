@@ -1,9 +1,11 @@
+import styles from "./styles/myNotes.module.css"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from '../../app/api/auth/[...nextauth]/route'
 import { getNotes } from "@/lib/fetchers"
 import NoNotesDisplay from "@/components/my-notes-page-components/NoNotesDisplay"
 import { redirect } from 'next/navigation'
 import AddNotesBtn from "../../components/my-notes-page-components/AddNotesBtn"
+import NoteCard from "../../components/my-notes-page-components/NoteCard"
 
 export const metadata = {
     title: 'Notes App | My Notes',
@@ -30,9 +32,17 @@ export default async function MyNotes() {
             <>
                 <AddNotesBtn />
                     
-                {userNotes?.notes.map(note => (
-                    <p key={note.noteId}>{note.noteName}</p>
-                ))}
+                <div className={styles.notesContainer}>
+                    {userNotes?.notes.map(note => (
+                        <NoteCard 
+                            key={note.noteId}
+                            noteName={note.noteName}
+                            noteType={note.noteType} 
+                            createdAt={note.createdAt}
+                        />
+                        // <p key={note.noteId}>{note.noteName}</p>
+                    ))}
+                </div>
             </>
             }
         </main>

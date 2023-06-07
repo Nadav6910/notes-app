@@ -27,6 +27,7 @@ body {
   flex-direction: column;
   padding-left: 5em;
   padding-right: 5em;
+  padding-bottom: 1em;
   background-image: var(--background-color);
  	background-blend-mode: normal, multiply;
   min-height: 100vh;

@@ -31,3 +31,9 @@ type NavbarDrawer = {
 type NoteTypeSelectorProps = {
     createdNoteType: Function
 }
+
+type NoteCardProps = {
+    noteName: string,
+    noteType: string,
+    createdAt: date
+}

@@ -1,6 +1,6 @@
 import styles from "../../app/my-notes/styles/myNotes.module.css"
 import Link from 'next/link'
-import { MdAssignmentAdd } from 'react-icons/md'
+import { FaPlus } from 'react-icons/fa'
 import MotionWrap from '../../wrappers/MotionWrap'
 
 export default function AddNotesBtn() {
@@ -8,21 +8,15 @@ export default function AddNotesBtn() {
     return (
       
     <MotionWrap
-        style={{borderRadius: "10px"}}
-        whileHover={{y: -4, boxShadow: "6px 7px 13px #2a2929"}}
+        style={{width: "fit-content", height: "fit-content", borderRadius: "50%", marginTop: "2em"}}
+        whileHover={{boxShadow: "inset 0 0 0 200px rgba(255,255,255,0.1)"}}
         transition={{ 
-            type: "spring", 
-            stiffness: 300, 
-            damping: 10, 
-            duration: 0.5, 
-            bounce: 1, 
-            mass: 1.3
+            type: "just" 
         }}
     >
-        <div className={styles.addNotesLinkWrapper}>
-            <MdAssignmentAdd className={styles.addIcon} />
-            <Link className={styles.addNotesLink} href={'/my-notes/create'}>Add notes</Link>
-        </div>
+        <Link className={styles.addNotesLinkWithNotes} href={'/my-notes/create'}>
+            <FaPlus />
+        </Link>
     </MotionWrap>
   )
 }
