@@ -1,13 +1,28 @@
 'use client'
 
 import styles from "../../app/my-notes/styles/myNotes.module.css"
-import { Card, CardContent, CardActions, IconButton, Divider, Tooltip } from '@mui/material';
+import { useState } from "react";
+import { 
+    Card, 
+    CardContent, 
+    CardActions, 
+    IconButton, 
+    Divider, 
+    Tooltip, 
+    Snackbar,
+    Alert
+} from '@mui/material';
 import NoteBookCardDrawing from '@/SvgDrawings/NoteBookCardDrawing';
 import ListCardDrawing from '@/SvgDrawings/ListCardDrawing';
 import { MdDelete } from 'react-icons/md'
 import { MdModeEditOutline } from 'react-icons/md'
+import ConfirmDeleteNotePopup from "./ConfirmDeleteNotePopup";
 
-export default function NoteCard({noteName, noteType, createdAt}: NoteCardProps) {
+export default function NoteCard({noteName, noteType, createdAt, noteId}: NoteCardProps) {
+
+    const [openConfirmDelete, setOpenConfirmDelete] = useState(false)
+    const [openSuccess, setOpenSuccess] = useState<boolean>(false)
+    const [openError, setOpenError] = useState<boolean>(false)
 
     const formatDate = (dateString: Date) => {
         
@@ -43,12 +58,47 @@ export default function NoteCard({noteName, noteType, createdAt}: NoteCardProps)
                         </IconButton>
                     </Tooltip>
                     <Tooltip title="Delete note">
-                        <IconButton color="error" aria-label="Edit name">
+                        <IconButton 
+                            onClick={() => setOpenConfirmDelete(true)} 
+                            color="error" 
+                            aria-label="Edit name"
+                        >
                             <MdDelete />
                         </IconButton>
                     </Tooltip>
                 </CardActions>
             </div>
+
+            {openConfirmDelete && 
+                <ConfirmDeleteNotePopup
+                    isOpen={openConfirmDelete}
+                    setIsOpen={() => setOpenConfirmDelete(false)}
+                    noteId={noteId}
+                    OnDelete={() => setOpenSuccess(true)}
+                    onError={() => setOpenError(true)}
+                />
+            }
+            <Snackbar
+                open={openSuccess}
+                autoHideDuration={2500}
+                onClose={() => setOpenSuccess(false)}
+                anchorOrigin={{horizontal: "center", vertical: "bottom"}}
+            >
+                <Alert onClose={() => setOpenSuccess(false)} severity="success" sx={{ width: '100%' }}>
+                    Note deleted successfully!
+                </Alert>
+            </Snackbar>
+
+            <Snackbar
+                open={openError}
+                autoHideDuration={2500}
+                onClose={() => setOpenError(false)}
+                anchorOrigin={{horizontal: "center", vertical: "bottom"}}
+            >
+                <Alert onClose={() => setOpenError(false)} severity="error" sx={{ width: '100%' }}>
+                    There was an issue deleting note, please try again later!
+                </Alert>
+            </Snackbar>
         </Card>
     )
 }

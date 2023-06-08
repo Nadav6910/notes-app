@@ -39,8 +39,8 @@ export default async function MyNotes() {
                             noteName={note.noteName}
                             noteType={note.noteType} 
                             createdAt={note.createdAt}
+                            noteId={note.noteId}
                         />
-                        // <p key={note.noteId}>{note.noteName}</p>
                     ))}
                 </div>
             </>

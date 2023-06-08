@@ -35,5 +35,14 @@ type NoteTypeSelectorProps = {
 type NoteCardProps = {
     noteName: string,
     noteType: string,
-    createdAt: date
+    createdAt: date,
+    noteId: string,
+}
+
+type ConfirmDeleteNotePopupProps = {
+    isOpen: boolean,
+    setIsOpen: Function,
+    noteId: string,
+    OnDelete: function, 
+    onError: function
 }
