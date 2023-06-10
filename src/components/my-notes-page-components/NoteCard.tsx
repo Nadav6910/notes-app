@@ -10,19 +10,33 @@ import {
     Divider, 
     Tooltip, 
     Snackbar,
-    Alert
+    Alert,
+    Backdrop,
+    CircularProgress
 } from '@mui/material';
+import dynamic from 'next/dynamic'
 import NoteBookCardDrawing from '@/SvgDrawings/NoteBookCardDrawing';
 import ListCardDrawing from '@/SvgDrawings/ListCardDrawing';
 import { MdDelete } from 'react-icons/md'
 import { MdModeEditOutline } from 'react-icons/md'
-import ConfirmDeleteNotePopup from "./ConfirmDeleteNotePopup";
+
+const ConfirmDeleteNotePopup = dynamic(() => import('../my-notes-page-components/ConfirmDeleteNotePopup'), {
+    loading: () => <Backdrop open={true}><CircularProgress className={styles.backDropLoader} /></Backdrop>,
+})
+
+const RenameNotePopupPopup = dynamic(() => import('../my-notes-page-components/RenameNotePopup'), {
+    loading: () => <Backdrop open={true}><CircularProgress className={styles.backDropLoader} /></Backdrop>,
+})
 
 export default function NoteCard({noteName, noteType, createdAt, noteId}: NoteCardProps) {
 
-    const [openConfirmDelete, setOpenConfirmDelete] = useState(false)
+    const [openConfirmDelete, setOpenConfirmDelete] = useState<boolean>(false)
+    const [openRename, setOpenRename] = useState<boolean>(false)
+
     const [openSuccess, setOpenSuccess] = useState<boolean>(false)
+    const [openSuccessRename, setOpenSuccessRename] = useState<boolean>(false)
     const [openError, setOpenError] = useState<boolean>(false)
+    const [openErrorRename, setOpenErrorRename] = useState<boolean>(false)
 
     const formatDate = (dateString: Date) => {
         
@@ -37,24 +51,27 @@ export default function NoteCard({noteName, noteType, createdAt, noteId}: NoteCa
     }
     
     return (
-        <Card sx={{backgroundColor: "#eeeeee"}} >
+        <Card className={styles.cardContainer} >
             {noteType === "Items list" ? <ListCardDrawing /> : <NoteBookCardDrawing />}
             <Divider />
             <CardContent>
                 <p className={styles.noteName}>
                     {noteName}
                 </p>
-                <p style={{fontSize: "0.8em"}}>
+                <p className={styles.noteType}>
                     {noteType}
                 </p>
             </CardContent>
             <div style={{display: "flex", alignItems: "center", justifyContent: "space-between"}}>
-                <p style={{fontSize: "0.7em", paddingLeft: "16px"}}>{formatDate(createdAt)}</p>
+                <p className={styles.createdAt}>{formatDate(createdAt)}</p>
 
                 <CardActions disableSpacing>
                     <Tooltip title="Edit note">
-                        <IconButton aria-label="Delete">
-                            <MdModeEditOutline />
+                        <IconButton
+                            onClick={() => setOpenRename(true)} 
+                            aria-label="Delete"
+                        >
+                            <MdModeEditOutline className={styles.iconButton} />
                         </IconButton>
                     </Tooltip>
                     <Tooltip title="Delete note">
@@ -78,6 +95,18 @@ export default function NoteCard({noteName, noteType, createdAt, noteId}: NoteCa
                     onError={() => setOpenError(true)}
                 />
             }
+
+            {openRename && 
+                <RenameNotePopupPopup
+                    isOpen={openRename}
+                    setIsOpen={() => setOpenRename(false)}
+                    noteId={noteId}
+                    currentName={noteName}
+                    OnRename={() => setOpenSuccessRename(true)}
+                    onError={() => setOpenErrorRename(true)}
+                />
+            }
+
             <Snackbar
                 open={openSuccess}
                 autoHideDuration={2500}
@@ -90,6 +119,17 @@ export default function NoteCard({noteName, noteType, createdAt, noteId}: NoteCa
             </Snackbar>
 
             <Snackbar
+                open={openSuccessRename}
+                autoHideDuration={2500}
+                onClose={() => setOpenSuccessRename(false)}
+                anchorOrigin={{horizontal: "center", vertical: "bottom"}}
+            >
+                <Alert onClose={() => setOpenSuccess(false)} severity="success" sx={{ width: '100%' }}>
+                    Note renamed successfully!
+                </Alert>
+            </Snackbar>
+
+            <Snackbar
                 open={openError}
                 autoHideDuration={2500}
                 onClose={() => setOpenError(false)}
@@ -97,6 +137,17 @@ export default function NoteCard({noteName, noteType, createdAt, noteId}: NoteCa
             >
                 <Alert onClose={() => setOpenError(false)} severity="error" sx={{ width: '100%' }}>
                     There was an issue deleting note, please try again later!
+                </Alert>
+            </Snackbar>
+
+            <Snackbar
+                open={openErrorRename}
+                autoHideDuration={2500}
+                onClose={() => setOpenErrorRename(false)}
+                anchorOrigin={{horizontal: "center", vertical: "bottom"}}
+            >
+                <Alert onClose={() => setOpenError(false)} severity="error" sx={{ width: '100%' }}>
+                    There was an issue renaming note, please try again later!
                 </Alert>
             </Snackbar>
         </Card>

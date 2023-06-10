@@ -7,6 +7,10 @@ type LoginFormValues = {
     password: string
 }
 
+type RenameNoteFormValues = {
+    newName: string
+}
+
 type RegisterFormValues = {
     name: string
     userName: string
@@ -44,5 +48,14 @@ type ConfirmDeleteNotePopupProps = {
     setIsOpen: Function,
     noteId: string,
     OnDelete: function, 
+    onError: function
+}
+
+type RenameNotePopupProps = {
+    isOpen: boolean,
+    setIsOpen: Function,
+    noteId: string,
+    currentName: string,
+    OnRename: function, 
     onError: function
 }

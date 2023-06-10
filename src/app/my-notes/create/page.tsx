@@ -1,16 +1,19 @@
 'use client'
 
 import styles from "../create/styles/createNote.module.css"
-import { useState } from "react"
+import { useState, useTransition } from "react"
 import { useSession } from "next-auth/react"
 import { useForm } from 'react-hook-form'
 import { useTheme } from 'next-themes'
 import NoteTypeSelector from "@/components/create-notes-page-components/NoteTypeSelector"
 import { GoNote } from "react-icons/go"
+import { BiArrowBack } from "react-icons/bi"
 import { CircularProgress, Snackbar, Alert } from "@mui/material"
 import { useRouter, redirect } from "next/navigation"
 
 export default function CreateNote() {
+
+  const [, startTransition] = useTransition()
 
   const session = useSession()
   const router = useRouter()
@@ -19,7 +22,7 @@ export default function CreateNote() {
   const [noteType, setNoteType] = useState<string>("Items list")
   const [openSuccess, setOpenSuccess] = useState(false)
   const [openError, setOpenError] = useState(false)
- 
+  
   const {
     register,
     handleSubmit,
@@ -33,7 +36,7 @@ export default function CreateNote() {
     
     const res = await fetch('/api/create-note', {
       method: "POST",
-      body: JSON.stringify({ userId, noteName, noteType })
+      body: JSON.stringify({ userId, noteName, noteType }),
     })
 
     const response = await res.json()
@@ -43,8 +46,11 @@ export default function CreateNote() {
       setOpenSuccess(true)
       setTimeout(() => {
         setOpenSuccess(false)
-        router.refresh()
-        router.push('/my-notes')
+        startTransition(() => {
+          router.refresh()
+          router.push('/my-notes')
+        })
+        
       }, 800)
     }
 
@@ -62,6 +68,10 @@ export default function CreateNote() {
   
   return (
     <main className={styles.createPostPageContainer}>
+        <div className={styles.goBackContainer} onClick={() => router.push('/my-notes')}>
+          <BiArrowBack />
+          <p>Back to notes</p>
+        </div>
         <h2 style={{marginBottom: "1em"}}>Create a note</h2>
         <h4 style={{marginBottom: "0.5em"}}>Note type:</h4>
         <NoteTypeSelector createdNoteType={(type: string) => setNoteType(type)} />

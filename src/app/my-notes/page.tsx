@@ -1,11 +1,18 @@
 import styles from "./styles/myNotes.module.css"
 import { getServerSession } from "next-auth/next"
+import dynamic from 'next/dynamic'
 import { authOptions } from '../../app/api/auth/[...nextauth]/route'
 import { getNotes } from "@/lib/fetchers"
 import NoNotesDisplay from "@/components/my-notes-page-components/NoNotesDisplay"
 import { redirect } from 'next/navigation'
 import AddNotesBtn from "../../components/my-notes-page-components/AddNotesBtn"
-import NoteCard from "../../components/my-notes-page-components/NoteCard"
+import CardLoadingSkeleton from "@/components/my-notes-page-components/CardLoadingSkeleton"
+// import NoteCard from "../../components/my-notes-page-components/NoteCard"
+
+const NoteCard = dynamic(() => import('../../components/my-notes-page-components/NoteCard'), {
+    loading: () => <CardLoadingSkeleton />,
+    ssr: false
+})
 
 export const metadata = {
     title: 'Notes App | My Notes',

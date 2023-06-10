@@ -1,5 +1,6 @@
 'use client'
 
+import styles from "../../app/styles/mainlayoutstyles.module.css"
 import { useState } from 'react'
 import { signOut } from "next-auth/react"
 import { Avatar, Menu, MenuItem, Button, Divider } from '@mui/material'
@@ -53,24 +54,25 @@ export default function NavbarAuthBtnsSection({userName, userImage}: NavbarBtnsS
                 MenuListProps={{
                 'aria-labelledby': 'basic-button',
                 }}
+                PaperProps={{className: styles.AccountMenuContainer}}
             >   
                 <MenuItem 
                     sx={{display: "flex", flexDirection: "column", justifyContent: "flex-start"}} 
                     disabled
                 >
-                    <p style={{fontSize: "0.7em"}}>Logged in as:</p>
-                    <p>{userName}</p>
+                    <p className={styles.loggedInAs}>Logged in as:</p>
+                    <p className={styles.loggedUserName}>{userName}</p>
                 </MenuItem>
                 <Divider sx={{marginTop: "0 !important"}} />
                 <MenuItem 
-                    sx={{display: "flex", justifyContent: "flex-start", gap: "0.4em", fontWeight: 100}} 
+                    className={styles.menuItem}
                     onClick={() => {router.push('/profile'); handleClose()}}
                 >
                     <CgProfile />
                     Profile
                 </MenuItem>
                 <MenuItem 
-                    sx={{display: "flex", justifyContent: "flex-start", gap: "0.4em", fontWeight: 100}} 
+                    className={styles.menuItem}
                     onClick={() => {router.push('/my-notes'); handleClose()}}
                 >
                     <CgNotes />

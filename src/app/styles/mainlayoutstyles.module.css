@@ -106,3 +106,24 @@
         height: 40em !important;
     }
 }
+
+.AccountMenuContainer {
+    background-color: var(--note-card-background);
+}
+
+.loggedInAs {
+    font-size: 0.7em;
+    color: var(--primary-color);
+}
+
+.loggedUserName {
+    color: var(--primary-color);
+}
+
+.menuItem {
+    display: flex;
+    justify-content: flex-start;
+    gap: 0.4em;
+    font-weight: 100;
+    color: var(--primary-color);
+}

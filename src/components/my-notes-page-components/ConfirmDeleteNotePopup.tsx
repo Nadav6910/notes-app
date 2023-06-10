@@ -1,4 +1,5 @@
-import { useState, forwardRef } from 'react'
+import styles from "../../app/my-notes/styles/myNotes.module.css"
+import { useState, forwardRef, useTransition } from 'react'
 import { 
     Button, 
     Dialog, 
@@ -25,6 +26,7 @@ export default function ConfirmDeleteNotePopup(
     {isOpen, setIsOpen, noteId, OnDelete, onError}: ConfirmDeleteNotePopupProps
 ) {
 
+  const [, startTransition] = useTransition()
   const router = useRouter()
 
   const [loading, setLoading] = useState<boolean>(false)
@@ -48,7 +50,11 @@ export default function ConfirmDeleteNotePopup(
         setLoading(false)
         OnDelete(true)
         setIsOpen(false)
-        router.refresh()
+        setTimeout(() => {
+          startTransition(() => {
+            router.refresh()
+          })
+        }, 400)
     }
 
     else {
@@ -57,20 +63,21 @@ export default function ConfirmDeleteNotePopup(
     }
     
   }
-
+ 
   return (
 
     <div>
       <Dialog
+        PaperProps={{className: styles.confirmDeletePopupContainer}}
         open={isOpen}
         TransitionComponent={Transition}
         keepMounted
         onClose={handleClose}
         aria-describedby="alert-dialog-slide-description"
       >
-        <DialogTitle>{"Warning"}</DialogTitle>
+        <DialogTitle className={styles.ConfirmDeletePopupTitle}>{"Warning"}</DialogTitle>
         <DialogContent>
-          <DialogContentText id="alert-dialog-slide-description">
+          <DialogContentText className={styles.ConfirmDeletePopupText} id="alert-dialog-slide-description">
             Are you sure you want to delete this note?
           </DialogContentText>
         </DialogContent>
@@ -78,7 +85,9 @@ export default function ConfirmDeleteNotePopup(
           <Button color='error' onClick={handleDelete}>
             {loading ? <CircularProgress color='error' size={22} /> : "Delete"}
         </Button>
-          <Button sx={{color: "black"}} onClick={handleClose}>Cancel</Button>
+          <Button className={styles.ConfirmDeletePopupBtn} onClick={handleClose}>
+            Cancel
+          </Button>
         </DialogActions>
       </Dialog>
     </div>
