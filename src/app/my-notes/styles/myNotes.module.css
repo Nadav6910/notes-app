@@ -47,6 +47,10 @@
     gap: 1.5em;
 }
 
+.notesContainer div:not([class]) {
+   display: contents;
+}
+
 @media (max-width: 775px) {
     .notesContainer {
         grid-template-columns: 1fr 1fr;
@@ -60,7 +64,7 @@
 }
 
 .cardContainer {
-    background-color: var(--note-card-background);
+    background-color: var(--note-card-background) !important;
 }
 
 .listCardDrawing {
@@ -163,21 +167,21 @@
 }
 
 .confirmDeletePopupContainer, .renamePopupContainer {
-    background-color: var(--note-card-background);
+    background-color: var(--note-card-background) !important;
 }
 
 .ConfirmDeletePopupTitle, .renamePopupTitle {
-    color: var(--primary-color);
+    color: var(--primary-color) !important;
 }
 
 .ConfirmDeletePopupText {
-    color: var(--primary-color);
+    color: var(--primary-color) !important;
 }
 
 .ConfirmDeletePopupBtn, .renamePopupBtn {
-    color: var(--primary-color)
+    color: var(--primary-color) !important
 }
 
 .backDropLoader svg {
-    color: var(--secondary-color);
+    color: var(--secondary-color) !important;
 }

@@ -19,6 +19,8 @@ import NoteBookCardDrawing from '@/SvgDrawings/NoteBookCardDrawing';
 import ListCardDrawing from '@/SvgDrawings/ListCardDrawing';
 import { MdDelete } from 'react-icons/md'
 import { MdModeEditOutline } from 'react-icons/md'
+import MotionWrap from "../../wrappers/MotionWrap"
+import { useRouter } from "next/navigation";
 
 const ConfirmDeleteNotePopup = dynamic(() => import('../my-notes-page-components/ConfirmDeleteNotePopup'), {
     loading: () => <Backdrop open={true}><CircularProgress className={styles.backDropLoader} /></Backdrop>,
@@ -29,6 +31,8 @@ const RenameNotePopupPopup = dynamic(() => import('../my-notes-page-components/R
 })
 
 export default function NoteCard({noteName, noteType, createdAt, noteId}: NoteCardProps) {
+
+    const router = useRouter()
 
     const [openConfirmDelete, setOpenConfirmDelete] = useState<boolean>(false)
     const [openRename, setOpenRename] = useState<boolean>(false)
@@ -49,42 +53,58 @@ export default function NoteCard({noteName, noteType, createdAt, noteId}: NoteCa
         
         return `${day}/${month}/${year} - ${hours}:${minutes}`
     }
+
+    const moveToNotePage = () => {
+        router.push(`/my-notes/note/${noteId}`)
+    }
     
     return (
-        <Card className={styles.cardContainer} >
-            {noteType === "Items list" ? <ListCardDrawing /> : <NoteBookCardDrawing />}
-            <Divider />
-            <CardContent>
-                <p className={styles.noteName}>
-                    {noteName}
-                </p>
-                <p className={styles.noteType}>
-                    {noteType}
-                </p>
-            </CardContent>
-            <div style={{display: "flex", alignItems: "center", justifyContent: "space-between"}}>
-                <p className={styles.createdAt}>{formatDate(createdAt)}</p>
+        <>
+            <MotionWrap
+                className={styles.cardWrap}
+                whileHover={{y: -5, boxShadow: "0px 0px 10px 0px rgba(0,0,0,0.75)"}}
+                transition={{ type: "spring", stiffness: 200, damping: 20, duration: 0.2 }}
+            >
+                <Card className={styles.cardContainer} >
+                    {
+                    noteType === "Items list" ? 
+                    <ListCardDrawing onClick={moveToNotePage} /> : 
+                    <NoteBookCardDrawing onClick={moveToNotePage} />
+                    }
+                    <Divider />
+                    <CardContent>
+                        <p onClick={moveToNotePage} className={styles.noteName}>
+                            {noteName}
+                        </p>
+                        <p className={styles.noteType}>
+                            {noteType}
+                        </p>
+                    </CardContent>
+                    <div style={{display: "flex", alignItems: "center", justifyContent: "space-between"}}>
+                        <p className={styles.createdAt}>{formatDate(createdAt)}</p>
 
-                <CardActions disableSpacing>
-                    <Tooltip title="Edit note">
-                        <IconButton
-                            onClick={() => setOpenRename(true)} 
-                            aria-label="Delete"
-                        >
-                            <MdModeEditOutline className={styles.iconButton} />
-                        </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Delete note">
-                        <IconButton 
-                            onClick={() => setOpenConfirmDelete(true)} 
-                            color="error" 
-                            aria-label="Edit name"
-                        >
-                            <MdDelete />
-                        </IconButton>
-                    </Tooltip>
-                </CardActions>
-            </div>
+                        <CardActions disableSpacing>
+                            <Tooltip title="Edit note">
+                                <IconButton
+                                    onClick={() => setOpenRename(true)} 
+                                    aria-label="Delete"
+                                >
+                                    <MdModeEditOutline className={styles.iconButton} />
+                                </IconButton>
+                            </Tooltip>
+                            <Tooltip title="Delete note">
+                                <IconButton 
+                                    onClick={() => setOpenConfirmDelete(true)} 
+                                    color="error" 
+                                    aria-label="Edit name"
+                                >
+                                    <MdDelete />
+                                </IconButton>
+                            </Tooltip>
+                        </CardActions>
+                    </div>
+                </Card>
+            </MotionWrap>
 
             {openConfirmDelete && 
                 <ConfirmDeleteNotePopup
@@ -107,49 +127,57 @@ export default function NoteCard({noteName, noteType, createdAt, noteId}: NoteCa
                 />
             }
 
-            <Snackbar
-                open={openSuccess}
-                autoHideDuration={2500}
-                onClose={() => setOpenSuccess(false)}
-                anchorOrigin={{horizontal: "center", vertical: "bottom"}}
-            >
-                <Alert onClose={() => setOpenSuccess(false)} severity="success" sx={{ width: '100%' }}>
-                    Note deleted successfully!
-                </Alert>
-            </Snackbar>
+            {openSuccess && 
+                <Snackbar
+                    open={openSuccess}
+                    autoHideDuration={2500}
+                    onClose={() => setOpenSuccess(false)}
+                    anchorOrigin={{horizontal: "center", vertical: "bottom"}}
+                >
+                    <Alert onClose={() => setOpenSuccess(false)} severity="success" sx={{ width: '100%' }}>
+                        Note deleted successfully!
+                    </Alert>
+                </Snackbar>
+            }
 
-            <Snackbar
-                open={openSuccessRename}
-                autoHideDuration={2500}
-                onClose={() => setOpenSuccessRename(false)}
-                anchorOrigin={{horizontal: "center", vertical: "bottom"}}
-            >
-                <Alert onClose={() => setOpenSuccess(false)} severity="success" sx={{ width: '100%' }}>
-                    Note renamed successfully!
-                </Alert>
-            </Snackbar>
+            {openSuccessRename && 
+                <Snackbar
+                    open={openSuccessRename}
+                    autoHideDuration={2500}
+                    onClose={() => setOpenSuccessRename(false)}
+                    anchorOrigin={{horizontal: "center", vertical: "bottom"}}
+                >
+                    <Alert onClose={() => setOpenSuccessRename(false)} severity="success" sx={{ width: '100%' }}>
+                        Note renamed successfully!
+                    </Alert>
+                </Snackbar>
+            }
 
-            <Snackbar
-                open={openError}
-                autoHideDuration={2500}
-                onClose={() => setOpenError(false)}
-                anchorOrigin={{horizontal: "center", vertical: "bottom"}}
-            >
-                <Alert onClose={() => setOpenError(false)} severity="error" sx={{ width: '100%' }}>
-                    There was an issue deleting note, please try again later!
-                </Alert>
-            </Snackbar>
+            {openError && 
+                <Snackbar
+                    open={openError}
+                    autoHideDuration={2500}
+                    onClose={() => setOpenError(false)}
+                    anchorOrigin={{horizontal: "center", vertical: "bottom"}}
+                >
+                    <Alert onClose={() => setOpenError(false)} severity="error" sx={{ width: '100%' }}>
+                        There was an issue deleting note, please try again later!
+                    </Alert>
+                </Snackbar>
+            }
 
-            <Snackbar
-                open={openErrorRename}
-                autoHideDuration={2500}
-                onClose={() => setOpenErrorRename(false)}
-                anchorOrigin={{horizontal: "center", vertical: "bottom"}}
-            >
-                <Alert onClose={() => setOpenError(false)} severity="error" sx={{ width: '100%' }}>
-                    There was an issue renaming note, please try again later!
-                </Alert>
-            </Snackbar>
-        </Card>
+            {openErrorRename && 
+                <Snackbar
+                    open={openErrorRename}
+                    autoHideDuration={2500}
+                    onClose={() => setOpenErrorRename(false)}
+                    anchorOrigin={{horizontal: "center", vertical: "bottom"}}
+                >
+                    <Alert onClose={() => setOpenErrorRename(false)} severity="error" sx={{ width: '100%' }}>
+                        There was an issue renaming note, please try again later!
+                    </Alert>
+                </Snackbar>
+            }
+        </>
     )
 }

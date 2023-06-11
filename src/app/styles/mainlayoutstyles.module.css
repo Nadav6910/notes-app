@@ -50,6 +50,7 @@
 
 .desktopNavContainer {
     display: flex;
+    align-items: center;
 }
 
 .mobileNavContainer {
@@ -108,16 +109,16 @@
 }
 
 .AccountMenuContainer {
-    background-color: var(--note-card-background);
+    background-color: var(--note-card-background) !important;
 }
 
 .loggedInAs {
     font-size: 0.7em;
-    color: var(--primary-color);
+    color: var(--primary-color) !important;
 }
 
 .loggedUserName {
-    color: var(--primary-color);
+    color: var(--primary-color) !important;
 }
 
 .menuItem {
@@ -125,5 +126,5 @@
     justify-content: flex-start;
     gap: 0.4em;
     font-weight: 100;
-    color: var(--primary-color);
+    color: var(--primary-color) !important;
 }

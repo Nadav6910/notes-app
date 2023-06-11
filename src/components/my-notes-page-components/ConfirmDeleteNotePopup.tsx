@@ -8,7 +8,7 @@ import {
     DialogContentText, 
     DialogTitle, 
     Slide,
-    CircularProgress
+    CircularProgress,
 } from '@mui/material';
 import { TransitionProps } from '@mui/material/transitions';
 import { useRouter } from 'next/navigation';
@@ -66,7 +66,6 @@ export default function ConfirmDeleteNotePopup(
  
   return (
 
-    <div>
       <Dialog
         PaperProps={{className: styles.confirmDeletePopupContainer}}
         open={isOpen}
@@ -90,6 +89,5 @@ export default function ConfirmDeleteNotePopup(
           </Button>
         </DialogActions>
       </Dialog>
-    </div>
   )
 }

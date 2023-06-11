@@ -1,9 +1,9 @@
 import styles from "../app/my-notes/styles/myNotes.module.css"
 
-export default function NoteBookCardDrawing() {
+export default function NoteBookCardDrawing({onClick}: {onClick: () => void}) {
 
     return (
-        <svg className={styles.notebookCardDrawing} id="_375" data-name="375" xmlns="http://www.w3.org/2000/svg" width="900" height="600" viewBox="0 0 900 600">
+        <svg onClick={onClick} className={styles.notebookCardDrawing} id="_375" data-name="375" xmlns="http://www.w3.org/2000/svg" width="900" height="600" viewBox="0 0 900 600">
             <path id="Path_1" data-name="Path 1" d="M0,0H900V600H0Z" fill="rgba(0,0,0,0)"/>
             <path id="Path_2" data-name="Path 2" d="M812.538,276.782c-25.082,12.442-58.372-3.557-58.372-3.557s7.4-36.163,32.494-48.588c25.082-12.442,58.359,3.539,58.359,3.539S837.62,264.339,812.538,276.782Z" fill="#fff"/>
             <path id="Path_3" data-name="Path 3" d="M100.08,367.715c32.773,19.642,79.791,1.484,79.791,1.484s-6.148-50-38.94-69.616c-32.773-19.642-79.772-1.507-79.772-1.507s6.148,50,38.921,69.639Z" fill="#fff"/>
