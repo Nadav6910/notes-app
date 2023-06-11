@@ -6,6 +6,8 @@
   --google-button-background-hover: rgb(187, 183, 183);
   --note-type-selector-selected-color: #5959537a;
   --note-card-background: #353535;
+  --note-delete-hover-color: #90252547;
+  --note-rename-hover-color: #4a4747ba;
 }
 
 [data-theme='light'] {
@@ -16,6 +18,8 @@
   --google-button-background-hover: rgb(207, 197, 197);
   --note-type-selector-selected-color: #BFBFBF;
   --note-card-background: #eeeeee;
+  --note-delete-hover-color: #c948485e;
+  --note-rename-hover-color: #dcdcdca6;
 }
 
 * {

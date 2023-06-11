@@ -62,6 +62,7 @@ export default function NoteCard({noteName, noteType, createdAt, noteId}: NoteCa
         <>
             <MotionWrap
                 className={styles.cardWrap}
+                style={{display: "block", maxWidth: "22em"}}
                 whileHover={{y: -5, boxShadow: "0px 0px 10px 0px rgba(0,0,0,0.75)"}}
                 transition={{ type: "spring", stiffness: 200, damping: 20, duration: 0.2 }}
             >
@@ -86,6 +87,7 @@ export default function NoteCard({noteName, noteType, createdAt, noteId}: NoteCa
                         <CardActions disableSpacing>
                             <Tooltip title="Edit note">
                                 <IconButton
+                                    className={styles.iconButtonRename}
                                     onClick={() => setOpenRename(true)} 
                                     aria-label="Delete"
                                 >
@@ -94,6 +96,7 @@ export default function NoteCard({noteName, noteType, createdAt, noteId}: NoteCa
                             </Tooltip>
                             <Tooltip title="Delete note">
                                 <IconButton 
+                                    className={styles.iconButtonDelete}
                                     onClick={() => setOpenConfirmDelete(true)} 
                                     color="error" 
                                     aria-label="Edit name"
