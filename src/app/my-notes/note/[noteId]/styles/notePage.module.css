@@ -1,0 +1,69 @@
+.notePageContainer {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-top: 3em;
+}
+
+.goBackContainer {
+    display: flex;
+    align-self: flex-start;
+    align-items: center;
+    gap: 0.3em;
+    cursor: pointer;
+    margin-bottom: 3em;
+}
+
+.goBackContainer:hover {
+    color: var(--secondary-color);
+}
+
+.addItemToNote {
+    display: flex;
+    align-items: center;
+    align-self: flex-start;
+    gap: 0.3em;
+    cursor: pointer;
+    margin-bottom: 1em;
+}
+
+.addItemToNote:hover {
+    color: var(--secondary-color);
+}
+
+.noteListContainer {
+    background-color: var(--note-card-background);
+    border-radius: 0.5em;
+}
+
+.noteListItem:hover, .noteListItemOdd:hover {
+    background-color: var(--secondary-color-faded);
+}
+
+.noteListItemOdd {
+    background-color: var(--note-list-item-odd);
+}
+
+.noteListCheckbox {
+    color: var(--secondary-color);
+}
+
+.noteListCheckbox svg {
+    color: var(--secondary-color);
+}
+
+.iconRename {
+    color: var(--primary-color) !important;
+}
+
+.iconDelete {
+    color: #d32f2f;
+}
+
+.iconButtonDelete:hover {
+    background-color: var(--note-delete-hover-color) !important;
+}
+
+.iconButtonRename:hover {
+    background-color: var(--note-rename-hover-color) !important;
+}
