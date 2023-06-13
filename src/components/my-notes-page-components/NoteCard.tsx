@@ -21,6 +21,7 @@ import { MdDelete } from 'react-icons/md'
 import { MdModeEditOutline } from 'react-icons/md'
 import MotionWrap from "../../wrappers/MotionWrap"
 import { useRouter } from "next/navigation";
+import { NoteCardProps } from "../../../types";
 
 const ConfirmDeleteNotePopup = dynamic(() => import('../my-notes-page-components/ConfirmDeleteNotePopup'), {
     loading: () => <Backdrop open={true}><CircularProgress className={styles.backDropLoader} /></Backdrop>,

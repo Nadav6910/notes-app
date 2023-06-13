@@ -7,6 +7,7 @@ import NoNotesDisplay from "@/components/my-notes-page-components/NoNotesDisplay
 import { redirect } from 'next/navigation'
 import AddNotesBtn from "../../components/my-notes-page-components/AddNotesBtn"
 import CardLoadingSkeleton from "@/components/my-notes-page-components/CardLoadingSkeleton"
+import { NoteCardProps } from "../../../types"
 
 const NoteCard = dynamic(() => import('../../components/my-notes-page-components/NoteCard'), {
     loading: () => <CardLoadingSkeleton />,

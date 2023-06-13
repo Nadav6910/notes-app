@@ -11,3 +11,17 @@ export const getNotes = async (userId: string | undefined) => {
         }
     })
 }
+
+export const getNoteEntries = async (noteId: string | undefined) => {
+    
+        return await prisma.note.findUnique({
+            where: {
+                noteId: noteId
+            },
+            select: {
+                noteName: true,
+                noteType: true,
+                entries: true
+            }
+        })
+}

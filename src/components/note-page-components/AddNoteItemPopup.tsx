@@ -1,5 +1,5 @@
 import styles from '../../app/my-notes/styles/myNotes.module.css'
-import { useState, forwardRef, useTransition } from 'react'
+import { useState, forwardRef } from 'react'
 import { 
     Button, 
     Dialog, 
@@ -11,9 +11,8 @@ import {
 } from '@mui/material';
 import { useForm } from 'react-hook-form'
 import { TransitionProps } from '@mui/material/transitions';
-import { useRouter } from 'next/navigation';
 import { MdOutlineDriveFileRenameOutline } from 'react-icons/md';
-import { RenameNoteFormValues, RenameNotePopupProps } from '../../../types';
+import { AddNoteItemFormValues, AddNoteItemPopupProps } from '../../../types';
 
 const Transition = forwardRef(function Transition(
   props: TransitionProps & {
@@ -24,12 +23,9 @@ const Transition = forwardRef(function Transition(
   return <Slide direction="up" ref={ref} {...props} />
 })
 
-export default function RenameNotePopup(
-    {isOpen, setIsOpen, noteId, currentName, OnRename, onError}: RenameNotePopupProps
+export default function AddNoteItemPopup(
+    {isOpen, setIsOpen, noteId, onAdd, onError}: AddNoteItemPopupProps
 ) {
-
-  const [, startTransition] = useTransition()
-  const router = useRouter()
 
   const [loading, setLoading] = useState<boolean>(false)
 
@@ -37,32 +33,29 @@ export default function RenameNotePopup(
     register,
     handleSubmit,
     formState: { errors },
-} = useForm<RenameNoteFormValues>()
+} = useForm<AddNoteItemFormValues>()
 
   const handleClose = () => {
     setIsOpen(false)
   }
 
-  const handleRename = async (renameFormData: RenameNoteFormValues) => {
+  const handleAddItem = async (addItemFormData: AddNoteItemFormValues) => {
 
     setLoading(true)
 
-    const { newName } = renameFormData
+    const { itemName } = addItemFormData
 
-    const response = await fetch(`/api/rename-note`, {
+    const response = await fetch('/api/create-note-item', {
       method: "POST",
-      body: JSON.stringify({noteId, newName}),
+      body: JSON.stringify({noteId, itemName}),
       cache: "no-cache",
     })
     const data = await response.json()
 
-    if (data.massage === "renamed note") {
+    if (data.massage === "success") {
         setLoading(false)
-        OnRename(true)
         setIsOpen(false)
-        startTransition(() => {
-            router.refresh()
-        })
+        onAdd(data.createdEntry)
     }
 
     else {
@@ -82,37 +75,37 @@ export default function RenameNotePopup(
         aria-describedby="alert-dialog-slide-description"
         PaperProps={{className: styles.renamePopupContainer}}
       >
-        <DialogTitle className={styles.renamePopupTitle}>{"Rename note"}</DialogTitle>
+        <DialogTitle className={styles.renamePopupTitle}>{"Add note item"}</DialogTitle>
         <DialogContent>
             <form 
-                onSubmit={handleSubmit((data) => handleRename(data))} 
+                onSubmit={handleSubmit((data) => handleAddItem(data))} 
                 className={styles.formContainer}
             >
                 <div className={styles.inputContainer}>
                         <input 
                             className={styles.renameInput}
-                            {...register('newName', 
+                            {...register('itemName', 
                             { 
-                                required: {value: true, message: "New name must be provided!"},
-                                minLength: {value: 2, message: "Name must be at least 2 characters"},
-                                maxLength: {value: 25, message: "Name must be shorter then 25 characters"} 
+                                required: {value: true, message: "Item name must be provided!"},
+                                minLength: {value: 2, message: "Item name must be at least 2 characters"},
+                                maxLength: {value: 20, message: "Item name must be shorter then 20 characters"} 
                             })} 
                             type='text'
-                            placeholder={currentName}
+                            placeholder="Item name.."
                             
-                            style={{borderColor: errors.newName ? "red" : "initial"}} 
+                            style={{borderColor: errors.itemName? "red" : "initial"}} 
                         />
                         <div className={styles.inputIcon}><MdOutlineDriveFileRenameOutline /></div>
                     </div>
                     {
-                        errors.newName ?
+                        errors.itemName ?
                         <span style={{color: "red", fontSize: "0.8rem"}}>
-                            {errors.newName?.message ?? "Username is incorrect!"}
+                            {errors.itemName?.message}
                         </span> : null
                     }
                 <DialogActions sx={{padding: 0}}>
                     <Button className={styles.renamePopupBtn} type='submit'>
-                        {loading ? <CircularProgress color='inherit' size={22} /> : "Save"}
+                        {loading ? <CircularProgress color='inherit' size={22} /> : "Add"}
                     </Button>
                     <Button className={styles.renamePopupBtn} onClick={handleClose}>Cancel</Button>
                 </DialogActions>

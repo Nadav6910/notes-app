@@ -10,6 +10,7 @@ import { GoNote } from "react-icons/go"
 import { BiArrowBack } from "react-icons/bi"
 import { CircularProgress, Snackbar, Alert } from "@mui/material"
 import { useRouter, redirect } from "next/navigation"
+import { CreateNoteFormValues } from "../../../../types"
 
 export default function CreateNote() {
 

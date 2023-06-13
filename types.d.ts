@@ -1,3 +1,4 @@
+import NoteItemsList from './src/components/note-page-components/NoteItemsList';
 type BasicChildrenProps = {
     children: React.ReactNode
 }
@@ -58,4 +59,23 @@ type RenameNotePopupProps = {
     currentName: string,
     OnRename: function, 
     onError: function
+}
+
+type Entry = {
+    entryId: string;
+    noteId: string;
+    item: string;
+    isChecked?: boolean | null;
+}
+
+type AddNoteItemPopupProps = {
+    isOpen: boolean,
+    setIsOpen: Function,
+    noteId: string,
+    onAdd: function,
+    onError: function
+}
+
+type AddNoteItemFormValues = {
+    itemName: string
 }
