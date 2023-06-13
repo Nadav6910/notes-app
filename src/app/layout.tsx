@@ -3,6 +3,7 @@ import { inter } from '../fonts/fonts'
 import { SessionProv } from '../providers/SessionProv'
 import { ThemeProv } from '@/providers/ThemeProv'
 import AppNavbar from '@/components/main_components/AppNavbar'
+import { BasicChildrenProps } from '../../types'
 // import AppFooter from '@/components/main_components/AppFooter'
 
 export const metadata = {

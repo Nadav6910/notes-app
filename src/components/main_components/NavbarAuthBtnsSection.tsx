@@ -9,6 +9,7 @@ import { CgNotes } from 'react-icons/cg'
 import { CgLogOut } from 'react-icons/cg'
 import MotionWrap from "../../wrappers/MotionWrap"
 import { useRouter } from 'next/navigation'
+import { NavbarBtnsSection } from "../../../types"
 
 export default function NavbarAuthBtnsSection({userName, userImage}: NavbarBtnsSection) {
 

@@ -24,6 +24,7 @@ import { CgLogIn } from 'react-icons/cg'
 import { GiArchiveRegister } from 'react-icons/gi'
 import { HiOutlineMenuAlt3 } from 'react-icons/hi'
 import { signOut } from "next-auth/react"
+import { NavbarDrawer } from "../../../types"
 
 
 export default function MenuDrawer({isSession, userName, userImage}: NavbarDrawer) {

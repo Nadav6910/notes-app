@@ -12,6 +12,7 @@ import { CircularProgress, Snackbar, Alert } from '@mui/material'
 import { BiUserPin } from 'react-icons/bi'
 import { AiOutlineUser } from 'react-icons/ai'
 import { RiLockPasswordLine } from 'react-icons/ri'
+import { RegisterFormValues } from "../../../types"
 
 export default function RegisterForm() {
 

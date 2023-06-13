@@ -12,6 +12,7 @@ import {
 } from '@mui/material';
 import { TransitionProps } from '@mui/material/transitions';
 import { useRouter } from 'next/navigation';
+import { ConfirmDeleteNotePopupProps } from "../../../types";
 
 const Transition = forwardRef(function Transition(
   props: TransitionProps & {

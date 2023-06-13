@@ -3,6 +3,7 @@
 import styles from "../../app/my-notes/create/styles/createNote.module.css"
 import MotionWrap from "@/wrappers/MotionWrap";
 import { useAnimationControls } from "framer-motion"
+import { NoteTypeSelectorProps } from "../../../types";
 
 export default function NoteTypeSelector({createdNoteType}: NoteTypeSelectorProps) {
 
