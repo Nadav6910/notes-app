@@ -66,7 +66,7 @@ export default function NoteItemsList() {
                 />
               </ListItemIcon>
               <ListItemText 
-                sx={{textDecoration: checked.indexOf(value) !== -1 ? "line-through" : "none"}} 
+                sx={{textDecoration: checked.indexOf(value) !== -1 ? "line-through" : "none", paddingRight: "3em", lineBreak: "anywhere"}} 
                 id={labelId} 
                 primary={`Line item ${value + 1}`} 
               />
