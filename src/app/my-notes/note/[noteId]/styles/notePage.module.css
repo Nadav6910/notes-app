@@ -30,7 +30,18 @@
     margin-bottom: 1em;
 }
 
-.addItemToNote:hover {
+.addItemToNoteEmptyNotes {
+    display: flex;
+    align-items: center;
+    border: 1px solid var(--primary-color);
+    padding: 0.8em;
+    border-radius: 10px;
+    gap: 0.3em;
+    cursor: pointer;
+    margin-bottom: 1em;
+}
+
+.addItemToNote:hover, .addItemToNoteEmptyNotes:hover {
     color: var(--secondary-color);
     border-color: var(--secondary-color);
 }
@@ -85,6 +96,19 @@
 }
 
 /* no notes drawing section  */
+
+.DrawingSvg {
+    width: 20em;
+    height: 20em;
+}
+
+@media screen and (max-width: 450px) {
+    .DrawingSvg {
+        width: 15em;
+        height: 15em;
+    }
+}
+
 .Path_2 {
     fill: var(--primary-color);
 }

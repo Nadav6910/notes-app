@@ -1,8 +1,7 @@
 'use client'
 
 import styles from "../../app/my-notes/note/[noteId]/styles/notePage.module.css"
-import { useState, useTransition } from 'react';
-import { useRouter } from "next/navigation";
+import { useState } from 'react';
 import dynamic from 'next/dynamic'
 import {
   List, 
@@ -17,6 +16,7 @@ import {
   Backdrop,
   CircularProgress
 } from '@mui/material';
+import { useRouter } from "next/navigation";
 import { MdDelete } from 'react-icons/md'
 import { MdModeEditOutline } from 'react-icons/md'
 import NoNoteItemsDrawing from "@/SvgDrawings/NoNoteItemsDrawing";
@@ -30,7 +30,6 @@ const AddNoteItemPopup = dynamic(() => import('../note-page-components/AddNoteIt
 export default function NoteItemsList({noteEntries, noteId}: {noteEntries: Entry[] | undefined, noteId: string}) {
 
   const router = useRouter()
-  const [, startTransition] = useTransition()
 
   const [noteItemsState, setNoteItemsState] = useState(noteEntries)
   const [openAddItemPopup, setOpenAddItemPopup] = useState(false)
@@ -60,73 +59,94 @@ export default function NoteItemsList({noteEntries, noteId}: {noteEntries: Entry
     } 
   }
 
-  if (noteEntries && noteEntries?.length < 1) {
-
-    return (
-      <div className={styles.noNoteItemsContainer}>
-        <NoNoteItemsDrawing />
-        <h3>No items in this note...</h3>
-      </div>
-    )
-  }
-
   return (
     <>
 
-      <div onClick={() => setOpenAddItemPopup(true)} className={styles.addItemToNote}>
+      {noteEntries && noteEntries?.length < 1 ? 
+
+      <>
+        <div className={styles.noNoteItemsContainer}>
+        <NoNoteItemsDrawing />
+        <h3>No items in this note...</h3>
+        <div onClick={() => setOpenAddItemPopup(true)} className={styles.addItemToNoteEmptyNotes}>
           <FaPlus />
           <p>Add Item</p>
-      </div>
+        </div>
 
-      <List className={styles.noteListContainer} sx={{ width: '100%' }}>
-        {noteItemsState?.map((entry, index) => {
-          const labelId = `checkbox-list-label-${entry.entryId}`
+        {openAddItemPopup &&
+          <AddNoteItemPopup
+            isOpen={openAddItemPopup}
+            setIsOpen={() => setOpenAddItemPopup(false)}
+            noteId={noteId}
+            onAdd={(newEntry: Entry) => {setNoteItemsState((prevEntries) => [...prevEntries ?? [], newEntry]); router.refresh()}}
+            onError={() => setOpenAddItemError(true)}
+          />
+        }
+        </div>
+      </> :
+      <>
 
-          return (
-            <ListItem
-              key={entry.entryId}
-              className={index % 2 === 0 ? styles.noteListItem : styles.noteListItemOdd}
-              disablePadding
-              secondaryAction={
-                  <div style={{display: "flex", gap: "1em"}}>
-                  <IconButton className={styles.iconButtonRename} edge="end" aria-label="comments">
-                    <MdModeEditOutline className={styles.iconRename} />
-                  </IconButton>
+        <h5 style={{marginBottom: "2em", alignSelf: "flex-start"}}>
+            {noteItemsState?.length === 1 ? 
+            `1 item` : 
+            `${noteItemsState?.length} items`}
+        </h5>
 
-                  <IconButton className={styles.iconButtonDelete} edge="end" aria-label="comments">
-                      <MdDelete className={styles.iconDelete} />
-                  </IconButton>
-                </div>
-                }
-            >
-              <ListItemButton onClick={() => handleToggle(entry?.isChecked, entry?.entryId)} dense>
-                <ListItemIcon sx={{minWidth: "2em"}}>
-                  <Checkbox
-                    className={styles.noteListCheckbox}
-                    edge="start"
-                    checked={entry?.isChecked ?? false}
-                    tabIndex={-1}
-                    disableRipple
-                    inputProps={{ 'aria-labelledby': labelId }}
+        <div onClick={() => setOpenAddItemPopup(true)} className={styles.addItemToNote}>
+            <FaPlus />
+            <p>Add Item</p>
+        </div>
+
+        <List className={styles.noteListContainer} sx={{ width: '100%' }}>
+          {noteItemsState?.map((entry, index) => {
+            const labelId = `checkbox-list-label-${entry.entryId}`
+
+            return (
+              <ListItem
+                key={entry.entryId}
+                className={index % 2 === 0 ? styles.noteListItem : styles.noteListItemOdd}
+                disablePadding
+                secondaryAction={
+                    <div style={{display: "flex", gap: "1em"}}>
+                    <IconButton className={styles.iconButtonRename} edge="end" aria-label="comments">
+                      <MdModeEditOutline className={styles.iconRename} />
+                    </IconButton>
+
+                    <IconButton className={styles.iconButtonDelete} edge="end" aria-label="comments">
+                        <MdDelete className={styles.iconDelete} />
+                    </IconButton>
+                  </div>
+                  }
+              >
+                <ListItemButton onClick={() => handleToggle(entry?.isChecked, entry?.entryId)} dense>
+                  <ListItemIcon sx={{minWidth: "2em"}}>
+                    <Checkbox
+                      className={styles.noteListCheckbox}
+                      edge="start"
+                      checked={entry?.isChecked ?? false}
+                      tabIndex={-1}
+                      disableRipple
+                      inputProps={{ 'aria-labelledby': labelId }}
+                    />
+                  </ListItemIcon>
+                  <ListItemText 
+                    className={styles.noteListItemText}
+                    sx={
+                      {
+                        textDecoration: entry?.isChecked ? "line-through" : "none", 
+                        paddingRight: "3em", 
+                        lineBreak: "anywhere",
+                      }
+                    } 
+                    id={labelId} 
+                    primary={entry?.item} 
                   />
-                </ListItemIcon>
-                <ListItemText 
-                  className={styles.noteListItemText}
-                  sx={
-                    {
-                      textDecoration: entry?.isChecked ? "line-through" : "none", 
-                      paddingRight: "3em", 
-                      lineBreak: "anywhere",
-                    }
-                  } 
-                  id={labelId} 
-                  primary={entry?.item} 
-                />
-              </ListItemButton>
-            </ListItem>
-          )
-        })}
-      </List>
+                </ListItemButton>
+              </ListItem>
+            )
+          })}
+        </List>
+      </>}
 
       {openAddItemPopup &&
         <AddNoteItemPopup

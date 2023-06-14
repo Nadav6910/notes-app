@@ -13,7 +13,7 @@ export default async function NotePage({params}: {params: {noteId: string}}) {
         <main className={styles.notePageContainer}>
             <GoBackContainer />
 
-            <h3 style={{marginBottom: "2em", alignSelf: "flex-start"}}>
+            <h3 style={{marginBottom: "0.5em", alignSelf: "flex-start"}}>
                 {`${noteEntries?.noteName} - ${noteEntries?.noteType}`}
             </h3>
 
