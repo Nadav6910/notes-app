@@ -1,9 +1,18 @@
 import styles from "../[noteId]/styles/notePage.module.css"
+import { getServerSession } from "next-auth/next"
+import { authOptions } from '../../../api/auth/[...nextauth]/route'
+import { redirect } from 'next/navigation'
 import { getNoteEntries } from "@/lib/fetchers"
 import GoBackContainer from "@/components/note-page-components/GoBackContainer"
 import NoteItemsList from "@/components/note-page-components/NoteItemsList"
 
 export default async function NotePage({params}: {params: {noteId: string}}) {
+
+    const session = await getServerSession(authOptions)
+   
+    if (!session) {
+        redirect('/')
+    }
 
     const { noteId } = params
 

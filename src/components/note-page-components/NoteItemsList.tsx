@@ -23,7 +23,11 @@ import NoNoteItemsDrawing from "@/SvgDrawings/NoNoteItemsDrawing";
 import { Entry } from "../../../types";
 import { FaPlus } from 'react-icons/fa'
 
-const AddNoteItemPopup = dynamic(() => import('../note-page-components/AddNoteItemPopup'), {
+const AddNoteItemPopup = dynamic(() => import('./AddNoteItemPopup'), {
+  loading: () => <Backdrop open={true}><CircularProgress className={styles.backDropLoader} /></Backdrop>,
+})
+
+const DeleteNoteItemPopup = dynamic(() => import('./DeleteNoteItemPopup'), {
   loading: () => <Backdrop open={true}><CircularProgress className={styles.backDropLoader} /></Backdrop>,
 })
 
@@ -32,17 +36,19 @@ export default function NoteItemsList({noteEntries, noteId}: {noteEntries: Entry
   const router = useRouter()
 
   const [noteItemsState, setNoteItemsState] = useState(noteEntries)
+  const [selectedEntryId, setSelectedEntryId] = useState("")
   const [openAddItemPopup, setOpenAddItemPopup] = useState(false)
+  const [openAddItemPopupEmpty, setOpenAddItemPopupEmpty] = useState(false)
+  const [openDeleteNoteItemPopup, setOpenDeleteNoteItemPopup] = useState(false)
   const [openError, setOpenError] = useState(false)
   const [openAddItemError, setOpenAddItemError] = useState(false)
+  const [openDeleteItemError, setOpenDeleteItemError] = useState(false)
+  const [loadingCheckingItem, setLoadingCheckingItem] = useState(false)
 
   const handleToggle = async (value: boolean | null | undefined, entryId: string) => {
 
-    setNoteItemsState((prevEntries) =>
-      prevEntries?.map((entry) =>
-        entry.entryId === entryId ? { ...entry, isChecked: !value } : entry
-      )
-    )
+    setSelectedEntryId(entryId)
+    setLoadingCheckingItem(true)
 
     const res = await fetch('/api/change-note-item-is-checked', {
       method: 'POST',
@@ -54,11 +60,30 @@ export default function NoteItemsList({noteEntries, noteId}: {noteEntries: Entry
 
     const response = await res.json()
 
-    if (response.massage !== "success") {        
-      setOpenError(true)
+    if (response.massage === "success") { 
+
+      setLoadingCheckingItem(false)
+      setSelectedEntryId("")
+
+      setNoteItemsState((prevEntries) =>
+        prevEntries?.map((entry) =>
+          entry.entryId === entryId ? { ...entry, isChecked: !value } : entry
+        )
+      )       
     } 
+
+    else {
+      setLoadingCheckingItem(false)
+      setSelectedEntryId("")
+      setOpenError(true)
+    }
   }
 
+  const openConfirmDeleteItem = (entryId: string) => {
+    setSelectedEntryId(entryId)
+    setOpenDeleteNoteItemPopup(true)
+  }
+  
   return (
     <>
 
@@ -68,15 +93,15 @@ export default function NoteItemsList({noteEntries, noteId}: {noteEntries: Entry
         <div className={styles.noNoteItemsContainer}>
         <NoNoteItemsDrawing />
         <h3>No items in this note...</h3>
-        <div onClick={() => setOpenAddItemPopup(true)} className={styles.addItemToNoteEmptyNotes}>
+        <div onClick={() => setOpenAddItemPopupEmpty(true)} className={styles.addItemToNoteEmptyNotes}>
           <FaPlus />
           <p>Add Item</p>
         </div>
 
-        {openAddItemPopup &&
+        {openAddItemPopupEmpty &&
           <AddNoteItemPopup
-            isOpen={openAddItemPopup}
-            setIsOpen={() => setOpenAddItemPopup(false)}
+            isOpen={openAddItemPopupEmpty}
+            setIsOpen={() => setOpenAddItemPopupEmpty(false)}
             noteId={noteId}
             onAdd={(newEntry: Entry) => {setNoteItemsState((prevEntries) => [...prevEntries ?? [], newEntry]); router.refresh()}}
             onError={() => setOpenAddItemError(true)}
@@ -112,7 +137,7 @@ export default function NoteItemsList({noteEntries, noteId}: {noteEntries: Entry
                       <MdModeEditOutline className={styles.iconRename} />
                     </IconButton>
 
-                    <IconButton className={styles.iconButtonDelete} edge="end" aria-label="comments">
+                    <IconButton onClick={() => openConfirmDeleteItem(entry.entryId)} className={styles.iconButtonDelete} edge="end" aria-label="comments">
                         <MdDelete className={styles.iconDelete} />
                     </IconButton>
                   </div>
@@ -120,6 +145,10 @@ export default function NoteItemsList({noteEntries, noteId}: {noteEntries: Entry
               >
                 <ListItemButton onClick={() => handleToggle(entry?.isChecked, entry?.entryId)} dense>
                   <ListItemIcon sx={{minWidth: "2em"}}>
+                    {loadingCheckingItem && selectedEntryId === entry.entryId ? 
+
+                    <div style={{paddingTop: "0.5em", paddingBottom: "0.5em"}}><CircularProgress size={22} className={styles.loadingCheckingItem} /></div> : 
+
                     <Checkbox
                       className={styles.noteListCheckbox}
                       edge="start"
@@ -127,7 +156,7 @@ export default function NoteItemsList({noteEntries, noteId}: {noteEntries: Entry
                       tabIndex={-1}
                       disableRipple
                       inputProps={{ 'aria-labelledby': labelId }}
-                    />
+                    />}
                   </ListItemIcon>
                   <ListItemText 
                     className={styles.noteListItemText}
@@ -158,6 +187,32 @@ export default function NoteItemsList({noteEntries, noteId}: {noteEntries: Entry
         />
       }
 
+      {openDeleteNoteItemPopup &&
+        <DeleteNoteItemPopup
+          isOpen={openDeleteNoteItemPopup}
+          setIsOpen={() => {
+            setOpenDeleteNoteItemPopup(false)
+            setSelectedEntryId("")
+          }}
+          entryId={selectedEntryId}
+          OnDelete={(isDeleted: boolean) => setNoteItemsState((prevEntries) => {
+            if (isDeleted) {
+              if (noteItemsState?.length === 1) {
+                router.refresh()
+              }
+
+              else {
+                return prevEntries?.filter((entry) => entry.entryId !== selectedEntryId)
+              }
+            }
+          })}
+          onError={() => {
+            setOpenDeleteItemError(true)
+            setSelectedEntryId("")
+          }}
+        />
+      }
+
       {openError && 
         <Snackbar
           open={openError}
@@ -180,6 +235,19 @@ export default function NoteItemsList({noteEntries, noteId}: {noteEntries: Entry
         >
           <Alert onClose={() => setOpenAddItemError(false)} severity="error" sx={{ width: '100%' }}>
               Error adding new note item!
+          </Alert>
+        </Snackbar>
+      }
+
+      {openDeleteItemError && 
+        <Snackbar
+          open={openDeleteItemError}
+          autoHideDuration={2500}
+          onClose={() => setOpenDeleteItemError(false)}
+          anchorOrigin={{horizontal: "center", vertical: "bottom"}}
+        >
+          <Alert onClose={() => setOpenDeleteItemError(false)} severity="error" sx={{ width: '100%' }}>
+              Error deleting note item!
           </Alert>
         </Snackbar>
       }

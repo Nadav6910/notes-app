@@ -137,3 +137,7 @@
 .backDropLoader svg {
     color: var(--secondary-color) !important;
 }
+
+.loadingCheckingItem svg {
+    color: var(--secondary-color) !important;
+}
