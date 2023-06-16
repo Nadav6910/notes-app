@@ -55,8 +55,10 @@
     font-size: 1.1em;
 }
 
-.noteListItem:hover, .noteListItemOdd:hover {
-    background-color: var(--secondary-color-faded);
+@media (hover: hover) {
+    .noteListItem:hover:hover, .noteListItemOdd:hover {
+        background-color: var(--secondary-color-faded);
+    }
 }
 
 .noteListItemOdd {

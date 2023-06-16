@@ -29,6 +29,7 @@ export default function NavbarAuthBtnsSection({userName, userImage}: NavbarBtnsS
     const logout = () => {
 
         handleClose()
+        router.push('/')
         signOut()
     }
 

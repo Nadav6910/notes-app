@@ -24,13 +24,12 @@ export default async function MyNotes() {
 
     const session = await getServerSession(authOptions)
 
-    const userNotes = await getNotes(session?.user.id)
-    
-    if (!session || !userNotes) {
+    if (!session) {
         redirect('/')
     }
 
-    
+    const userNotes = await getNotes(session?.user.id)
+
     // sort notes by createdAt date to display the most recent note first
     const compareCreatedAt = (a: NoteCardProps, b: NoteCardProps): number => {
 
@@ -42,7 +41,7 @@ export default async function MyNotes() {
     
     return (
         <main>
-            {userNotes?.notes.length < 1 ? 
+            {userNotes && userNotes?.notes.length < 1 ? 
                 
             <NoNotesDisplay /> :
                 

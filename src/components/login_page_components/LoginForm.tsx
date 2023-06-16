@@ -149,27 +149,31 @@ export default function LoginForm() {
                 </section>
             </form>
 
-            <Snackbar
-                open={openSuccess}
-                autoHideDuration={800}
-                onClose={handleClose}
-                anchorOrigin={{horizontal: "center", vertical: "bottom"}}
-            >
-                <Alert onClose={handleClose} severity="success" sx={{ width: '100%' }}>
-                    User created successfully!
-                </Alert>
-            </Snackbar>
+            {openSuccess && 
+                <Snackbar
+                    open={openSuccess}
+                    autoHideDuration={800}
+                    onClose={handleClose}
+                    anchorOrigin={{horizontal: "center", vertical: "bottom"}}
+                >
+                    <Alert onClose={handleClose} severity="success" sx={{ width: '100%' }}>
+                        Logged in successfully!
+                    </Alert>
+                </Snackbar>
+            }
 
-            <Snackbar
-                open={openError}
-                autoHideDuration={2500}
-                onClose={() => setOpenError(false)}
-                anchorOrigin={{horizontal: "center", vertical: "bottom"}}
-            >
-                <Alert onClose={() => setOpenError(false)} severity="error" sx={{ width: '100%' }}>
-                    Something went wrong during login, please try again later!
-                </Alert>
-            </Snackbar>
+            {openError && 
+                <Snackbar
+                    open={openError}
+                    autoHideDuration={2500}
+                    onClose={() => setOpenError(false)}
+                    anchorOrigin={{horizontal: "center", vertical: "bottom"}}
+                >
+                    <Alert onClose={() => setOpenError(false)} severity="error" sx={{ width: '100%' }}>
+                        Something went wrong during login, please try again later!
+                    </Alert>
+                </Snackbar>
+            }
         </>
     )
 }

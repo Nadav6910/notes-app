@@ -31,5 +31,5 @@ model Entry {
   noteId    String   @db.ObjectId
   item      String
   isChecked Boolean?
-  note      Note     @relation(fields: [noteId], references: [noteId])
+  note      Note     @relation(fields: [noteId], references: [noteId], onDelete: Cascade)
 }
