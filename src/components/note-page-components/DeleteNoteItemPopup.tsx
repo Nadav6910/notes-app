@@ -1,5 +1,5 @@
 import styles from "../../app/my-notes/styles/myNotes.module.css"
-import { useState, forwardRef, useTransition } from 'react'
+import { useState, forwardRef } from 'react'
 import { 
     Button, 
     Dialog, 
@@ -11,7 +11,6 @@ import {
     CircularProgress,
 } from '@mui/material';
 import { TransitionProps } from '@mui/material/transitions';
-import { useRouter } from 'next/navigation';
 import { ConfirmDeleteNoteItemPopupProps } from "../../../types";
 
 const Transition = forwardRef(function Transition(
@@ -26,9 +25,6 @@ const Transition = forwardRef(function Transition(
 export default function DeleteNoteItemPopup(
     {isOpen, setIsOpen, entryId, OnDelete, onError}: ConfirmDeleteNoteItemPopupProps
 ) {
-
-  const [, startTransition] = useTransition()
-  const router = useRouter()
 
   const [loading, setLoading] = useState<boolean>(false)
 

@@ -1,5 +1,5 @@
 import styles from '../../app/my-notes/styles/myNotes.module.css'
-import { useState, forwardRef, useTransition } from 'react'
+import { useState, forwardRef } from 'react'
 import { 
     Button, 
     Dialog, 
@@ -11,9 +11,8 @@ import {
 } from '@mui/material';
 import { useForm } from 'react-hook-form'
 import { TransitionProps } from '@mui/material/transitions';
-import { useRouter } from 'next/navigation';
 import { MdOutlineDriveFileRenameOutline } from 'react-icons/md';
-import { RenameNoteFormValues, RenameNotePopupProps } from '../../../types';
+import { RenameNoteFormValues, RenameNoteItemPopupProps } from '../../../types';
 
 const Transition = forwardRef(function Transition(
   props: TransitionProps & {
@@ -24,12 +23,9 @@ const Transition = forwardRef(function Transition(
   return <Slide direction="up" ref={ref} {...props} />
 })
 
-export default function RenameNotePopup(
-    {isOpen, setIsOpen, noteId, currentName, OnRename, onError}: RenameNotePopupProps
+export default function RenameNoteItemPopup(
+    {isOpen, setIsOpen, entryId, currentName, onRename, onError}: RenameNoteItemPopupProps
 ) {
-
-  const [, startTransition] = useTransition()
-  const router = useRouter()
 
   const [loading, setLoading] = useState<boolean>(false)
 
@@ -49,20 +45,17 @@ export default function RenameNotePopup(
 
     const { newName } = renameFormData
 
-    const response = await fetch(`/api/rename-note`, {
+    const response = await fetch(`/api/rename-note-item`, {
       method: "POST",
-      body: JSON.stringify({noteId, newName}),
+      body: JSON.stringify({entryId, newName}),
       cache: "no-cache",
     })
     const data = await response.json()
 
-    if (data.massage === "renamed note") {
+    if (data.massage === "renamed note item") {
         setLoading(false)
-        OnRename(true)
+        onRename(true, data.newName)
         setIsOpen(false)
-        startTransition(() => {
-            router.refresh()
-        })
     }
 
     else {
@@ -82,7 +75,7 @@ export default function RenameNotePopup(
         aria-describedby="alert-dialog-slide-description"
         PaperProps={{className: styles.renamePopupContainer}}
       >
-        <DialogTitle className={styles.renamePopupTitle}>{"Rename note"}</DialogTitle>
+        <DialogTitle className={styles.renamePopupTitle}>{"Rename Item"}</DialogTitle>
         <DialogContent>
             <form 
                 onSubmit={handleSubmit((data) => handleRename(data))} 
@@ -95,7 +88,7 @@ export default function RenameNotePopup(
                             { 
                                 required: {value: true, message: "New name must be provided!"},
                                 minLength: {value: 2, message: "Name must be at least 2 characters"},
-                                maxLength: {value: 25, message: "Name must be shorter then 25 characters"} 
+                                maxLength: {value: 20, message: "Name must be shorter then 20 characters"} 
                             })} 
                             type='text'
                             placeholder={currentName}

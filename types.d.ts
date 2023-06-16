@@ -69,6 +69,15 @@ type RenameNotePopupProps = {
     onError: function
 }
 
+type RenameNoteItemPopupProps = {
+    isOpen: boolean,
+    setIsOpen: Function,
+    entryId: string,
+    currentName: string,
+    onRename: function, 
+    onError: function
+}
+
 type Entry = {
     entryId: string;
     noteId: string;

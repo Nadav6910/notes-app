@@ -4,21 +4,21 @@ import { prisma } from '@/prisma'
 export async function POST(request: Request) {
 
     // get body data
-    const { noteId, newName } = await request.json()
+    const { entryId, newName } = await request.json()
     
     try {
         
-        // rename note
-        await prisma.note.update({
+        // rename note item
+        await prisma.entry.update({
             where: {
-                noteId: noteId
+                entryId: entryId
             },
             data: {
-                noteName: newName
+                item: newName
             }
         })
 
-        return NextResponse.json({massage: "renamed note"})
+        return NextResponse.json({massage: "renamed note item", newName: newName})
     } 
     
     catch (error: any) {

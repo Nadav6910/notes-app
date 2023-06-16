@@ -31,18 +31,25 @@ const DeleteNoteItemPopup = dynamic(() => import('./DeleteNoteItemPopup'), {
   loading: () => <Backdrop open={true}><CircularProgress className={styles.backDropLoader} /></Backdrop>,
 })
 
+const RenameNoteItemPopup = dynamic(() => import('./RenameNoteItemPopup'), {
+  loading: () => <Backdrop open={true}><CircularProgress className={styles.backDropLoader} /></Backdrop>,
+})
+
 export default function NoteItemsList({noteEntries, noteId}: {noteEntries: Entry[] | undefined, noteId: string}) {
 
   const router = useRouter()
 
   const [noteItemsState, setNoteItemsState] = useState(noteEntries)
   const [selectedEntryId, setSelectedEntryId] = useState("")
+  const [selectedEntryName, setSelectedEntryName] = useState("")
   const [openAddItemPopup, setOpenAddItemPopup] = useState(false)
   const [openAddItemPopupEmpty, setOpenAddItemPopupEmpty] = useState(false)
   const [openDeleteNoteItemPopup, setOpenDeleteNoteItemPopup] = useState(false)
+  const [openRenameNoteItemPopup, setOpenRenameNoteItemPopup] = useState(false)
   const [openError, setOpenError] = useState(false)
   const [openAddItemError, setOpenAddItemError] = useState(false)
   const [openDeleteItemError, setOpenDeleteItemError] = useState(false)
+  const [openRenameItemError, setOpenRenameItemError] = useState(false)
   const [loadingCheckingItem, setLoadingCheckingItem] = useState(false)
 
   const handleToggle = async (value: boolean | null | undefined, entryId: string) => {
@@ -83,6 +90,12 @@ export default function NoteItemsList({noteEntries, noteId}: {noteEntries: Entry
     setSelectedEntryId(entryId)
     setOpenDeleteNoteItemPopup(true)
   }
+
+  const openConfirmRenameItem = (entryId: string, currentEntryName: string) => {
+    setSelectedEntryId(entryId)
+    setSelectedEntryName(currentEntryName)
+    setOpenRenameNoteItemPopup(true)
+  }
   
   return (
     <>
@@ -103,7 +116,9 @@ export default function NoteItemsList({noteEntries, noteId}: {noteEntries: Entry
             isOpen={openAddItemPopupEmpty}
             setIsOpen={() => setOpenAddItemPopupEmpty(false)}
             noteId={noteId}
-            onAdd={(newEntry: Entry) => {setNoteItemsState((prevEntries) => [...prevEntries ?? [], newEntry]); router.refresh()}}
+            onAdd={(newEntry: Entry) => {
+              setNoteItemsState((prevEntries) => [...prevEntries ?? [], newEntry]); router.refresh()
+            }}
             onError={() => setOpenAddItemError(true)}
           />
         }
@@ -133,11 +148,21 @@ export default function NoteItemsList({noteEntries, noteId}: {noteEntries: Entry
                 disablePadding
                 secondaryAction={
                     <div style={{display: "flex", gap: "1em"}}>
-                    <IconButton className={styles.iconButtonRename} edge="end" aria-label="comments">
+                    <IconButton 
+                      onClick={() => openConfirmRenameItem(entry.entryId, entry.item)} 
+                      className={styles.iconButtonRename} 
+                      edge="end" 
+                      aria-label="comments"
+                    >
                       <MdModeEditOutline className={styles.iconRename} />
                     </IconButton>
 
-                    <IconButton onClick={() => openConfirmDeleteItem(entry.entryId)} className={styles.iconButtonDelete} edge="end" aria-label="comments">
+                    <IconButton 
+                      onClick={() => openConfirmDeleteItem(entry.entryId)} 
+                      className={styles.iconButtonDelete} 
+                      edge="end" 
+                      aria-label="comments"
+                      >
                         <MdDelete className={styles.iconDelete} />
                     </IconButton>
                   </div>
@@ -147,7 +172,9 @@ export default function NoteItemsList({noteEntries, noteId}: {noteEntries: Entry
                   <ListItemIcon sx={{minWidth: "2em"}}>
                     {loadingCheckingItem && selectedEntryId === entry.entryId ? 
 
-                    <div style={{paddingTop: "0.5em", paddingBottom: "0.5em"}}><CircularProgress size={22} className={styles.loadingCheckingItem} /></div> : 
+                    <div style={{paddingTop: "0.5em", paddingBottom: "0.5em"}}>
+                      <CircularProgress size={22} className={styles.loadingCheckingItem} />
+                    </div> : 
 
                     <Checkbox
                       className={styles.noteListCheckbox}
@@ -213,6 +240,33 @@ export default function NoteItemsList({noteEntries, noteId}: {noteEntries: Entry
         />
       }
 
+      {openRenameNoteItemPopup &&
+        <RenameNoteItemPopup
+          isOpen={openRenameNoteItemPopup}
+          setIsOpen={() => {
+            setOpenRenameNoteItemPopup(false)
+            setSelectedEntryId("")
+            setSelectedEntryName("")
+          }}
+          entryId={selectedEntryId}
+          currentName={selectedEntryName}
+          onRename={(isRenamed: boolean, newName: string) => {
+            if (isRenamed) {
+              setNoteItemsState((prevEntries) =>
+                prevEntries?.map((entry) =>
+                  entry.entryId === selectedEntryId ? { ...entry, item: newName } : entry
+                )
+              )
+            }
+          }}
+          onError={() => {
+            setOpenRenameItemError(true)
+            setSelectedEntryId("")
+            setSelectedEntryName("")
+          }}
+        />
+      }
+
       {openError && 
         <Snackbar
           open={openError}
@@ -248,6 +302,19 @@ export default function NoteItemsList({noteEntries, noteId}: {noteEntries: Entry
         >
           <Alert onClose={() => setOpenDeleteItemError(false)} severity="error" sx={{ width: '100%' }}>
               Error deleting note item!
+          </Alert>
+        </Snackbar>
+      }
+
+      {openRenameItemError && 
+        <Snackbar
+          open={openRenameItemError}
+          autoHideDuration={2500}
+          onClose={() => setOpenRenameItemError(false)}
+          anchorOrigin={{horizontal: "center", vertical: "bottom"}}
+        >
+          <Alert onClose={() => setOpenRenameItemError(false)} severity="error" sx={{ width: '100%' }}>
+              Error renaming note item!
           </Alert>
         </Snackbar>
       }

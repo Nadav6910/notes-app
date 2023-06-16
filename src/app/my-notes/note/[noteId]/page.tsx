@@ -6,6 +6,11 @@ import { getNoteEntries } from "@/lib/fetchers"
 import GoBackContainer from "@/components/note-page-components/GoBackContainer"
 import NoteItemsList from "@/components/note-page-components/NoteItemsList"
 
+export const metadata = {
+    title: 'Notes App | Note',
+    description: 'Note Items',
+}
+
 export default async function NotePage({params}: {params: {noteId: string}}) {
 
     const session = await getServerSession(authOptions)
