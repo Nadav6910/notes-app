@@ -1,18 +1,24 @@
 import styles from '../../app/my-notes/styles/myNotes.module.css'
-import { useState, forwardRef } from 'react'
+import { useState, useEffect, forwardRef } from 'react'
 import { 
-    Button, 
+    Button,
     Dialog, 
     DialogActions, 
     DialogContent, 
     DialogTitle, 
     Slide,
-    CircularProgress
+    CircularProgress,
+    FormControlLabel,
+    Radio,
+    RadioGroup
 } from '@mui/material';
 import { useForm } from 'react-hook-form'
 import { TransitionProps } from '@mui/material/transitions';
 import { MdOutlineDriveFileRenameOutline } from 'react-icons/md';
-import { AddNoteItemFormValues, AddNoteItemPopupProps } from '../../../types';
+import { IoMdArrowDropdown } from 'react-icons/io'
+import { AddNoteItemFormValues, AddNoteItemPopupProps, PriorityColor } from '../../../types';
+import MotionWrap from '@/wrappers/MotionWrap';
+import { AnimatePresence, useAnimationControls } from 'framer-motion';
 
 const Transition = forwardRef(function Transition(
   props: TransitionProps & {
@@ -28,6 +34,22 @@ export default function AddNoteItemPopup(
 ) {
 
   const [loading, setLoading] = useState<boolean>(false)
+  const [openAddNoteItemOptionsTab, setOpenAddNoteItemOptionsTab] = useState<boolean>(false)
+  const [selectedPriorityColor, setSelectedPriorityColor] = useState<PriorityColor>("none")
+
+  const controls = useAnimationControls()
+  
+  useEffect(() => {
+
+    if (openAddNoteItemOptionsTab) {
+      controls.start({transform: "rotateX(180deg)"})
+    }
+
+    else {
+      controls.start({transform: "rotateX(0deg)"})
+    }
+
+  }, [openAddNoteItemOptionsTab, controls])
 
   const {
     register,
@@ -36,6 +58,7 @@ export default function AddNoteItemPopup(
 } = useForm<AddNoteItemFormValues>()
 
   const handleClose = () => {
+    setSelectedPriorityColor("none")
     setIsOpen(false)
   }
 
@@ -47,7 +70,7 @@ export default function AddNoteItemPopup(
 
     const response = await fetch('/api/create-note-item', {
       method: "POST",
-      body: JSON.stringify({noteId, itemName}),
+      body: JSON.stringify({noteId, itemName, selectedPriorityColor}),
       cache: "no-cache",
     })
     const data = await response.json()
@@ -63,7 +86,7 @@ export default function AddNoteItemPopup(
         onError(true)
     }
   }
- 
+  
   return (
 
     <div>
@@ -76,7 +99,7 @@ export default function AddNoteItemPopup(
         PaperProps={{className: styles.renamePopupContainer}}
       >
         <DialogTitle className={styles.renamePopupTitle}>{"Add note item"}</DialogTitle>
-        <DialogContent>
+        <DialogContent sx={{padding: "0.8em 1em"}}>
             <form 
                 onSubmit={handleSubmit((data) => handleAddItem(data))} 
                 className={styles.formContainer}
@@ -84,6 +107,7 @@ export default function AddNoteItemPopup(
                 <div className={styles.inputContainer}>
                         <input 
                             className={styles.renameInput}
+                            autoFocus
                             {...register('itemName', 
                             { 
                                 required: {value: true, message: "Item name must be provided!"},
@@ -103,7 +127,25 @@ export default function AddNoteItemPopup(
                             {errors.itemName?.message}
                         </span> : null
                     }
-                <DialogActions sx={{padding: 0}}>
+                <DialogActions sx={{padding: 0, display: "flex"}}>
+                    <Button 
+                      sx={{marginRight: "auto"}} 
+                      className={styles.renamePopupBtn} 
+                      onClick={() => setOpenAddNoteItemOptionsTab(!openAddNoteItemOptionsTab)}
+                      startIcon={
+                        <MotionWrap
+                          style={{display: "flex"}}
+                          animate={controls}
+                          transition={
+                            {duration: 2, type: "spring", stiffness: 200, damping: 20}
+                          }
+                        >
+                          <IoMdArrowDropdown />
+                        </MotionWrap>
+                      }
+                    >
+                      Options
+                    </Button>
                     <Button className={styles.renamePopupBtn} type='submit'>
                         {loading ? <CircularProgress color='inherit' size={22} /> : "Add"}
                     </Button>
@@ -111,6 +153,58 @@ export default function AddNoteItemPopup(
                 </DialogActions>
             </form>
         </DialogContent>
+        <AnimatePresence>
+          {openAddNoteItemOptionsTab &&
+            <MotionWrap
+              initial={{height: 0}}
+              animate={{height: "auto"}}
+              exit={{height: 0}} 
+              transition={
+                {duration: 2, type: "spring", stiffness: 100, damping: 20}
+              }
+            >
+              <div className={styles.addNoteItemOptionsSectionContainer}>
+                <p className={styles.addNoteItemOptionsSelectPriorityTitle}>
+                  Select item priority color
+                </p>
+                <RadioGroup 
+                  value={selectedPriorityColor}
+                  className={styles.addNoteItemOptionsSelectPriorityContainer}
+                  onChange={(e) => setSelectedPriorityColor(e.target.value as PriorityColor)}
+                >
+                  <FormControlLabel
+                    className={styles.noneCheckboxLabel}
+                    value="none"
+                    control={<Radio className={styles.noneCheckBox} />}
+                    label="None"
+                    labelPlacement="end"
+                  />
+                  <FormControlLabel
+                    className={styles.greenCheckboxLabel}
+                    value="green"
+                    control={<Radio className={styles.greenCheckBox} />}
+                    label="Not urgent"
+                    labelPlacement="end"
+                  />
+                  <FormControlLabel
+                    className={styles.yellowCheckboxLabel}
+                    value="yellow"
+                    control={<Radio className={styles.yellowCheckBox} />}
+                    label="Mildly urgent"
+                    labelPlacement="end"
+                  />
+                  <FormControlLabel
+                    className={styles.redCheckboxLabel}
+                    value="red"
+                    control={<Radio className={styles.redCheckBox} />}
+                    label="Urgent"
+                    labelPlacement="end"
+                  />
+                </RadioGroup>
+              </div>
+            </MotionWrap>
+          }
+        </AnimatePresence>
       </Dialog>
     </div>
   )

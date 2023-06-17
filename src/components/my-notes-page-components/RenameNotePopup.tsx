@@ -91,6 +91,7 @@ export default function RenameNotePopup(
                 <div className={styles.inputContainer}>
                         <input 
                             className={styles.renameInput}
+                            autoFocus
                             {...register('newName', 
                             { 
                                 required: {value: true, message: "New name must be provided!"},

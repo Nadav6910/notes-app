@@ -83,6 +83,7 @@ type Entry = {
     noteId: string;
     item: string;
     isChecked?: boolean | null;
+    priority?: string | null;
 }
 
 type AddNoteItemPopupProps = {
@@ -91,6 +92,10 @@ type AddNoteItemPopupProps = {
     noteId: string,
     onAdd: function,
     onError: function
+}
+
+type AddNoteItemFormValues = {
+    itemName: string
 }
 
 type AddNoteItemFormValues = {

@@ -1,7 +1,7 @@
 'use client'
 
 import styles from "../../app/my-notes/note/[noteId]/styles/notePage.module.css"
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import dynamic from 'next/dynamic'
 import {
   List, 
@@ -22,6 +22,8 @@ import { MdModeEditOutline } from 'react-icons/md'
 import NoNoteItemsDrawing from "@/SvgDrawings/NoNoteItemsDrawing";
 import { Entry } from "../../../types";
 import { FaPlus } from 'react-icons/fa'
+import { useScroll, AnimatePresence } from 'framer-motion'
+import MotionWrap from "@/wrappers/MotionWrap";
 
 const AddNoteItemPopup = dynamic(() => import('./AddNoteItemPopup'), {
   loading: () => <Backdrop open={true}><CircularProgress className={styles.backDropLoader} /></Backdrop>,
@@ -39,19 +41,57 @@ export default function NoteItemsList({noteEntries, noteId}: {noteEntries: Entry
 
   const router = useRouter()
 
-  const [noteItemsState, setNoteItemsState] = useState(noteEntries)
-  const [selectedEntryId, setSelectedEntryId] = useState("")
-  const [selectedEntryName, setSelectedEntryName] = useState("")
-  const [openAddItemPopup, setOpenAddItemPopup] = useState(false)
-  const [openAddItemPopupEmpty, setOpenAddItemPopupEmpty] = useState(false)
-  const [openDeleteNoteItemPopup, setOpenDeleteNoteItemPopup] = useState(false)
-  const [openRenameNoteItemPopup, setOpenRenameNoteItemPopup] = useState(false)
-  const [openError, setOpenError] = useState(false)
-  const [openAddItemError, setOpenAddItemError] = useState(false)
-  const [openDeleteItemError, setOpenDeleteItemError] = useState(false)
-  const [openRenameItemError, setOpenRenameItemError] = useState(false)
-  const [loadingCheckingItem, setLoadingCheckingItem] = useState(false)
+  const { scrollY } = useScroll()
 
+  const [noteItemsState, setNoteItemsState] = useState(noteEntries)
+  const [selectedEntryId, setSelectedEntryId] = useState<string>("")
+  const [selectedEntryName, setSelectedEntryName] = useState<string>("")
+  const [openAddItemPopup, setOpenAddItemPopup] = useState<boolean>(false)
+  const [openAddItemPopupEmpty, setOpenAddItemPopupEmpty] = useState<boolean>(false)
+  const [openDeleteNoteItemPopup, setOpenDeleteNoteItemPopup] = useState<boolean>(false)
+  const [openRenameNoteItemPopup, setOpenRenameNoteItemPopup] = useState<boolean>(false)
+  const [openError, setOpenError] = useState<boolean>(false)
+  const [openAddItemError, setOpenAddItemError] = useState<boolean>(false)
+  const [openDeleteItemError, setOpenDeleteItemError] = useState<boolean>(false)
+  const [openRenameItemError, setOpenRenameItemError] = useState<boolean>(false)
+  const [loadingCheckingItem, setLoadingCheckingItem] = useState<boolean>(false)
+  const [isButtonVisible, setIsButtonVisible] = useState<boolean>(true)
+
+  const addItemButtonRef = useRef<HTMLDivElement>(null)
+
+  // Check if the add item button is in view
+  useEffect(() => {
+
+    const handleScroll = () => {
+
+      const addItemButton = addItemButtonRef.current
+
+      if (addItemButton) {
+
+        const { top, bottom } = addItemButton.getBoundingClientRect()
+        const isElementVisible = top < window.innerHeight && bottom >= 0
+        
+        if (!isElementVisible && isButtonVisible) {
+          // Element is scrolled out of view
+          setIsButtonVisible(false)
+        }
+
+        else if (isElementVisible && !isButtonVisible) {
+          // Element is in view
+          setIsButtonVisible(true)
+        }
+      }
+    }
+
+    scrollY.on("change", handleScroll)
+
+    return () => {
+      scrollY.clearListeners()
+    }
+
+  }, [scrollY, isButtonVisible])
+  
+  // check and uncheck note item
   const handleToggle = async (value: boolean | null | undefined, entryId: string) => {
 
     setSelectedEntryId(entryId)
@@ -132,19 +172,40 @@ export default function NoteItemsList({noteEntries, noteId}: {noteEntries: Entry
             `${noteItemsState?.length} items`}
         </h5>
 
-        <div onClick={() => setOpenAddItemPopup(true)} className={styles.addItemToNote}>
+        <div 
+          onClick={() => setOpenAddItemPopup(true)} 
+          className={styles.addItemToNote}
+          ref={addItemButtonRef}
+        >
             <FaPlus />
             <p>Add Item</p>
         </div>
 
+        <AnimatePresence>
+          {!isButtonVisible && 
+            <MotionWrap
+              className={styles.addItemToNotePopupSticky}
+              onClick={() => setOpenAddItemPopup(true)}
+              initial={{scale: 0.5, y: 100}}
+              animate={{scale: 1, y: 0}}
+              exit={{scale: 0.5, y: 100}}
+              transition={{duration: 0.5, type: "spring", bounce: 0.25}}
+            >
+          
+              <FaPlus />
+            </MotionWrap>
+          }
+        </AnimatePresence>
+
         <List className={styles.noteListContainer} sx={{ width: '100%' }}>
           {noteItemsState?.map((entry, index) => {
             const labelId = `checkbox-list-label-${entry.entryId}`
+            const entryPriority = entry.priority && entry.priority
 
             return (
               <ListItem
                 key={entry.entryId}
-                className={index % 2 === 0 ? styles.noteListItem : styles.noteListItemOdd}
+                className={`${index % 2 === 0 ? styles.noteListItem : styles.noteListItemOdd}`}
                 disablePadding
                 secondaryAction={
                     <div style={{display: "flex", gap: "1em"}}>
@@ -168,6 +229,15 @@ export default function NoteItemsList({noteEntries, noteId}: {noteEntries: Entry
                   </div>
                   }
               >
+                {entry.priority && 
+
+                  entryPriority === "green" ?
+                  <div className={styles.priorityColorGreen} /> :
+                  entryPriority === "yellow" ?
+                  <div className={styles.priorityColorYellow} /> :
+                  entryPriority === "red" &&
+                  <div className={styles.priorityColorRed} />
+                }
                 <ListItemButton onClick={() => handleToggle(entry?.isChecked, entry?.entryId)} dense>
                   <ListItemIcon sx={{minWidth: "2em"}}>
                     {loadingCheckingItem && selectedEntryId === entry.entryId ? 
@@ -209,7 +279,7 @@ export default function NoteItemsList({noteEntries, noteId}: {noteEntries: Entry
           isOpen={openAddItemPopup}
           setIsOpen={() => setOpenAddItemPopup(false)}
           noteId={noteId}
-          onAdd={(newEntry: Entry) => setNoteItemsState((prevEntries) => [...prevEntries ?? [], newEntry])}
+          onAdd={(newEntry: Entry) => setNoteItemsState((prevEntries) => [newEntry, ...prevEntries ?? []])}
           onError={() => setOpenAddItemError(true)}
         />
       }

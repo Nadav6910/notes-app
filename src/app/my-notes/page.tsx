@@ -7,7 +7,6 @@ import NoNotesDisplay from "@/components/my-notes-page-components/NoNotesDisplay
 import { redirect } from 'next/navigation'
 import AddNotesBtn from "../../components/my-notes-page-components/AddNotesBtn"
 import CardLoadingSkeleton from "@/components/my-notes-page-components/CardLoadingSkeleton"
-import { NoteCardProps } from "../../../types"
 
 const NoteCard = dynamic(() => import('../../components/my-notes-page-components/NoteCard'), {
     loading: () => <CardLoadingSkeleton />,
@@ -29,15 +28,6 @@ export default async function MyNotes() {
     }
 
     const userNotes = await getNotes(session?.user.id)
-
-    // sort notes by createdAt date to display the most recent note first
-    const compareCreatedAt = (a: NoteCardProps, b: NoteCardProps): number => {
-
-        const dateA = new Date(a.createdAt)
-        const dateB = new Date(b.createdAt)
-
-        return dateB.getTime() - dateA.getTime()
-    }
     
     return (
         <main>
@@ -49,7 +39,7 @@ export default async function MyNotes() {
                 <AddNotesBtn />
                     
                 <div className={styles.notesContainer}>
-                    {userNotes?.notes.sort(compareCreatedAt).map(note => (
+                    {userNotes?.notes.map(note => (
                         <NoteCard 
                             key={note.noteId}
                             noteName={note.noteName}

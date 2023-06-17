@@ -5,9 +5,22 @@ import { MotionProps } from "framer-motion"
 
 interface MotionWrapperProps extends MotionProps {
   className?: string;
+  onClick?: () => void;
 }
 
-export default function MotionWrap({children, className, style, animate, whileHover, whileTap, transition}: MotionWrapperProps) {
+export default function MotionWrap(
+  {
+    children, 
+    className, 
+    style, 
+    animate, 
+    whileHover, 
+    whileTap, 
+    transition,
+    initial,
+    exit,
+    onClick
+  }: MotionWrapperProps) {
   
   return (
     <motion.div
@@ -16,7 +29,10 @@ export default function MotionWrap({children, className, style, animate, whileHo
       animate={animate} 
       whileHover={whileHover} 
       whileTap={whileTap} 
-      transition={transition}      
+      transition={transition}
+      initial={initial}
+      exit={exit}
+      onClick={onClick}
     >
         {children}
     </motion.div>

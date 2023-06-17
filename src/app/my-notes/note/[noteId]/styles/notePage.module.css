@@ -51,6 +51,46 @@
     border-radius: 0.5em;
 }
 
+.priorityColorGreen {
+    display: block;
+    position: absolute;
+    top: 0;
+    width: 15%;
+    height: 5px;
+    background-color: #1a861a;
+    border-bottom-left-radius: 20px;
+    border-bottom-right-radius: 20px;
+}
+.priorityColorYellow {
+    content: "";
+    display: block;
+    position: absolute;
+    top: 0;
+    width: 15%;
+    height: 5px;
+    background-color: rgb(165, 165, 31);
+    border-bottom-left-radius: 20px;
+    border-bottom-right-radius: 20px;
+}
+
+.priorityColorRed {
+    content: "";
+    display: block;
+    position: absolute;
+    top: 0;
+    width: 15%;
+    height: 5px;
+    background-color: rgb(147, 30, 30);
+    border-bottom-left-radius: 20px;
+    border-bottom-right-radius: 20px;
+}
+
+@media screen and (max-width: 450px) {
+    .priorityColorGreen, .priorityColorYellow, .priorityColorRed {
+        width: 20%;
+    }
+}
+
 .noteListItemText span {
     font-size: 1.1em;
 }
@@ -142,4 +182,26 @@
 
 .loadingCheckingItem svg {
     color: var(--secondary-color) !important;
+}
+
+.addItemToNotePopupSticky {
+    position: fixed;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    cursor: pointer;
+    border-radius: 50%;
+    width: 3em;
+    height: 3em;
+    background-color: var(--secondary-color);
+    color: white;
+    bottom: 0;
+    left: 0;
+    margin: 0.8em;
+    opacity: 0.8;
+}
+
+.addItemToNotePopupSticky:hover {
+    opacity: 1;
 }
