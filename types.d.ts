@@ -82,6 +82,7 @@ type Entry = {
     entryId: string;
     noteId: string;
     item: string;
+    createdAt: date;
     isChecked?: boolean | null;
     priority?: string | null;
 }
