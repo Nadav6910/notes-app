@@ -16,7 +16,7 @@ import { useForm } from 'react-hook-form'
 import { TransitionProps } from '@mui/material/transitions';
 import { MdOutlineDriveFileRenameOutline } from 'react-icons/md';
 import { IoMdArrowDropdown } from 'react-icons/io'
-import { AddNoteItemFormValues, AddNoteItemPopupProps, PriorityColor } from '../../../types';
+import { AddNoteItemFormValues, AddNoteItemPopupProps } from '../../../types';
 import MotionWrap from '@/wrappers/MotionWrap';
 import { AnimatePresence, useAnimationControls } from 'framer-motion';
 
@@ -35,7 +35,7 @@ export default function AddNoteItemPopup(
 
   const [loading, setLoading] = useState<boolean>(false)
   const [openAddNoteItemOptionsTab, setOpenAddNoteItemOptionsTab] = useState<boolean>(false)
-  const [selectedPriorityColor, setSelectedPriorityColor] = useState<PriorityColor>("none")
+  const [selectedPriorityColor, setSelectedPriorityColor] = useState<string>("none")
 
   const controls = useAnimationControls()
   
@@ -170,7 +170,7 @@ export default function AddNoteItemPopup(
                 <RadioGroup 
                   value={selectedPriorityColor}
                   className={styles.addNoteItemOptionsSelectPriorityContainer}
-                  onChange={(e) => setSelectedPriorityColor(e.target.value as PriorityColor)}
+                  onChange={(e) => setSelectedPriorityColor(e.target.value)}
                 >
                   <FormControlLabel
                     className={styles.noneCheckboxLabel}
