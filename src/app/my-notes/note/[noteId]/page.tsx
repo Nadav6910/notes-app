@@ -5,7 +5,6 @@ import { redirect } from 'next/navigation'
 import { getNoteEntries } from "@/lib/fetchers"
 import GoBackContainer from "@/components/note-page-components/GoBackContainer"
 import NoteItemsList from "@/components/note-page-components/NoteItemsList"
-import { Entry } from "../../../../../types"
 
 export const metadata = {
     title: 'Notes App | Note',
@@ -20,14 +19,6 @@ export default async function NotePage({params}: {params: {noteId: string}}) {
         redirect('/')
     }
 
-    const compareCreatedAt = (a: Entry, b: Entry): number => {
-
-        const dateA = new Date(a.createdAt)
-        const dateB = new Date(b.createdAt)
-
-        return dateB.getTime() - dateA.getTime()
-    }
-
     const { noteId } = params
 
     const noteEntries = await getNoteEntries(noteId)
@@ -40,7 +31,7 @@ export default async function NotePage({params}: {params: {noteId: string}}) {
                 {`${noteEntries?.noteName} - ${noteEntries?.noteType}`}
             </h3>
 
-            <NoteItemsList noteEntries={noteEntries?.entries.sort(compareCreatedAt)} noteId={noteId} />
+            <NoteItemsList noteEntries={noteEntries?.entries} noteId={noteId} />
         </main>
     )
 }

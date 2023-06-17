@@ -28,14 +28,6 @@ export default async function MyNotes() {
         redirect('/')
     }
 
-    const compareCreatedAt = (a: NoteCardProps, b: NoteCardProps): number => {
-
-        const dateA = new Date(a.createdAt)
-        const dateB = new Date(b.createdAt)
-
-        return dateB.getTime() - dateA.getTime()
-    }
-
     const userNotes = await getNotes(session?.user.id)
     
     return (
@@ -48,7 +40,7 @@ export default async function MyNotes() {
                 <AddNotesBtn />
                     
                 <div className={styles.notesContainer}>
-                    {userNotes?.notes.sort(compareCreatedAt).map(note => (
+                    {userNotes?.notes.map(note => (
                         <NoteCard 
                             key={note.noteId}
                             noteName={note.noteName}

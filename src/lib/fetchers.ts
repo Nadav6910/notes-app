@@ -7,7 +7,11 @@ export const getNotes = async (userId: string | undefined) => {
             id: userId
         },
         select: {
-            notes: true
+            notes: {
+                orderBy: {
+                    createdAt: 'desc'
+                }
+            }
         }
     })
 }
@@ -21,7 +25,11 @@ export const getNoteEntries = async (noteId: string | undefined) => {
             select: {
                 noteName: true,
                 noteType: true,
-                entries: true
+                entries: {
+                    orderBy: {
+                        createdAt: 'desc'
+                    }
+                }
             }
         })
 }
