@@ -15,6 +15,7 @@ import {
     CircularProgress
 } from '@mui/material';
 import dynamic from 'next/dynamic'
+import { formatDate } from "@/lib/utils"
 import NoteBookCardDrawing from '@/SvgDrawings/NoteBookCardDrawing';
 import ListCardDrawing from '@/SvgDrawings/ListCardDrawing';
 import { MdDelete } from 'react-icons/md'
@@ -42,18 +43,6 @@ export default function NoteCard({noteName, noteType, createdAt, noteId}: NoteCa
     const [openSuccessRename, setOpenSuccessRename] = useState<boolean>(false)
     const [openError, setOpenError] = useState<boolean>(false)
     const [openErrorRename, setOpenErrorRename] = useState<boolean>(false)
-
-    const formatDate = (dateString: Date) => {
-        
-        const day = String(dateString.getDate()).padStart(2, '0')
-        const month = String(dateString.getMonth() + 1).padStart(2, '0')
-        const year = dateString.getFullYear()
-        
-        const hours = String(dateString.getHours()).padStart(2, '0')
-        const minutes = String(dateString.getMinutes()).padStart(2, '0')
-        
-        return `${day}/${month}/${year} - ${hours}:${minutes}`
-    }
 
     const moveToNotePage = () => {
         router.push(`/my-notes/note/${noteId}`)

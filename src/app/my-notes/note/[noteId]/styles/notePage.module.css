@@ -55,7 +55,7 @@
     display: block;
     position: absolute;
     top: 0;
-    width: 15%;
+    width: 5em;
     height: 5px;
     background-color: #1a861a;
     border-bottom-left-radius: 20px;
@@ -66,7 +66,7 @@
     display: block;
     position: absolute;
     top: 0;
-    width: 15%;
+    width: 5em;
     height: 5px;
     background-color: rgb(165, 165, 31);
     border-bottom-left-radius: 20px;
@@ -78,17 +78,15 @@
     display: block;
     position: absolute;
     top: 0;
-    width: 15%;
+    width: 5em;
     height: 5px;
     background-color: rgb(147, 30, 30);
     border-bottom-left-radius: 20px;
     border-bottom-right-radius: 20px;
 }
 
-@media screen and (max-width: 450px) {
-    .priorityColorGreen, .priorityColorYellow, .priorityColorRed {
-        width: 20%;
-    }
+.noteListItemText {
+    margin-bottom: 0 !important;
 }
 
 .noteListItemText span {
@@ -204,4 +202,25 @@
 
 .addItemToNotePopupSticky:hover {
     opacity: 1;
+}
+
+.itemCreatedAt span {
+    font-size: 0.7rem;
+    color: var(--primary-color);
+}
+
+.searchInput {
+    width: 100%;
+    border: 1px solid var(--primary-color);
+    border-radius: 10px;
+    padding: 1em;
+    padding-left: 2.5em;
+    font-size: 1rem;
+    color: var(--primary-color);
+    margin-bottom: 1em;
+}
+
+.searchInput:focus { 
+    outline: none;
+    border-color: var(--secondary-color);
 }

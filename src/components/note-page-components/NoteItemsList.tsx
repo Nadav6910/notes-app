@@ -14,9 +14,13 @@ import {
   Snackbar, 
   Alert,
   Backdrop,
-  CircularProgress
+  CircularProgress,
+  OutlinedInput,
+  InputAdornment
 } from '@mui/material';
 import { useRouter } from "next/navigation";
+import { formatDate } from "@/lib/utils";
+import { AiOutlineSearch } from 'react-icons/ai'
 import { MdDelete } from 'react-icons/md'
 import { MdModeEditOutline } from 'react-icons/md'
 import NoNoteItemsDrawing from "@/SvgDrawings/NoNoteItemsDrawing";
@@ -56,6 +60,7 @@ export default function NoteItemsList({noteEntries, noteId}: {noteEntries: Entry
   const [openRenameItemError, setOpenRenameItemError] = useState<boolean>(false)
   const [loadingCheckingItem, setLoadingCheckingItem] = useState<boolean>(false)
   const [isButtonVisible, setIsButtonVisible] = useState<boolean>(true)
+  const [searchTerm, setSearchTerm] = useState<string>("")
 
   const addItemButtonRef = useRef<HTMLDivElement>(null)
 
@@ -126,6 +131,13 @@ export default function NoteItemsList({noteEntries, noteId}: {noteEntries: Entry
     }
   }
 
+  // search note items
+  const handleSearchInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+
+    const inputValue = e.target.value
+    setSearchTerm(inputValue)
+  }
+
   const openConfirmDeleteItem = (entryId: string) => {
     setSelectedEntryId(entryId)
     setOpenDeleteNoteItemPopup(true)
@@ -181,6 +193,15 @@ export default function NoteItemsList({noteEntries, noteId}: {noteEntries: Entry
             <p>Add Item</p>
         </div>
 
+        <div style={{display: "flex", width: "100%"}}>
+          <input 
+            onChange={handleSearchInputChange}         
+            className={styles.searchInput} 
+            placeholder="Search items..."
+          />
+          <div style={{position: "absolute", padding: "1em"}}><AiOutlineSearch style={{width: "1.2em", height: "1.2em"}} /></div>
+        </div>
+
         <AnimatePresence>
           {!isButtonVisible && 
             <MotionWrap
@@ -198,7 +219,14 @@ export default function NoteItemsList({noteEntries, noteId}: {noteEntries: Entry
         </AnimatePresence>
 
         <List className={styles.noteListContainer} sx={{ width: '100%' }}>
-          {noteItemsState?.map((entry, index) => {
+          {noteItemsState?.filter(entry => {
+            if (searchTerm === "") {
+              return entry
+            }
+            else if (entry.item.toLowerCase().includes(searchTerm.toLowerCase())) {
+              return entry
+            }
+          })?.map((entry, index) => {
             const labelId = `checkbox-list-label-${entry.entryId}`
             const entryPriority = entry.priority && entry.priority
 
@@ -229,15 +257,6 @@ export default function NoteItemsList({noteEntries, noteId}: {noteEntries: Entry
                   </div>
                   }
               >
-                {entry.priority && 
-
-                  entryPriority === "green" ?
-                  <div className={styles.priorityColorGreen} /> :
-                  entryPriority === "yellow" ?
-                  <div className={styles.priorityColorYellow} /> :
-                  entryPriority === "red" &&
-                  <div className={styles.priorityColorRed} />
-                }
                 <ListItemButton onClick={() => handleToggle(entry?.isChecked, entry?.entryId)} dense>
                   <ListItemIcon sx={{minWidth: "2em"}}>
                     {loadingCheckingItem && selectedEntryId === entry.entryId ? 
@@ -255,18 +274,33 @@ export default function NoteItemsList({noteEntries, noteId}: {noteEntries: Entry
                       inputProps={{ 'aria-labelledby': labelId }}
                     />}
                   </ListItemIcon>
-                  <ListItemText 
-                    className={styles.noteListItemText}
-                    sx={
-                      {
-                        textDecoration: entry?.isChecked ? "line-through" : "none", 
-                        paddingRight: "3em", 
-                        lineBreak: "anywhere",
+                  <div>
+                    <ListItemText 
+                      className={styles.noteListItemText}
+                      sx={
+                        {
+                          textDecoration: entry?.isChecked ? "line-through" : "none", 
+                          paddingRight: "3em", 
+                          lineBreak: "anywhere",
+                        }
+                      } 
+                      id={labelId} 
+                      primary={entry?.item} 
+                    />
+                    <div style={{display: "flex"}}>
+                      <ListItemText className={styles.itemCreatedAt}>
+                        {formatDate(entry?.createdAt)}
+                      </ListItemText>
+                      {entry.priority && 
+                      entryPriority === "green" ?
+                      <div className={styles.priorityColorGreen} /> :
+                      entryPriority === "yellow" ?
+                      <div className={styles.priorityColorYellow} /> :
+                      entryPriority === "red" &&
+                      <div className={styles.priorityColorRed} />
                       }
-                    } 
-                    id={labelId} 
-                    primary={entry?.item} 
-                  />
+                    </div>
+                  </div>
                 </ListItemButton>
               </ListItem>
             )

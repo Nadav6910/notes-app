@@ -59,6 +59,7 @@
 @media (max-width: 530px) {
     .notesContainer {
         grid-template-columns: 1fr;
+        justify-items: center;
     }
 }
 
@@ -72,6 +73,12 @@
     height: 100%;
     padding: 1.5em;
     cursor: pointer;
+}
+
+@media screen and (max-width: 450px) {
+    .listCardDrawing {
+        padding: 2.5em;
+    }
 }
 
 .notebookCardDrawing {
@@ -190,8 +197,23 @@
     color: var(--primary-color) !important
 }
 
+@media screen and (max-width: 450px) {
+    .renamePopupBtn {
+        font-size: 0.8rem !important;
+    }
+}
+
 .backDropLoader svg {
     color: var(--secondary-color) !important;
+}
+
+.renamePopupContainer::-webkit-scrollbar {
+    display: none;
+}
+
+.renamePopupContainer {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
 }
 
 .addNoteItemOptionsSectionContainer {
