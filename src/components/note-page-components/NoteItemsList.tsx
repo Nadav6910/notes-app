@@ -197,7 +197,7 @@ export default function NoteItemsList({noteEntries, noteId}: {noteEntries: Entry
             className={styles.searchInput} 
             placeholder="Search items..."
           />
-          <div style={{position: "absolute", padding: "1em"}}><AiOutlineSearch style={{width: "1.2em", height: "1.2em"}} /></div>
+          <div style={{position: "absolute", padding: "1.02em"}}><AiOutlineSearch style={{width: "1.2em", height: "1.2em"}} /></div>
         </div>
 
         <AnimatePresence>
@@ -272,7 +272,7 @@ export default function NoteItemsList({noteEntries, noteId}: {noteEntries: Entry
                     {loadingCheckingItem && selectedEntryId === entry.entryId ? 
 
                     <div style={{paddingTop: "0.5em", paddingBottom: "0.5em"}}>
-                      <CircularProgress size={22} className={styles.loadingCheckingItem} />
+                      <CircularProgress size={21} className={styles.loadingCheckingItem} />
                     </div> : 
 
                     <Checkbox
