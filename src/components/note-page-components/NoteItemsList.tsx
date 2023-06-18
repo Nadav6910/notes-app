@@ -15,11 +15,9 @@ import {
   Alert,
   Backdrop,
   CircularProgress,
-  OutlinedInput,
-  InputAdornment
 } from '@mui/material';
 import { useRouter } from "next/navigation";
-import { formatDate } from "@/lib/utils";
+// import { formatDate } from "@/lib/utils";
 import { AiOutlineSearch } from 'react-icons/ai'
 import { MdDelete } from 'react-icons/md'
 import { MdModeEditOutline } from 'react-icons/md'
@@ -137,6 +135,18 @@ export default function NoteItemsList({noteEntries, noteId}: {noteEntries: Entry
     const inputValue = e.target.value
     setSearchTerm(inputValue)
   }
+
+  const formatDate = (dateString: Date) => {
+        
+    const day = String(dateString.getDate()).padStart(2, '0')
+    const month = String(dateString.getMonth() + 1).padStart(2, '0')
+    const year = dateString.getFullYear()
+    
+    const hours = String(dateString.getHours()).padStart(2, '0')
+    const minutes = String(dateString.getMinutes()).padStart(2, '0')
+    
+    return `${day}/${month}/${year} - ${hours}:${minutes}`
+}
 
   const openConfirmDeleteItem = (entryId: string) => {
     setSelectedEntryId(entryId)

@@ -74,11 +74,11 @@ export default function AddNoteItemPopup(
       cache: "no-cache",
     })
     const data = await response.json()
-
+    
     if (data.massage === "success") {
         setLoading(false)
         setIsOpen(false)
-        onAdd(data.createdEntry)
+        onAdd({...data.createdEntry, createdAt: new Date(data.createdEntry.createdAt)})
     }
 
     else {
