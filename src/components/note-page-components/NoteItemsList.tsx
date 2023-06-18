@@ -17,7 +17,7 @@ import {
   CircularProgress,
 } from '@mui/material';
 import { useRouter } from "next/navigation";
-// import { formatDate } from "@/lib/utils";
+import { formatDate } from "@/lib/utils";
 import { AiOutlineSearch } from 'react-icons/ai'
 import { MdDelete } from 'react-icons/md'
 import { MdModeEditOutline } from 'react-icons/md'
@@ -136,18 +136,6 @@ export default function NoteItemsList({noteEntries, noteId}: {noteEntries: Entry
     setSearchTerm(inputValue)
   }
 
-  const formatDate = (dateString: Date) => {
-        
-    const day = String(dateString.getDate()).padStart(2, '0')
-    const month = String(dateString.getMonth() + 1).padStart(2, '0')
-    const year = dateString.getFullYear()
-    
-    const hours = String(dateString.getHours()).padStart(2, '0')
-    const minutes = String(dateString.getMinutes()).padStart(2, '0')
-    
-    return `${day}/${month}/${year} - ${hours}:${minutes}`
-}
-
   const openConfirmDeleteItem = (entryId: string) => {
     setSelectedEntryId(entryId)
     setOpenDeleteNoteItemPopup(true)
@@ -228,7 +216,19 @@ export default function NoteItemsList({noteEntries, noteId}: {noteEntries: Entry
           }
         </AnimatePresence>
 
-        <List className={styles.noteListContainer} sx={{ width: '100%' }}>
+        {
+          noteItemsState?.filter(entry => {
+            if (searchTerm === "") {
+              return entry
+            }
+            else if (entry.item.toLowerCase().includes(searchTerm.toLowerCase())) {
+              return entry
+            }
+          })?.length === 0 ? 
+
+          <p style={{marginTop: "2em"}}>No Results...</p> :
+          
+          <List className={styles.noteListContainer} sx={{ width: '100%' }}>
           {noteItemsState?.filter(entry => {
             if (searchTerm === "") {
               return entry
@@ -314,8 +314,9 @@ export default function NoteItemsList({noteEntries, noteId}: {noteEntries: Entry
                 </ListItemButton>
               </ListItem>
             )
-          })}
-        </List>
+          })
+          }
+        </List>}
       </>}
 
       {openAddItemPopup &&
