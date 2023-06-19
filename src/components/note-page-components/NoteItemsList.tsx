@@ -220,6 +220,7 @@ export default function NoteItemsList({noteEntries, noteId}: {noteEntries: Entry
                       <li className={styles.sortingMenuListItem} onClick={() => {
                         if (sortMethod !== "newToOld") {
                           setSortMethod("newToOld")
+                          setOpenSortingMenu(false)
                           setNoteItemsState((prevEntries: Entry[] | undefined) => {
                             return prevEntries?.sort((a: Entry, b: Entry) => b.createdAt - a.createdAt)
                           })
@@ -230,6 +231,7 @@ export default function NoteItemsList({noteEntries, noteId}: {noteEntries: Entry
                       <li className={styles.sortingMenuListItem} onClick={() => {
                         if (sortMethod !== "oldToNew") {
                           setSortMethod("oldToNew")
+                          setOpenSortingMenu(false)
                           setNoteItemsState((prevEntries: Entry[] | undefined) => {
                             return prevEntries?.sort((a: Entry, b: Entry) => a.createdAt - b.createdAt)
                           })
@@ -240,6 +242,7 @@ export default function NoteItemsList({noteEntries, noteId}: {noteEntries: Entry
                       <li className={styles.sortingMenuListItem} onClick={() => {
                         if (sortMethod !== "byName") {
                           setSortMethod("byName")
+                          setOpenSortingMenu(false)
                           setNoteItemsState((prevEntries: Entry[] | undefined) => {
                             return prevEntries?.sort((a: Entry, b: Entry) => a.item.localeCompare(b.item))
                           })
