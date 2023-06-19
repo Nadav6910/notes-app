@@ -71,35 +71,35 @@
 
 
 /* footer section  */
-.footerContainer {
+/* .footerContainer {
     display: flex;
     flex-direction: column;
     gap: 0.7em;
-    /* margin-top: 10em; */
+    margin-top: 10em;
     margin-bottom: 0.4em;
     position: absolute;
     bottom: 0;
     left: 0;
     width: 100%;
-}
+} */
 
-@media (max-width: 650px) {
+/* @media (max-width: 650px) {
     .footerContainer {
         position: unset;
         margin-top: 10em;
     }
-}
+} */
 
-.copyrightText {
+/* .copyrightText {
     font-size: 0.85rem;
     padding-left: 1em;
-}
+} */
 
-@media (min-height: 1000px) {
+/* @media (min-height: 1000px) {
     .footerContainer {
         margin-top: 15em;
     }
-}
+} */
 /* footer section  */
 
 @media (max-width: 450px) {

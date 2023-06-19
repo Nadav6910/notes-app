@@ -40,6 +40,7 @@ export default async function Home() {
       </section>
 
       <HeroSectionDrawing />
+      
     </main>
   )
 }

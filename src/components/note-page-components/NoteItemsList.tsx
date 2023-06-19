@@ -23,9 +23,13 @@ import { MdDelete } from 'react-icons/md'
 import { MdModeEditOutline } from 'react-icons/md'
 import NoNoteItemsDrawing from "@/SvgDrawings/NoNoteItemsDrawing";
 import { Entry } from "../../../types";
+import { TbSortDescending } from 'react-icons/tb'
 import { FaPlus } from 'react-icons/fa'
 import { useScroll, AnimatePresence } from 'framer-motion'
 import MotionWrap from "@/wrappers/MotionWrap";
+import ClickAwayListener from '@mui/base/ClickAwayListener'
+import { AiOutlineCheck } from 'react-icons/ai'
+import { set } from "react-hook-form";
 
 const AddNoteItemPopup = dynamic(() => import('./AddNoteItemPopup'), {
   loading: () => <Backdrop open={true}><CircularProgress className={styles.backDropLoader} /></Backdrop>,
@@ -59,6 +63,8 @@ export default function NoteItemsList({noteEntries, noteId}: {noteEntries: Entry
   const [loadingCheckingItem, setLoadingCheckingItem] = useState<boolean>(false)
   const [isButtonVisible, setIsButtonVisible] = useState<boolean>(true)
   const [searchTerm, setSearchTerm] = useState<string>("")
+  const [openSortingMenu, setOpenSortingMenu] = useState<boolean>(false)
+  const [sortMethod, setSortMethod] = useState<string>("newToOld")
 
   const addItemButtonRef = useRef<HTMLDivElement>(null)
 
@@ -182,13 +188,71 @@ export default function NoteItemsList({noteEntries, noteId}: {noteEntries: Entry
             `${noteItemsState?.length} items`}
         </h5>
 
-        <div 
-          onClick={() => setOpenAddItemPopup(true)} 
-          className={styles.addItemToNote}
-          ref={addItemButtonRef}
-        >
-            <FaPlus />
-            <p>Add Item</p>
+        <div style={{display: "flex", justifyContent: "space-between", width: "100%"}}>
+          <div 
+            onClick={() => setOpenAddItemPopup(true)} 
+            className={styles.addItemToNote}
+            ref={addItemButtonRef}
+          >
+              <FaPlus />
+              <p>Add Item</p>
+          </div>
+          
+          <ClickAwayListener onClickAway={() => setOpenSortingMenu(false)}>
+            <div style={{position: "relative"}}>
+              <div 
+                onClick={() => setOpenSortingMenu(!openSortingMenu)} 
+                className={styles.sortBtn}
+              >
+                  <TbSortDescending />
+                  <p>Sort</p>
+              </div>
+              <AnimatePresence>
+                {openSortingMenu && 
+                  <MotionWrap 
+                    className={styles.sortingMenu}
+                    initial={{opacity: 0}}
+                    animate={{opacity: 1}}
+                    exit={{opacity: 0}}
+                    transition={{duration: 0.3, type: "spring", stiffness: 100, damping: 20}}
+                  >
+                    <ul className={styles.sortingMenuList}>
+                      <li className={styles.sortingMenuListItem} onClick={() => {
+                        if (sortMethod !== "newToOld") {
+                          setSortMethod("newToOld")
+                          setNoteItemsState((prevEntries: Entry[] | undefined) => {
+                            return prevEntries?.sort((a: Entry, b: Entry) => b.createdAt - a.createdAt)
+                          })
+                        }
+                      }}>
+                        <span style={{width: "1em", height: "1em"}}>{sortMethod === "newToOld" && <AiOutlineCheck />}</span>New to old
+                      </li>
+                      <li className={styles.sortingMenuListItem} onClick={() => {
+                        if (sortMethod !== "oldToNew") {
+                          setSortMethod("oldToNew")
+                          setNoteItemsState((prevEntries: Entry[] | undefined) => {
+                            return prevEntries?.sort((a: Entry, b: Entry) => a.createdAt - b.createdAt)
+                          })
+                        }
+                      }}>
+                        <span style={{width: "1em", height: "1em"}}>{sortMethod === "oldToNew" && <AiOutlineCheck />}</span> Old to new
+                      </li>
+                      <li className={styles.sortingMenuListItem} onClick={() => {
+                        if (sortMethod !== "byName") {
+                          setSortMethod("byName")
+                          setNoteItemsState((prevEntries: Entry[] | undefined) => {
+                            return prevEntries?.sort((a: Entry, b: Entry) => a.item.localeCompare(b.item))
+                          })
+                        }
+                      }}>
+                        <span style={{width: "1em", height: "1em"}}>{sortMethod === "byName" && <AiOutlineCheck />}</span>By name
+                      </li>
+                    </ul>
+                  </MotionWrap>
+                }
+              </AnimatePresence>
+            </div>
+          </ClickAwayListener>
         </div>
 
         <div style={{display: "flex", width: "100%"}}>

@@ -30,6 +30,56 @@
     margin-bottom: 1em;
 }
 
+.sortBtn {
+    display: flex;
+    align-items: center;
+    align-self: flex-start;
+    border: 1px solid var(--primary-color);
+    padding: 0.8em;
+    border-radius: 10px;
+    gap: 0.3em;
+    cursor: pointer;
+    margin-bottom: 1em;
+}
+
+.sortBtn:hover {
+    color: var(--secondary-color);
+    border-color: var(--secondary-color);
+}
+
+.sortingMenu {
+    position: absolute;
+    right: 0;
+    width: 8em;
+    background-color: var(--note-card-background);
+    z-index: 100;
+    border-radius: 10px;
+    padding: 0.5em;
+    margin-top: -0.8em
+}
+
+.sortingMenuList {
+    list-style-type: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5em;
+    font-size: 0.9em;
+}
+
+.sortingMenuListItem {
+    list-style-type: none;
+    display: flex;
+    align-items: center;
+    gap: 0.5em;
+    padding: 0.5em;
+    cursor: pointer;
+    border-radius: 10px;
+}
+
+.sortingMenuListItem:hover {
+    background-color: var(--secondary-color-faded);
+}
+
 .addItemToNoteEmptyNotes {
     display: flex;
     align-items: center;
