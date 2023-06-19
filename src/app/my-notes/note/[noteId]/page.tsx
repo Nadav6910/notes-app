@@ -4,7 +4,13 @@ import { authOptions } from '../../../api/auth/[...nextauth]/route'
 import { redirect } from 'next/navigation'
 import { getNoteEntries } from "@/lib/fetchers"
 import GoBackContainer from "@/components/note-page-components/GoBackContainer"
-import NoteItemsList from "@/components/note-page-components/NoteItemsList"
+// import NoteItemsList from "@/components/note-page-components/NoteItemsList"
+import dynamic from 'next/dynamic'
+
+const NoteItemsList = dynamic(() => import('@/components/note-page-components/NoteItemsList'), {
+    loading: () => <p>Loading...</p>,
+    ssr: false
+})
 
 export const metadata = {
     title: 'Notes App | Note',
