@@ -29,7 +29,6 @@ import { useScroll, AnimatePresence } from 'framer-motion'
 import MotionWrap from "@/wrappers/MotionWrap";
 import ClickAwayListener from '@mui/base/ClickAwayListener'
 import { AiOutlineCheck } from 'react-icons/ai'
-import { set } from "react-hook-form";
 
 const AddNoteItemPopup = dynamic(() => import('./AddNoteItemPopup'), {
   loading: () => <Backdrop open={true}><CircularProgress className={styles.backDropLoader} /></Backdrop>,
@@ -52,6 +51,7 @@ export default function NoteItemsList({noteEntries, noteId}: {noteEntries: Entry
   const [noteItemsState, setNoteItemsState] = useState(noteEntries)
   const [selectedEntryId, setSelectedEntryId] = useState<string>("")
   const [selectedEntryName, setSelectedEntryName] = useState<string>("")
+  const [selectedEntryPriority, setSelectedEntryPriority] = useState<string>("")
   const [openAddItemPopup, setOpenAddItemPopup] = useState<boolean>(false)
   const [openAddItemPopupEmpty, setOpenAddItemPopupEmpty] = useState<boolean>(false)
   const [openDeleteNoteItemPopup, setOpenDeleteNoteItemPopup] = useState<boolean>(false)
@@ -60,6 +60,7 @@ export default function NoteItemsList({noteEntries, noteId}: {noteEntries: Entry
   const [openAddItemError, setOpenAddItemError] = useState<boolean>(false)
   const [openDeleteItemError, setOpenDeleteItemError] = useState<boolean>(false)
   const [openRenameItemError, setOpenRenameItemError] = useState<boolean>(false)
+  const [openSetPriorityError, setOpenSetPriorityError] = useState<boolean>(false)
   const [loadingCheckingItem, setLoadingCheckingItem] = useState<boolean>(false)
   const [isButtonVisible, setIsButtonVisible] = useState<boolean>(true)
   const [searchTerm, setSearchTerm] = useState<string>("")
@@ -67,7 +68,7 @@ export default function NoteItemsList({noteEntries, noteId}: {noteEntries: Entry
   const [sortMethod, setSortMethod] = useState<string>("newToOld")
 
   const addItemButtonRef = useRef<HTMLDivElement>(null)
-
+  
   // Check if the add item button is in view
   useEffect(() => {
 
@@ -147,9 +148,12 @@ export default function NoteItemsList({noteEntries, noteId}: {noteEntries: Entry
     setOpenDeleteNoteItemPopup(true)
   }
 
-  const openConfirmRenameItem = (entryId: string, currentEntryName: string) => {
+  const openConfirmRenameItem = (entryId: string, currentEntryName: string, currentEntryPriority: string | undefined | null) => {
     setSelectedEntryId(entryId)
     setSelectedEntryName(currentEntryName)
+    if (currentEntryPriority) {
+      setSelectedEntryPriority(currentEntryPriority)
+    }
     setOpenRenameNoteItemPopup(true)
   }
   
@@ -323,7 +327,7 @@ export default function NoteItemsList({noteEntries, noteId}: {noteEntries: Entry
                     secondaryAction={
                         <div style={{display: "flex", gap: "1em"}}>
                         <IconButton 
-                          onClick={() => openConfirmRenameItem(entry.entryId, entry.item)} 
+                          onClick={() => openConfirmRenameItem(entry.entryId, entry.item, entry?.priority)} 
                           className={styles.iconButtonRename} 
                           edge="end" 
                           aria-label="comments"
@@ -439,9 +443,11 @@ export default function NoteItemsList({noteEntries, noteId}: {noteEntries: Entry
             setOpenRenameNoteItemPopup(false)
             setSelectedEntryId("")
             setSelectedEntryName("")
+            setSelectedEntryPriority("")
           }}
           entryId={selectedEntryId}
           currentName={selectedEntryName}
+          currentPriority={selectedEntryPriority}
           onRename={(isRenamed: boolean, newName: string) => {
             if (isRenamed) {
               setNoteItemsState((prevEntries) =>
@@ -451,10 +457,26 @@ export default function NoteItemsList({noteEntries, noteId}: {noteEntries: Entry
               )
             }
           }}
+          onPriorityChange={(isPriorityChanged: boolean, newPriority: string) => {
+            if (isPriorityChanged) {
+              setNoteItemsState((prevEntries) =>
+                prevEntries?.map((entry) =>
+                  entry.entryId === selectedEntryId ? { ...entry, priority: newPriority } : entry
+                )
+              )
+            }
+          }}
           onError={() => {
             setOpenRenameItemError(true)
             setSelectedEntryId("")
             setSelectedEntryName("")
+            setSelectedEntryPriority("")
+          }}
+          onSetPriorityError={() => {
+            setOpenSetPriorityError(true)
+            setSelectedEntryId("")
+            setSelectedEntryName("")
+            setSelectedEntryPriority("")
           }}
         />
       }
@@ -507,6 +529,19 @@ export default function NoteItemsList({noteEntries, noteId}: {noteEntries: Entry
         >
           <Alert onClose={() => setOpenRenameItemError(false)} severity="error" sx={{ width: '100%' }}>
               Error renaming note item!
+          </Alert>
+        </Snackbar>
+      }
+
+      {openSetPriorityError && 
+        <Snackbar
+          open={openSetPriorityError}
+          autoHideDuration={2500}
+          onClose={() => setOpenSetPriorityError(false)}
+          anchorOrigin={{horizontal: "center", vertical: "bottom"}}
+        >
+          <Alert onClose={() => setOpenSetPriorityError(false)} severity="error" sx={{ width: '100%' }}>
+              Error setting note item priority!
           </Alert>
         </Snackbar>
       }

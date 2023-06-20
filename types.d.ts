@@ -74,8 +74,11 @@ type RenameNoteItemPopupProps = {
     setIsOpen: Function,
     entryId: string,
     currentName: string,
-    onRename: function, 
-    onError: function
+    currentPriority: string | null | undefined,
+    onRename: function,
+    onPriorityChange: function, 
+    onError: function,
+    onSetPriorityError: function
 }
 
 type Entry = {
