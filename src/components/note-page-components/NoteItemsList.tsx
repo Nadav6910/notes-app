@@ -211,9 +211,9 @@ export default function NoteItemsList({noteEntries, noteId}: {noteEntries: Entry
                 {openSortingMenu && 
                   <MotionWrap 
                     className={styles.sortingMenu}
-                    initial={{opacity: 0}}
-                    animate={{opacity: 1}}
-                    exit={{opacity: 0}}
+                    initial={{opacity: 0, x: -10}}
+                    animate={{opacity: 1, x: 0}}
+                    exit={{opacity: 0, x: -10}}
                     transition={{duration: 0.3, type: "spring", stiffness: 100, damping: 20}}
                   >
                     <ul className={styles.sortingMenuList}>
@@ -226,7 +226,7 @@ export default function NoteItemsList({noteEntries, noteId}: {noteEntries: Entry
                           })
                         }
                       }}>
-                        <span style={{width: "1em", height: "1em"}}>{sortMethod === "newToOld" && <AiOutlineCheck />}</span>New to old
+                        New to old<span style={{width: "1em", height: "1em"}}>{sortMethod === "newToOld" && <AiOutlineCheck />}</span>
                       </li>
                       <li className={styles.sortingMenuListItem} onClick={() => {
                         if (sortMethod !== "oldToNew") {
@@ -237,7 +237,7 @@ export default function NoteItemsList({noteEntries, noteId}: {noteEntries: Entry
                           })
                         }
                       }}>
-                        <span style={{width: "1em", height: "1em"}}>{sortMethod === "oldToNew" && <AiOutlineCheck />}</span> Old to new
+                        Old to new<span style={{width: "1em", height: "1em"}}>{sortMethod === "oldToNew" && <AiOutlineCheck />}</span>
                       </li>
                       <li className={styles.sortingMenuListItem} onClick={() => {
                         if (sortMethod !== "byName") {
@@ -248,7 +248,7 @@ export default function NoteItemsList({noteEntries, noteId}: {noteEntries: Entry
                           })
                         }
                       }}>
-                        <span style={{width: "1em", height: "1em"}}>{sortMethod === "byName" && <AiOutlineCheck />}</span>By name
+                        By name<span style={{width: "1em", height: "1em"}}>{sortMethod === "byName" && <AiOutlineCheck />}</span>
                       </li>
                     </ul>
                   </MotionWrap>
@@ -308,78 +308,88 @@ export default function NoteItemsList({noteEntries, noteId}: {noteEntries: Entry
             const entryPriority = entry.priority && entry.priority
 
             return (
-              <ListItem
-                key={entry.entryId}
-                className={`${index % 2 === 0 ? styles.noteListItem : styles.noteListItemOdd}`}
-                disablePadding
-                secondaryAction={
-                    <div style={{display: "flex", gap: "1em"}}>
-                    <IconButton 
-                      onClick={() => openConfirmRenameItem(entry.entryId, entry.item)} 
-                      className={styles.iconButtonRename} 
-                      edge="end" 
-                      aria-label="comments"
-                    >
-                      <MdModeEditOutline className={styles.iconRename} />
-                    </IconButton>
+              <AnimatePresence key={entry.entryId}>
+                <MotionWrap 
+                  initial={{opacity: 0, x: 20}}
+                  animate={{opacity: 1, x: 0}}
+                  exit={{opacity: 0, x: 20}}
+                  transition={{duration: 0.3, type: "spring", stiffness: 100, damping: 20}}
+                  key={entry.entryId}
+                >
+                  <ListItem
+                    key={entry.entryId}
+                    className={`${index % 2 === 0 ? styles.noteListItem : styles.noteListItemOdd}`}
+                    disablePadding
+                    secondaryAction={
+                        <div style={{display: "flex", gap: "1em"}}>
+                        <IconButton 
+                          onClick={() => openConfirmRenameItem(entry.entryId, entry.item)} 
+                          className={styles.iconButtonRename} 
+                          edge="end" 
+                          aria-label="comments"
+                        >
+                          <MdModeEditOutline className={styles.iconRename} />
+                        </IconButton>
 
-                    <IconButton 
-                      onClick={() => openConfirmDeleteItem(entry.entryId)} 
-                      className={styles.iconButtonDelete} 
-                      edge="end" 
-                      aria-label="comments"
-                      >
-                        <MdDelete className={styles.iconDelete} />
-                    </IconButton>
-                  </div>
-                  }
-              >
-                <ListItemButton onClick={() => handleToggle(entry?.isChecked, entry?.entryId)} dense>
-                  <ListItemIcon sx={{minWidth: "2em"}}>
-                    {loadingCheckingItem && selectedEntryId === entry.entryId ? 
-
-                    <div style={{paddingTop: "0.5em", paddingBottom: "0.5em"}}>
-                      <CircularProgress size={21} className={styles.loadingCheckingItem} />
-                    </div> : 
-
-                    <Checkbox
-                      className={styles.noteListCheckbox}
-                      edge="start"
-                      checked={entry?.isChecked ?? false}
-                      tabIndex={-1}
-                      disableRipple
-                      inputProps={{ 'aria-labelledby': labelId }}
-                    />}
-                  </ListItemIcon>
-                  <div>
-                    <ListItemText 
-                      className={styles.noteListItemText}
-                      sx={
-                        {
-                          textDecoration: entry?.isChecked ? "line-through" : "none", 
-                          paddingRight: "3em", 
-                          lineBreak: "anywhere",
-                        }
-                      } 
-                      id={labelId} 
-                      primary={entry?.item} 
-                    />
-                    <div style={{display: "flex"}}>
-                      <ListItemText className={styles.itemCreatedAt}>
-                        {formatDate(entry?.createdAt)}
-                      </ListItemText>
-                      {entry.priority && 
-                      entryPriority === "green" ?
-                      <div className={styles.priorityColorGreen} /> :
-                      entryPriority === "yellow" ?
-                      <div className={styles.priorityColorYellow} /> :
-                      entryPriority === "red" &&
-                      <div className={styles.priorityColorRed} />
+                        <IconButton 
+                          onClick={() => openConfirmDeleteItem(entry.entryId)} 
+                          className={styles.iconButtonDelete} 
+                          edge="end" 
+                          aria-label="comments"
+                          >
+                            <MdDelete className={styles.iconDelete} />
+                        </IconButton>
+                      </div>
                       }
-                    </div>
-                  </div>
-                </ListItemButton>
-              </ListItem>
+                  >
+                    <ListItemButton onClick={() => handleToggle(entry?.isChecked, entry?.entryId)} dense>
+                      <ListItemIcon sx={{minWidth: "2em"}}>
+                        {loadingCheckingItem && selectedEntryId === entry.entryId ? 
+
+                        <div style={{paddingTop: "0.5em", paddingBottom: "0.5em"}}>
+                          <CircularProgress size={21} className={styles.loadingCheckingItem} />
+                        </div> : 
+
+                        <Checkbox
+                          className={styles.noteListCheckbox}
+                          edge="start"
+                          checked={entry?.isChecked ?? false}
+                          tabIndex={-1}
+                          disableRipple
+                          inputProps={{ 'aria-labelledby': labelId }}
+                        />}
+                      </ListItemIcon>
+                      <div>
+                        <ListItemText 
+                          className={styles.noteListItemText}
+                          sx={
+                            {
+                              textDecoration: entry?.isChecked ? "line-through" : "none", 
+                              paddingRight: "3em", 
+                              lineBreak: "anywhere",
+                            }
+                          } 
+                          id={labelId} 
+                          primary={entry?.item} 
+                        />
+                        <div style={{display: "flex"}}>
+                          <ListItemText className={styles.itemCreatedAt}>
+                            {formatDate(entry?.createdAt)}
+                          </ListItemText>
+                          {entry.priority && 
+                          entryPriority === "green" ?
+                          <div className={styles.priorityColorGreen} /> :
+                          entryPriority === "yellow" ?
+                          <div className={styles.priorityColorYellow} /> :
+                          entryPriority === "red" &&
+                          <div className={styles.priorityColorRed} />
+                          }
+                        </div>
+                      </div>
+                    </ListItemButton>
+                  </ListItem>
+                </MotionWrap>
+              </AnimatePresence>
             )
           })
           }
