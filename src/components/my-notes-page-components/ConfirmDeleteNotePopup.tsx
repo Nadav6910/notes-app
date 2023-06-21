@@ -40,27 +40,36 @@ export default function ConfirmDeleteNotePopup(
 
     setLoading(true)
 
-    const response = await fetch(`/api/delete-note`, {
-      method: "POST",
-      body: JSON.stringify({noteId}),
-      cache: "no-cache",
-    })
-    const data = await response.json()
+    try {
 
-    if (data.massage === "deleted note") {
-        setLoading(false)
-        OnDelete(true)
-        setIsOpen(false)
-        setTimeout(() => {
-          startTransition(() => {
-            router.refresh()
-          })
-        }, 400)
-    }
+      const response = await fetch(`/api/delete-note`, {
+        method: "POST",
+        body: JSON.stringify({noteId}),
+        cache: "no-cache",
+      })
 
-    else {
-        setLoading(false)
-        onError(true)
+      const data = await response.json()
+  
+      if (data.massage === "deleted note") {
+          setLoading(false)
+          OnDelete(true)
+          setIsOpen(false)
+          setTimeout(() => {
+            startTransition(() => {
+              router.refresh()
+            })
+          }, 400)
+      }
+  
+      else {
+          setLoading(false)
+          onError(true)
+      }
+    } 
+    
+    catch (error) {
+      setLoading(false)
+      onError(true)
     }
     
   }

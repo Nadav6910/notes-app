@@ -49,26 +49,36 @@ export default function RenameNotePopup(
 
     const { newName } = renameFormData
 
-    const response = await fetch(`/api/rename-note`, {
-      method: "POST",
-      body: JSON.stringify({noteId, newName}),
-      cache: "no-cache",
-    })
-    const data = await response.json()
+    try {
 
-    if (data.massage === "renamed note") {
-        setLoading(false)
-        OnRename(true)
-        setIsOpen(false)
-        startTransition(() => {
-            router.refresh()
-        })
+      const response = await fetch(`/api/rename-note`, {
+        method: "POST",
+        body: JSON.stringify({noteId, newName}),
+        cache: "no-cache",
+      })
+
+      const data = await response.json()
+  
+      if (data.massage === "renamed note") {
+          setLoading(false)
+          OnRename(true)
+          setIsOpen(false)
+          startTransition(() => {
+              router.refresh()
+          })
+      }
+  
+      else {
+          setLoading(false)
+          onError(true)
+      }
+    } 
+    
+    catch (error) {
+      setLoading(false)
+      onError(true)
     }
 
-    else {
-        setLoading(false)
-        onError(true)
-    }
   }
  
   return (

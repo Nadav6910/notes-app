@@ -38,25 +38,32 @@ export default function RegisterForm() {
         
         const { name, userName, password } = data
 
-        const res = await fetch('/api/register', {
-            method: "POST",
-            body: JSON.stringify({name, userName, password})
-        })
+        try {
 
-        const response = await res.json()
-
-        if (response.massage === "user created") {        
-            setOpenSuccess(true)
-        } 
-
-        if (response.error === "user already exists") {
-            setUserExistsError(true)
-            setTimeout(() => {
-                setUserExistsError(false)
-            }, 2000)
+            const res = await fetch('/api/register', {
+                method: "POST",
+                body: JSON.stringify({name, userName, password})
+            })
+    
+            const response = await res.json()
+    
+            if (response.massage === "user created") {        
+                setOpenSuccess(true)
+            } 
+    
+            if (response.error === "user already exists") {
+                setUserExistsError(true)
+                setTimeout(() => {
+                    setUserExistsError(false)
+                }, 2000)
+            }
+    
+            else if (response.error) {
+                setOpenError(true)
+            }
         }
-
-        else if (response.error) {
+        
+        catch (error) {
             setOpenError(true)
         }
     }

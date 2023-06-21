@@ -35,27 +35,37 @@ export default function CreateNote() {
     const userId = session.data?.user.id
     const noteName = data.name
     
-    const res = await fetch('/api/create-note', {
-      method: "POST",
-      body: JSON.stringify({ userId, noteName, noteType }),
-    })
+    try {
 
-    const response = await res.json()
+      const res = await fetch('/api/create-note', {
+        method: "POST",
+        body: JSON.stringify({ userId, noteName, noteType }),
+      })
+  
+      const response = await res.json()
+      
+      if (response.massage === "created note") {
+  
+        setOpenSuccess(true)
+        setTimeout(() => {
+          setOpenSuccess(false)
+          startTransition(() => {
+            router.refresh()
+            router.push('/my-notes')
+          })
+          
+        }, 800)
+      }
+  
+      else {
+        setOpenError(true)
+        setTimeout(() => {
+          setOpenError(false)
+        }, 2000)
+      }
+    } 
     
-    if (response.massage === "created note") {
-
-      setOpenSuccess(true)
-      setTimeout(() => {
-        setOpenSuccess(false)
-        startTransition(() => {
-          router.refresh()
-          router.push('/my-notes')
-        })
-        
-      }, 800)
-    }
-
-    else {
+    catch (error) {
       setOpenError(true)
       setTimeout(() => {
         setOpenError(false)

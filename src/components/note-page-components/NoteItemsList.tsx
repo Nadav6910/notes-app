@@ -107,33 +107,59 @@ export default function NoteItemsList({noteEntries, noteId}: {noteEntries: Entry
     setSelectedEntryId(entryId)
     setLoadingCheckingItem(true)
 
-    const res = await fetch('/api/change-note-item-is-checked', {
-      method: 'POST',
-      body: JSON.stringify({
-        entryId,
-        value: !value
+    try {
+
+      const res = await fetch('/api/change-note-item-is-checked', {
+        method: 'POST',
+        body: JSON.stringify({
+          entryId,
+          value: !value
+        })
       })
-    })
-
-    const response = await res.json()
-
-    if (response.massage === "success") { 
-
-      setLoadingCheckingItem(false)
-      setSelectedEntryId("")
-
-      setNoteItemsState((prevEntries) =>
-        prevEntries?.map((entry) =>
-          entry.entryId === entryId ? { ...entry, isChecked: !value } : entry
+  
+      const response = await res.json()
+  
+      if (response.massage === "success") { 
+  
+        setLoadingCheckingItem(false)
+        setSelectedEntryId("")
+  
+        setNoteItemsState((prevEntries) =>
+          prevEntries?.map((entry) =>
+            entry.entryId === entryId ? { ...entry, isChecked: !value } : entry
+          )
         )
-      )       
+        
+        if (sortMethod === "byChecked") {
+          setNoteItemsState((prevEntries: Entry[] | undefined) => {
+            return prevEntries?.sort((a: Entry, b: Entry) => {
+              if (a.isChecked && !b.isChecked) {
+                return 1
+              }
+              else if (!a.isChecked && b.isChecked) {
+                return -1
+              }
+              else {
+                return 0
+              }
+            })
+          })
+        }
+      } 
+  
+      else {
+        setLoadingCheckingItem(false)
+        setSelectedEntryId("")
+        setOpenError(true)
+      }
     } 
-
-    else {
+    
+    catch (error) {
       setLoadingCheckingItem(false)
       setSelectedEntryId("")
       setOpenError(true)
     }
+
   }
 
   // search note items
@@ -148,13 +174,84 @@ export default function NoteItemsList({noteEntries, noteId}: {noteEntries: Entry
     setOpenDeleteNoteItemPopup(true)
   }
 
-  const openConfirmRenameItem = (entryId: string, currentEntryName: string, currentEntryPriority: string | undefined | null) => {
+  const openConfirmRenameItem = (
+    entryId: string, currentEntryName: string, currentEntryPriority: string | undefined | null
+  ) => {
     setSelectedEntryId(entryId)
     setSelectedEntryName(currentEntryName)
     if (currentEntryPriority) {
       setSelectedEntryPriority(currentEntryPriority)
     }
     setOpenRenameNoteItemPopup(true)
+  }
+
+  const sortByNewToOld = () => {
+    if (sortMethod !== "newToOld") {
+      setSortMethod("newToOld")
+      setOpenSortingMenu(false)
+      setNoteItemsState((prevEntries: Entry[] | undefined) => {
+        return prevEntries?.sort((a: Entry, b: Entry) => b.createdAt - a.createdAt)
+      })
+    }
+  }
+
+  const sortByOldToNew = () => {
+    if (sortMethod !== "oldToNew") {
+      setSortMethod("oldToNew")
+      setOpenSortingMenu(false)
+      setNoteItemsState((prevEntries: Entry[] | undefined) => {
+        return prevEntries?.sort((a: Entry, b: Entry) => a.createdAt - b.createdAt)
+      })
+    }
+  }
+
+  const sortByPriority = () => {
+    if (sortMethod !== "byPriority") {
+      setSortMethod("byPriority")
+      setOpenSortingMenu(false)
+      setNoteItemsState((prevEntries: Entry[] | undefined) => {
+        const priorityOrder = ["red", "yellow", "green", "none", null] as 
+        (string | null | undefined)[]
+        
+        return prevEntries?.sort((a: Entry, b: Entry) => {
+          
+            const priorityA = priorityOrder.indexOf(a?.priority)
+            const priorityB = priorityOrder.indexOf(b?.priority)
+
+            return priorityA - priorityB
+        })
+      })
+    }
+  }
+
+  const sortByName = () => {
+    if (sortMethod !== "byName") {
+      setSortMethod("byName")
+      setOpenSortingMenu(false)
+      setNoteItemsState((prevEntries: Entry[] | undefined) => {
+        return prevEntries?.sort((a: Entry, b: Entry) => a.item.localeCompare(b.item))
+      })
+    }
+  }
+
+  const sortByChecked = () => {
+    if (sortMethod !== "byChecked") {
+      setSortMethod("byChecked")
+      setOpenSortingMenu(false)
+      setNoteItemsState((prevEntries: Entry[] | undefined) => {
+        return prevEntries?.sort((a: Entry, b: Entry) => {
+          if (a.isChecked && !b.isChecked) {
+            return 1
+          }
+          else if (!a.isChecked && b.isChecked) {
+            return -1
+          }
+          else {
+            return 0
+          }
+        })
+      })
+    }
   }
   
   return (
@@ -221,38 +318,35 @@ export default function NoteItemsList({noteEntries, noteId}: {noteEntries: Entry
                     transition={{duration: 0.3, type: "spring", stiffness: 100, damping: 20}}
                   >
                     <ul className={styles.sortingMenuList}>
-                      <li className={styles.sortingMenuListItem} onClick={() => {
-                        if (sortMethod !== "newToOld") {
-                          setSortMethod("newToOld")
-                          setOpenSortingMenu(false)
-                          setNoteItemsState((prevEntries: Entry[] | undefined) => {
-                            return prevEntries?.sort((a: Entry, b: Entry) => b.createdAt - a.createdAt)
-                          })
-                        }
-                      }}>
-                        New to old<span style={{width: "1em", height: "1em"}}>{sortMethod === "newToOld" && <AiOutlineCheck />}</span>
+                      <li className={styles.sortingMenuListItem} onClick={sortByNewToOld}>
+                        New to old
+                        <span style={{width: "1em", height: "1em"}}>
+                          {sortMethod === "newToOld" && <AiOutlineCheck />}
+                        </span>
                       </li>
-                      <li className={styles.sortingMenuListItem} onClick={() => {
-                        if (sortMethod !== "oldToNew") {
-                          setSortMethod("oldToNew")
-                          setOpenSortingMenu(false)
-                          setNoteItemsState((prevEntries: Entry[] | undefined) => {
-                            return prevEntries?.sort((a: Entry, b: Entry) => a.createdAt - b.createdAt)
-                          })
-                        }
-                      }}>
-                        Old to new<span style={{width: "1em", height: "1em"}}>{sortMethod === "oldToNew" && <AiOutlineCheck />}</span>
+                      <li className={styles.sortingMenuListItem} onClick={sortByOldToNew}>
+                        Old to new
+                        <span style={{width: "1em", height: "1em"}}>
+                          {sortMethod === "oldToNew" && <AiOutlineCheck />}
+                        </span>
                       </li>
-                      <li className={styles.sortingMenuListItem} onClick={() => {
-                        if (sortMethod !== "byName") {
-                          setSortMethod("byName")
-                          setOpenSortingMenu(false)
-                          setNoteItemsState((prevEntries: Entry[] | undefined) => {
-                            return prevEntries?.sort((a: Entry, b: Entry) => a.item.localeCompare(b.item))
-                          })
-                        }
-                      }}>
-                        By name<span style={{width: "1em", height: "1em"}}>{sortMethod === "byName" && <AiOutlineCheck />}</span>
+                      <li className={styles.sortingMenuListItem} onClick={sortByPriority}>
+                        By priority
+                        <span style={{width: "1em", height: "1em"}}>
+                          {sortMethod === "byPriority" && <AiOutlineCheck />}
+                        </span>
+                      </li>
+                      <li className={styles.sortingMenuListItem} onClick={sortByChecked}>
+                        By Checked
+                        <span style={{width: "1em", height: "1em"}}>
+                          {sortMethod === "byChecked" && <AiOutlineCheck />}
+                        </span>
+                      </li>
+                      <li className={styles.sortingMenuListItem} onClick={sortByName}>
+                        By name
+                        <span style={{width: "1em", height: "1em"}}>
+                          {sortMethod === "byName" && <AiOutlineCheck />}
+                        </span>
                       </li>
                     </ul>
                   </MotionWrap>
@@ -405,7 +499,36 @@ export default function NoteItemsList({noteEntries, noteId}: {noteEntries: Entry
           isOpen={openAddItemPopup}
           setIsOpen={() => setOpenAddItemPopup(false)}
           noteId={noteId}
-          onAdd={(newEntry: Entry) => setNoteItemsState((prevEntries) => [newEntry, ...prevEntries ?? []])}
+          onAdd={(newEntry: Entry) => {
+            setNoteItemsState((prevEntries) => [newEntry, ...prevEntries ?? []])
+
+            if (sortMethod === "oldToNew") {
+              setNoteItemsState((prevEntries: Entry[] | undefined) => {
+                return prevEntries?.sort((a: Entry, b: Entry) => a.createdAt - b.createdAt)
+              })
+            }
+
+            else if (sortMethod === "byPriority") {
+              setNoteItemsState((prevEntries: Entry[] | undefined) => {
+                const priorityOrder = ["red", "yellow", "green", "none", null] as 
+                (string | null | undefined)[]
+                
+                return prevEntries?.sort((a: Entry, b: Entry) => {
+                  
+                    const priorityA = priorityOrder.indexOf(a?.priority)
+                    const priorityB = priorityOrder.indexOf(b?.priority)
+
+                    return priorityA - priorityB
+                })
+              })
+            }
+
+            else if (sortMethod === "byName") {
+              setNoteItemsState((prevEntries: Entry[] | undefined) => {
+                return prevEntries?.sort((a: Entry, b: Entry) => a.item.localeCompare(b.item))
+              })
+            }
+          }}
           onError={() => setOpenAddItemError(true)}
         />
       }
@@ -455,6 +578,12 @@ export default function NoteItemsList({noteEntries, noteId}: {noteEntries: Entry
                   entry.entryId === selectedEntryId ? { ...entry, item: newName } : entry
                 )
               )
+
+              if (sortMethod === "byName") {
+                setNoteItemsState((prevEntries: Entry[] | undefined) => {
+                  return prevEntries?.sort((a: Entry, b: Entry) => a.item.localeCompare(b.item))
+                })
+              }
             }
           }}
           onPriorityChange={(isPriorityChanged: boolean, newPriority: string) => {
@@ -464,6 +593,21 @@ export default function NoteItemsList({noteEntries, noteId}: {noteEntries: Entry
                   entry.entryId === selectedEntryId ? { ...entry, priority: newPriority } : entry
                 )
               )
+
+              if (sortMethod === "byPriority") {
+                setNoteItemsState((prevEntries: Entry[] | undefined) => {
+                  const priorityOrder = ["red", "yellow", "green", "none", null] as 
+                  (string | null | undefined)[]
+                  
+                  return prevEntries?.sort((a: Entry, b: Entry) => {
+                    
+                      const priorityA = priorityOrder.indexOf(a?.priority)
+                      const priorityB = priorityOrder.indexOf(b?.priority)
+
+                      return priorityA - priorityB
+                  })
+                })
+              }
             }
           }}
           onError={() => {

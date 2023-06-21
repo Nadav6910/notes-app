@@ -36,22 +36,31 @@ export default function DeleteNoteItemPopup(
 
     setLoading(true)
 
-    const response = await fetch(`/api/delete-note-item`, {
-      method: "POST",
-      body: JSON.stringify({entryId}),
-      cache: "no-cache",
-    })
-    const data = await response.json()
+    try {
 
-    if (data.massage === "deleted item") {
-        setLoading(false)
-        OnDelete(true)
-        setIsOpen(false)
-    }
-
-    else {
+      const response = await fetch(`/api/delete-note-item`, {
+        method: "POST",
+        body: JSON.stringify({entryId}),
+        cache: "no-cache",
+      })
+      
+      const data = await response.json()
+  
+      if (data.massage === "deleted item") {
+          setLoading(false)
+          OnDelete(true)
+          setIsOpen(false)
+      }
+  
+      else {
         setLoading(false)
         onError(true)
+      }
+    } 
+    
+    catch (error) {
+      setLoading(false)
+      onError(true)
     }
     
   }

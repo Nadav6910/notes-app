@@ -68,23 +68,33 @@ export default function AddNoteItemPopup(
 
     const { itemName } = addItemFormData
 
-    const response = await fetch('/api/create-note-item', {
-      method: "POST",
-      body: JSON.stringify({noteId, itemName, selectedPriorityColor}),
-      cache: "no-cache",
-    })
-    const data = await response.json()
-    
-    if (data.massage === "success") {
-        setLoading(false)
-        setIsOpen(false)
-        onAdd({...data.createdEntry, createdAt: new Date(data.createdEntry.createdAt)})
-    }
+    try {
 
-    else {
+      const response = await fetch('/api/create-note-item', {
+        method: "POST",
+        body: JSON.stringify({noteId, itemName, selectedPriorityColor}),
+        cache: "no-cache",
+      })
+
+      const data = await response.json()
+      
+      if (data.massage === "success") {
+          setLoading(false)
+          setIsOpen(false)
+          onAdd({...data.createdEntry, createdAt: new Date(data.createdEntry.createdAt)})
+      }
+  
+      else {
         setLoading(false)
         onError(true)
+      }
     }
+    
+    catch (error) {
+      setLoading(false)
+      onError(true)
+    }
+
   }
   
   return (

@@ -50,7 +50,7 @@
 .sortingMenu {
     position: absolute;
     right: 0;
-    width: 8.5em;
+    width: 9em;
     background-color: var(--note-card-background);
     z-index: 100;
     border: 1px solid var(--primary-color);

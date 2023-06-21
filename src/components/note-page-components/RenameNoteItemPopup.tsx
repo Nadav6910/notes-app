@@ -78,45 +78,63 @@ export default function RenameNoteItemPopup(
 
     const { newName } = renameFormData
 
-    const response = await fetch(`/api/rename-note-item`, {
-      method: "POST",
-      body: JSON.stringify({entryId, newName}),
-      cache: "no-cache",
-    })
-    const data = await response.json()
+    try {
 
-    if (data.massage === "renamed note item") {
-        setLoading(false)
-        onRename(true, data.newName)
-        setIsOpen(false)
-    }
+      const response = await fetch(`/api/rename-note-item`, {
+        method: "POST",
+        body: JSON.stringify({entryId, newName}),
+        cache: "no-cache",
+      })
 
-    else {
+      const data = await response.json()
+  
+      if (data.massage === "renamed note item") {
+          setLoading(false)
+          onRename(true, data.newName)
+          setIsOpen(false)
+      }
+  
+      else {
         setLoading(false)
         onError(true)
+      }
+    } 
+    
+    catch (error) {
+      setLoading(false)
+      onError(true)
     }
+
   }
 
   const handleChangePriority = async () => {
       
       setLoadingSetPriority(true)
   
-      const response = await fetch(`/api/change-note-item-priority`, {
-        method: "POST",
-        body: JSON.stringify({entryId, selectedPriorityColor}),
-        cache: "no-cache",
-      })
-      const data = await response.json()
-  
-      if (data.massage === "changed note item priority") {
-          setLoadingSetPriority(false)
-          onPriorityChange(true, data.newPriority)
-          setIsOpen(false)
-      }
-  
-      else {
-          setLoadingSetPriority(false)
-          onSetPriorityError(true)
+      try {
+
+        const response = await fetch(`/api/change-note-item-priority`, {
+          method: "POST",
+          body: JSON.stringify({entryId, selectedPriorityColor}),
+          cache: "no-cache",
+        })
+        const data = await response.json()
+    
+        if (data.massage === "changed note item priority") {
+            setLoadingSetPriority(false)
+            onPriorityChange(true, data.newPriority)
+            setIsOpen(false)
+        }
+    
+        else {
+            setLoadingSetPriority(false)
+            onSetPriorityError(true)
+        }
+      } 
+      
+      catch (error) {
+        setLoadingSetPriority(false)
+        onSetPriorityError(true)
       }
   }
  
@@ -235,7 +253,15 @@ export default function RenameNoteItemPopup(
                   />
                 </RadioGroup>
 
-                <Button className={styles.renamePopupBtn} onClick={handleChangePriority}>
+                <Button 
+                  className={styles.renamePopupBtn} 
+                  onClick={currentPriority === selectedPriorityColor ?
+                    handleClose : 
+                    !currentPriority && selectedPriorityColor === "none" ? 
+                    handleClose :
+                    handleChangePriority
+                  }
+                >
                   {loadingSetPriority ? <CircularProgress color='inherit' size={22} /> : "Set Priority"}
                 </Button>
               </div>
