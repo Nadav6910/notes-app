@@ -105,3 +105,12 @@ type AddNoteItemFormValues = {
 type AddNoteItemFormValues = {
     itemName: string
 }
+
+type SortingMenuProps = {
+    sortMethod: string, 
+    sortByNewToOld: Function, 
+    sortByOldToNew: Function, 
+    sortByPriority: Function, 
+    sortByChecked: Function, 
+    sortByName: Function
+}

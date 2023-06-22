@@ -155,8 +155,13 @@
 
 .inputIcon {
     position: absolute;
-    padding: 1.35em;
+    padding: 1.3em;
     color: var(--primary-color);
+}
+
+.inputIcon svg {
+    width: 1.3em;
+    height: 1.3em;
 }
 
 .renameInput {

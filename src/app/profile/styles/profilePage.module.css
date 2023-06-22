@@ -1,0 +1,47 @@
+.profilePageContainer {
+    display: flex;
+    flex-direction: column;
+    margin-top: 2em;
+    gap: 1em;
+}
+
+.detailsContainer {
+    display: flex;
+    flex-direction: column;
+    padding: 1em;
+    gap: 1em;
+    background-color: var(--note-card-background);
+    border-radius: 25px;
+}
+
+.detailsSubContainer {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5em;
+}
+
+.detailTitle {
+    font-size: 0.9rem;
+    font-weight: 100;
+    color: #a39d9d;
+}
+
+.detailData {
+    font-size: 1.1rem;
+}
+
+.goToMyNotesBtn {
+    display: flex;
+    align-self: flex-start;
+    color: var(--secondary-color);
+    border: 1px solid var(--secondary-color);
+    text-decoration: none;
+    padding: 0.8em;
+    border-radius: 12px;
+    cursor: pointer;
+}
+
+.goToMyNotesBtn:hover {
+    border: 1px solid var(--primary-color);
+    color: var(--primary-color);
+}

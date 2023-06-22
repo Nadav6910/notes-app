@@ -275,3 +275,12 @@
     outline: none;
     border-color: var(--secondary-color);
 }
+
+.accordionContainer {
+    background-color: var(--note-card-background);
+    color: var(--primary-color);
+}
+
+.expandIcon {
+    color: var(--primary-color);
+}

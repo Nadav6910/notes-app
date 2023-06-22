@@ -1,7 +1,7 @@
 'use client'
 
 import styles from "../../app/my-notes/note/[noteId]/styles/notePage.module.css"
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import {
   List, 
@@ -15,20 +15,22 @@ import {
   Alert,
   Backdrop,
   CircularProgress,
-} from '@mui/material';
-import { useRouter } from "next/navigation";
-import { formatDate } from "@/lib/utils";
+  // Accordion,
+  // AccordionSummary,
+  // AccordionDetails
+} from '@mui/material'
+import { useRouter } from "next/navigation"
+import { formatDate } from "@/lib/utils"
 import { AiOutlineSearch } from 'react-icons/ai'
 import { MdDelete } from 'react-icons/md'
 import { MdModeEditOutline } from 'react-icons/md'
-import NoNoteItemsDrawing from "@/SvgDrawings/NoNoteItemsDrawing";
-import { Entry } from "../../../types";
-import { TbSortDescending } from 'react-icons/tb'
+import NoNoteItemsDrawing from "@/SvgDrawings/NoNoteItemsDrawing"
+import { Entry } from "../../../types"
 import { FaPlus } from 'react-icons/fa'
+// import { BsChevronDown } from 'react-icons/bs'
 import { useScroll, AnimatePresence } from 'framer-motion'
-import MotionWrap from "@/wrappers/MotionWrap";
-import ClickAwayListener from '@mui/base/ClickAwayListener'
-import { AiOutlineCheck } from 'react-icons/ai'
+import MotionWrap from "@/wrappers/MotionWrap"
+import SortingMenu from "./SortingMenu"
 
 const AddNoteItemPopup = dynamic(() => import('./AddNoteItemPopup'), {
   loading: () => <Backdrop open={true}><CircularProgress className={styles.backDropLoader} /></Backdrop>,
@@ -64,8 +66,9 @@ export default function NoteItemsList({noteEntries, noteId}: {noteEntries: Entry
   const [loadingCheckingItem, setLoadingCheckingItem] = useState<boolean>(false)
   const [isButtonVisible, setIsButtonVisible] = useState<boolean>(true)
   const [searchTerm, setSearchTerm] = useState<string>("")
-  const [openSortingMenu, setOpenSortingMenu] = useState<boolean>(false)
   const [sortMethod, setSortMethod] = useState<string>("newToOld")
+  const [setChecksCount, setSetChecksCount] = useState(noteEntries?.filter(entry => entry.isChecked).length)
+  const [setUnCheckedCount, setSetUnCheckedCount] = useState(noteEntries?.filter(entry => !entry.isChecked).length)
 
   const addItemButtonRef = useRef<HTMLDivElement>(null)
   
@@ -100,6 +103,31 @@ export default function NoteItemsList({noteEntries, noteId}: {noteEntries: Entry
     }
 
   }, [scrollY, isButtonVisible])
+
+  // get checked and unchecked items count
+  useEffect(() => {
+
+    const getCheckedAndUncheckedItems = () => {
+      
+      let checkedItemsCount = 0
+      let uncheckedItemsCount = 0
+  
+      noteItemsState?.forEach(entry => {
+        if (entry.isChecked) {
+          checkedItemsCount += 1
+        }
+        else {
+          uncheckedItemsCount += 1
+        }
+      })
+  
+      setSetChecksCount(checkedItemsCount)
+      setSetUnCheckedCount(uncheckedItemsCount)
+    }
+
+    getCheckedAndUncheckedItems()
+    
+  }, [noteItemsState])
   
   // check and uncheck note item
   const handleToggle = async (value: boolean | null | undefined, entryId: string) => {
@@ -188,7 +216,6 @@ export default function NoteItemsList({noteEntries, noteId}: {noteEntries: Entry
   const sortByNewToOld = () => {
     if (sortMethod !== "newToOld") {
       setSortMethod("newToOld")
-      setOpenSortingMenu(false)
       setNoteItemsState((prevEntries: Entry[] | undefined) => {
         return prevEntries?.sort((a: Entry, b: Entry) => b.createdAt - a.createdAt)
       })
@@ -198,7 +225,6 @@ export default function NoteItemsList({noteEntries, noteId}: {noteEntries: Entry
   const sortByOldToNew = () => {
     if (sortMethod !== "oldToNew") {
       setSortMethod("oldToNew")
-      setOpenSortingMenu(false)
       setNoteItemsState((prevEntries: Entry[] | undefined) => {
         return prevEntries?.sort((a: Entry, b: Entry) => a.createdAt - b.createdAt)
       })
@@ -208,7 +234,6 @@ export default function NoteItemsList({noteEntries, noteId}: {noteEntries: Entry
   const sortByPriority = () => {
     if (sortMethod !== "byPriority") {
       setSortMethod("byPriority")
-      setOpenSortingMenu(false)
       setNoteItemsState((prevEntries: Entry[] | undefined) => {
         const priorityOrder = ["red", "yellow", "green", "none", null] as 
         (string | null | undefined)[]
@@ -227,7 +252,6 @@ export default function NoteItemsList({noteEntries, noteId}: {noteEntries: Entry
   const sortByName = () => {
     if (sortMethod !== "byName") {
       setSortMethod("byName")
-      setOpenSortingMenu(false)
       setNoteItemsState((prevEntries: Entry[] | undefined) => {
         return prevEntries?.sort((a: Entry, b: Entry) => a.item.localeCompare(b.item))
       })
@@ -237,7 +261,6 @@ export default function NoteItemsList({noteEntries, noteId}: {noteEntries: Entry
   const sortByChecked = () => {
     if (sortMethod !== "byChecked") {
       setSortMethod("byChecked")
-      setOpenSortingMenu(false)
       setNoteItemsState((prevEntries: Entry[] | undefined) => {
         return prevEntries?.sort((a: Entry, b: Entry) => {
           if (a.isChecked && !b.isChecked) {
@@ -283,12 +306,30 @@ export default function NoteItemsList({noteEntries, noteId}: {noteEntries: Entry
       </> :
       <>
 
-        <h5 style={{marginBottom: "2em", alignSelf: "flex-start"}}>
+      {/* <Accordion className={styles.accordionContainer}>
+        <AccordionSummary
+          expandIcon={<BsChevronDown className={styles.expandIcon} />}
+          aria-controls="panel1a-content"
+          id="panel1a-header"
+        >
+          <p>Accordion 1</p>
+        </AccordionSummary>
+        <AccordionDetails>
+          <p>
+            Lorem ipsum dolor sit amet, consectetur adipiscing elit. Suspendisse
+            malesuada lacus ex, sit amet blandit leo lobortis eget.
+          </p>
+        </AccordionDetails>
+      </Accordion> */}
+      
+        {/* items counter  */}
+        <h5 style={{marginBottom: "2em", alignSelf: "flex-start", fontSize: "0.75rem"}}>
             {noteItemsState?.length === 1 ? 
-            `1 item` : 
-            `${noteItemsState?.length} items`}
+            `1 Item` : 
+            `${noteItemsState?.length} Items - ${setChecksCount} Checked ● ${setUnCheckedCount} Unchecked`}
         </h5>
 
+        {/* list tool bar add items and sort  */}
         <div style={{display: "flex", justifyContent: "space-between", width: "100%"}}>
           <div 
             onClick={() => setOpenAddItemPopup(true)} 
@@ -299,63 +340,17 @@ export default function NoteItemsList({noteEntries, noteId}: {noteEntries: Entry
               <p>Add Item</p>
           </div>
           
-          <ClickAwayListener onClickAway={() => setOpenSortingMenu(false)}>
-            <div style={{position: "relative"}}>
-              <div 
-                onClick={() => setOpenSortingMenu(!openSortingMenu)} 
-                className={styles.sortBtn}
-              >
-                  <TbSortDescending />
-                  <p>Sort</p>
-              </div>
-              <AnimatePresence>
-                {openSortingMenu && 
-                  <MotionWrap 
-                    className={styles.sortingMenu}
-                    initial={{opacity: 0, x: -10}}
-                    animate={{opacity: 1, x: 0}}
-                    exit={{opacity: 0, x: -10}}
-                    transition={{duration: 0.3, type: "spring", stiffness: 100, damping: 20}}
-                  >
-                    <ul className={styles.sortingMenuList}>
-                      <li className={styles.sortingMenuListItem} onClick={sortByNewToOld}>
-                        New to old
-                        <span style={{width: "1em", height: "1em"}}>
-                          {sortMethod === "newToOld" && <AiOutlineCheck />}
-                        </span>
-                      </li>
-                      <li className={styles.sortingMenuListItem} onClick={sortByOldToNew}>
-                        Old to new
-                        <span style={{width: "1em", height: "1em"}}>
-                          {sortMethod === "oldToNew" && <AiOutlineCheck />}
-                        </span>
-                      </li>
-                      <li className={styles.sortingMenuListItem} onClick={sortByPriority}>
-                        By priority
-                        <span style={{width: "1em", height: "1em"}}>
-                          {sortMethod === "byPriority" && <AiOutlineCheck />}
-                        </span>
-                      </li>
-                      <li className={styles.sortingMenuListItem} onClick={sortByChecked}>
-                        By Checked
-                        <span style={{width: "1em", height: "1em"}}>
-                          {sortMethod === "byChecked" && <AiOutlineCheck />}
-                        </span>
-                      </li>
-                      <li className={styles.sortingMenuListItem} onClick={sortByName}>
-                        By name
-                        <span style={{width: "1em", height: "1em"}}>
-                          {sortMethod === "byName" && <AiOutlineCheck />}
-                        </span>
-                      </li>
-                    </ul>
-                  </MotionWrap>
-                }
-              </AnimatePresence>
-            </div>
-          </ClickAwayListener>
+          <SortingMenu
+            sortMethod={sortMethod}
+            sortByNewToOld={sortByNewToOld}
+            sortByOldToNew={sortByOldToNew}
+            sortByPriority={sortByPriority}
+            sortByChecked={sortByChecked}
+            sortByName={sortByName}
+          />
         </div>
 
+        {/* search input */}
         <div style={{display: "flex", width: "100%"}}>
           <input 
             onChange={handleSearchInputChange}         
@@ -365,6 +360,7 @@ export default function NoteItemsList({noteEntries, noteId}: {noteEntries: Entry
           <div style={{position: "absolute", padding: "1.02em"}}><AiOutlineSearch style={{width: "1.2em", height: "1.2em"}} /></div>
         </div>
 
+        {/* floating add item button when scrolling down */}
         <AnimatePresence>
           {!isButtonVisible && 
             <MotionWrap
@@ -381,6 +377,7 @@ export default function NoteItemsList({noteEntries, noteId}: {noteEntries: Entry
           }
         </AnimatePresence>
 
+        {/* list of note items mapping */}
         {
           noteItemsState?.filter(entry => {
             if (searchTerm === "") {
@@ -441,6 +438,7 @@ export default function NoteItemsList({noteEntries, noteId}: {noteEntries: Entry
                       }
                   >
                     <ListItemButton onClick={() => handleToggle(entry?.isChecked, entry?.entryId)} dense>
+                      {/* list item checkbox section  */}
                       <ListItemIcon sx={{minWidth: "2em"}}>
                         {loadingCheckingItem && selectedEntryId === entry.entryId ? 
 
