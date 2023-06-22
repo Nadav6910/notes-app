@@ -32,7 +32,7 @@ const RenameNotePopupPopup = dynamic(() => import('../my-notes-page-components/R
     loading: () => <Backdrop open={true}><CircularProgress className={styles.backDropLoader} /></Backdrop>,
 })
 
-export default function NoteCard({noteName, noteType, createdAt, noteId}: NoteCardProps) {
+export default function NoteCard({noteName, noteType, createdAt, noteId, entriesCount}: NoteCardProps) {
 
     const router = useRouter()
 
@@ -43,13 +43,21 @@ export default function NoteCard({noteName, noteType, createdAt, noteId}: NoteCa
     const [openSuccessRename, setOpenSuccessRename] = useState<boolean>(false)
     const [openError, setOpenError] = useState<boolean>(false)
     const [openErrorRename, setOpenErrorRename] = useState<boolean>(false)
+    const [pageNavLoading, setPageNavLoading] = useState(false)
 
     const moveToNotePage = () => {
+        setPageNavLoading(true)
         router.push(`/my-notes/note/${noteId}`)
     }
     
     return (
         <>
+            {pageNavLoading && 
+                <Backdrop sx={{zIndex: 999}} open={true}>
+                    <CircularProgress className={styles.backDropLoader} />
+                </Backdrop>
+            }
+
             <MotionWrap
                 className={styles.cardWrap}
                 style={{display: "block", maxWidth: "22em"}}
@@ -71,8 +79,21 @@ export default function NoteCard({noteName, noteType, createdAt, noteId}: NoteCa
                             {noteType}
                         </p>
                     </CardContent>
-                    <div style={{display: "flex", alignItems: "center", justifyContent: "space-between"}}>
-                        <p className={styles.createdAt}>{formatDate(createdAt)}</p>
+                    <div 
+                        style={{display: "flex", alignItems: "center", justifyContent: "space-between"}}
+                    >   
+                        <div style={{display: "flex", flexDirection: "column", gap: "0.3em"}}>
+                            <p className={styles.entriesCount}>
+                                {
+                                entriesCount === 0 ?
+                                'No Items' :
+                                entriesCount === 1 ? 
+                                '1 Item' : 
+                                `${entriesCount} Items`
+                                }
+                            </p>
+                            <p className={styles.createdAt}>{formatDate(createdAt)}</p>
+                        </div>
 
                         <CardActions disableSpacing>
                             <Tooltip title="Edit note">

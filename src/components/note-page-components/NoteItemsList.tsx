@@ -126,7 +126,7 @@ export default function NoteItemsList({noteEntries, noteId}: {noteEntries: Entry
     }
 
     getCheckedAndUncheckedItems()
-    
+
   }, [noteItemsState])
   
   // check and uncheck note item
@@ -316,8 +316,7 @@ export default function NoteItemsList({noteEntries, noteId}: {noteEntries: Entry
         </AccordionSummary>
         <AccordionDetails>
           <p>
-            Lorem ipsum dolor sit amet, consectetur adipiscing elit. Suspendisse
-            malesuada lacus ex, sit amet blandit leo lobortis eget.
+            some words
           </p>
         </AccordionDetails>
       </Accordion> */}
@@ -357,7 +356,11 @@ export default function NoteItemsList({noteEntries, noteId}: {noteEntries: Entry
             className={styles.searchInput} 
             placeholder="Search items..."
           />
-          <div style={{position: "absolute", padding: "1.02em"}}><AiOutlineSearch style={{width: "1.2em", height: "1.2em"}} /></div>
+          <div 
+            style={{position: "absolute", padding: "1.02em"}}
+          >
+            <AiOutlineSearch style={{width: "1.2em", height: "1.2em"}} />
+          </div>
         </div>
 
         {/* floating add item button when scrolling down */}

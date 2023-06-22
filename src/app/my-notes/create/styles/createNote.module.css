@@ -94,6 +94,7 @@
 
 .createNoteSubmitBtn {
     border: 1px solid var(--primary-color);
+    color: var(--primary-color);
     border-radius: 5px;
     background-color: transparent;
     padding: 1.2em;

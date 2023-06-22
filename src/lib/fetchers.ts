@@ -10,6 +10,17 @@ export const getNotes = async (userId: string | undefined) => {
             notes: {
                 orderBy: {
                     createdAt: 'desc'
+                },
+                select: {
+                    noteId: true,
+                    noteName: true,
+                    noteType: true,
+                    createdAt: true,
+                    _count: {
+                        select: {
+                            entries: true
+                        }
+                    }
                 }
             }
         }

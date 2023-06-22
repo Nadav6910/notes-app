@@ -42,6 +42,7 @@ type NoteCardProps = {
     noteType: string,
     createdAt: date,
     noteId: string,
+    entriesCount: number
 }
 
 type ConfirmDeleteNotePopupProps = {

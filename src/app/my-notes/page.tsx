@@ -7,7 +7,6 @@ import NoNotesDisplay from "@/components/my-notes-page-components/NoNotesDisplay
 import { redirect } from 'next/navigation'
 import AddNotesBtn from "../../components/my-notes-page-components/AddNotesBtn"
 import CardLoadingSkeleton from "@/components/my-notes-page-components/CardLoadingSkeleton"
-import { NoteCardProps } from "../../../types"
 
 const NoteCard = dynamic(() => import('../../components/my-notes-page-components/NoteCard'), {
     loading: () => <CardLoadingSkeleton />,
@@ -29,7 +28,7 @@ export default async function MyNotes() {
     }
 
     const userNotes = await getNotes(session?.user.id)
-    
+    console.log(userNotes?.notes);
     return (
         <main>
             {userNotes && userNotes?.notes.length < 1 ? 
@@ -47,6 +46,7 @@ export default async function MyNotes() {
                             noteType={note.noteType} 
                             createdAt={note.createdAt}
                             noteId={note.noteId}
+                            entriesCount={note._count.entries}
                         />
                     ))}
                 </div>

@@ -96,14 +96,21 @@
     width: fit-content;
 }
 
+.entriesCount {
+    font-size: 0.7rem;
+    color: var(--primary-color);
+    padding-left: 16px;
+}
+
 .createdAt {
-    font-size: 0.7em;
+    font-size: 0.7rem;
     color: var(--primary-color);
     padding-left: 16px;
 }
 
 .noteType {
     font-size: 0.8em;
+    margin-bottom: 1em;
     color: var(--primary-color);
 }
 
