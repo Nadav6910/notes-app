@@ -60,16 +60,18 @@ export default function NoteCard({noteName, noteType, createdAt, noteId, entries
 
             <MotionWrap
                 className={styles.cardWrap}
-                style={{display: "block", maxWidth: "22em"}}
+                style={{display: "block", maxWidth: "20em"}}
                 whileHover={{y: -5, boxShadow: "0px 0px 10px 0px rgba(0,0,0,0.75)"}}
                 transition={{ type: "spring", stiffness: 200, damping: 20, duration: 0.2 }}
             >
                 <Card className={styles.cardContainer} >
-                    {
-                    noteType === "Items list" ? 
-                    <ListCardDrawing onClick={moveToNotePage} /> : 
-                    <NoteBookCardDrawing onClick={moveToNotePage} />
-                    }
+                    <div className={styles.svgContainer}>
+                        {
+                        noteType === "Items list" ? 
+                        <ListCardDrawing onClick={moveToNotePage} /> : 
+                        <NoteBookCardDrawing onClick={moveToNotePage} />
+                        }
+                    </div>
                     <Divider />
                     <CardContent>
                         <p onClick={moveToNotePage} className={styles.noteName}>

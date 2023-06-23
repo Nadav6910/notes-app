@@ -393,7 +393,17 @@ export default function NoteItemsList({noteEntries, noteId}: {noteEntries: Entry
 
           <p style={{marginTop: "2em"}}>No Results...</p> :
           
-          <List className={styles.noteListContainer} sx={{ width: '100%' }}>
+          <List 
+            className={styles.noteListContainer} 
+            sx={
+              { 
+                width: '100%', 
+                borderRadius: "12px", 
+                boxShadow: "0px 2px 18px 3px rgba(0, 0, 0, 0.2)", 
+                padding: 0
+              }
+            }
+          >
           {noteItemsState?.filter(entry => {
             if (searchTerm === "") {
               return entry

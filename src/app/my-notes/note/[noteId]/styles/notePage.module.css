@@ -105,6 +105,7 @@
 .lastItem {
     border-bottom-left-radius: 12px;
     border-bottom-right-radius: 12px;
+    box-shadow: 0px 4px 5px 0px rgba(0, 0, 0, 0.2);
 }
 
 .priorityColorGreen {
