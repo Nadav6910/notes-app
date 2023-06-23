@@ -97,9 +97,14 @@
     border-color: var(--secondary-color);
 }
 
-.noteListContainer {
-    background-color: var(--note-card-background);
-    border-radius: 0.5em;
+.firstItem {
+    border-top-left-radius: 12px;
+    border-top-right-radius: 12px;
+}
+
+.lastItem {
+    border-bottom-left-radius: 12px;
+    border-bottom-right-radius: 12px;
 }
 
 .priorityColorGreen {
@@ -148,6 +153,10 @@
     .noteListItem:hover:hover, .noteListItemOdd:hover {
         background-color: var(--secondary-color-faded);
     }
+}
+
+.noteListItem {
+    background-color: var(--note-card-background-card-item);
 }
 
 .noteListItemOdd {
@@ -263,6 +272,7 @@
 .searchInput {
     width: 100%;
     border: 1px solid var(--primary-color);
+    background-color: var(--note-card-background-card-item);
     border-radius: 10px;
     padding: 1em;
     padding-left: 2.5em;

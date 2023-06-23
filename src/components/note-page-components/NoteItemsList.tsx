@@ -407,7 +407,7 @@ export default function NoteItemsList({noteEntries, noteId}: {noteEntries: Entry
 
             return (
               <AnimatePresence key={entry.entryId}>
-                <MotionWrap 
+                <MotionWrap
                   initial={{opacity: 0, x: 20}}
                   animate={{opacity: 1, x: 0}}
                   exit={{opacity: 0, x: 20}}
@@ -416,7 +416,17 @@ export default function NoteItemsList({noteEntries, noteId}: {noteEntries: Entry
                 >
                   <ListItem
                     key={entry.entryId}
-                    className={`${index % 2 === 0 ? styles.noteListItem : styles.noteListItemOdd}`}
+                    className={
+                      `${index === 0 ? 
+                        styles.firstItem : 
+                        index === noteItemsState.length - 1 ? 
+                        styles.lastItem : ''
+                      } 
+                      ${index % 2 === 0 ? 
+                        styles.noteListItem : 
+                        styles.noteListItemOdd
+                      }`
+                    }
                     disablePadding
                     secondaryAction={
                         <div style={{display: "flex", gap: "1em"}}>

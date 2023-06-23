@@ -28,7 +28,7 @@ export default async function MyNotes() {
     }
 
     const userNotes = await getNotes(session?.user.id)
-    console.log(userNotes?.notes);
+    
     return (
         <main>
             {userNotes && userNotes?.notes.length < 1 ? 
