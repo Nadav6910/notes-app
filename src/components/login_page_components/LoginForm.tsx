@@ -6,7 +6,7 @@ import { useForm } from 'react-hook-form'
 import { signIn } from "next-auth/react"
 import { useTheme } from 'next-themes'
 import { FcGoogle } from 'react-icons/fc'
-import { GoMarkGithub } from 'react-icons/go'
+import { ImGithub } from 'react-icons/im'
 import { CircularProgress, Snackbar, Alert } from '@mui/material'
 import { useRouter } from 'next/navigation'
 import { AiOutlineUser } from 'react-icons/ai'
@@ -144,7 +144,7 @@ export default function LoginForm() {
                         <FcGoogle style={{width: "1.7em", height: "1.7em"}} />
                     </div>
                     <div onClick={() => signIn('github')} className={styles.googleLoginWrapper}>
-                        <GoMarkGithub style={{width: "1.7em", height: "1.7em", color: "#171515"}} />
+                        <ImGithub style={{width: "1.7em", height: "1.7em", color: "#171515"}} />
                     </div>
                 </section>
             </form>
