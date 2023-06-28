@@ -277,6 +277,7 @@
     border-radius: 10px;
     padding: 1em;
     padding-left: 2.5em;
+    padding-right: 2.5em;
     font-size: 1rem;
     color: var(--primary-color);
     margin-bottom: 1em;
@@ -294,4 +295,19 @@
 
 .expandIcon {
     color: var(--primary-color);
+}
+
+.deleteSearchBtn {
+    color: var(--primary-color) !important;
+    position: absolute;
+    width: 1.2em;
+    height: 1.2em;
+    right: 0;
+    margin-top: 1.02em;
+    margin-right: 1.2em;
+    cursor: pointer;
+}
+
+.deleteSearchBtn:hover {
+    color: var(--secondary-color) !important;
 }

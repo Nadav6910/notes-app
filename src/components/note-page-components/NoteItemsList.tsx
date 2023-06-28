@@ -27,6 +27,7 @@ import { MdModeEditOutline } from 'react-icons/md'
 import NoNoteItemsDrawing from "@/SvgDrawings/NoNoteItemsDrawing"
 import { Entry } from "../../../types"
 import { FaPlus } from 'react-icons/fa'
+import { MdOutlineCancel } from 'react-icons/md'
 // import { BsChevronDown } from 'react-icons/bs'
 import { useScroll, AnimatePresence } from 'framer-motion'
 import MotionWrap from "@/wrappers/MotionWrap"
@@ -350,17 +351,20 @@ export default function NoteItemsList({noteEntries, noteId}: {noteEntries: Entry
         </div>
 
         {/* search input */}
-        <div style={{display: "flex", width: "100%"}}>
+        <div style={{display: "flex", width: "100%", position: "relative"}}>
           <input 
             onChange={handleSearchInputChange}         
             className={styles.searchInput} 
             placeholder="Search items..."
+            value={searchTerm}
           />
           <div 
             style={{position: "absolute", padding: "1.02em"}}
           >
             <AiOutlineSearch style={{width: "1.2em", height: "1.2em"}} />
           </div>
+
+          {searchTerm ? <MdOutlineCancel onClick={() => setSearchTerm("")} className={styles.deleteSearchBtn} /> : null}
         </div>
 
         {/* floating add item button when scrolling down */}
