@@ -85,15 +85,17 @@ export default function NoteCard({noteName, noteType, createdAt, noteId, entries
                         style={{display: "flex", alignItems: "center", justifyContent: "space-between"}}
                     >   
                         <div style={{display: "flex", flexDirection: "column", gap: "0.3em"}}>
-                            <p className={styles.entriesCount}>
-                                {
-                                entriesCount === 0 ?
-                                'No Items' :
-                                entriesCount === 1 ? 
-                                '1 Item' : 
-                                `${entriesCount} Items`
-                                }
-                            </p>
+                            {noteType === "Items list" ? 
+                                <p className={styles.entriesCount}>
+                                    {
+                                    entriesCount === 0 ?
+                                    'No Items' :
+                                    entriesCount === 1 ? 
+                                    '1 Item' : 
+                                    `${entriesCount} Items`
+                                    }
+                                </p> : null
+                            }
                             <p className={styles.createdAt}>{formatDate(createdAt)}</p>
                         </div>
 

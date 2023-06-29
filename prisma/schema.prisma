@@ -27,11 +27,12 @@ model Note {
 }
 
 model Entry {
-  entryId   String   @id @default(auto()) @map("_id") @db.ObjectId
-  noteId    String   @db.ObjectId
+  entryId   String    @id @default(auto()) @map("_id") @db.ObjectId
+  noteId    String    @db.ObjectId
   item      String
   priority  String?
   isChecked Boolean?
-  createdAt DateTime @default(now())
-  note      Note     @relation(fields: [noteId], references: [noteId], onDelete: Cascade)
+  createdAt DateTime  @default(now())
+  lastEdit  DateTime? @updatedAt
+  note      Note      @relation(fields: [noteId], references: [noteId], onDelete: Cascade)
 }

@@ -358,13 +358,15 @@ export default function NoteItemsList({noteEntries, noteId}: {noteEntries: Entry
             placeholder="Search items..."
             value={searchTerm}
           />
-          <div 
-            style={{position: "absolute", padding: "1.02em"}}
-          >
-            <AiOutlineSearch style={{width: "1.2em", height: "1.2em"}} />
+          <div className={styles.searchIconContainer}>
+            <AiOutlineSearch className={`${styles.searchIcon} ${searchTerm && styles.searchIconColor}`} />
           </div>
 
-          {searchTerm ? <MdOutlineCancel onClick={() => setSearchTerm("")} className={styles.deleteSearchBtn} /> : null}
+          {
+            searchTerm ? 
+            <MdOutlineCancel onClick={() => setSearchTerm("")} className={styles.deleteSearchBtn} /> : 
+            null
+          }
         </div>
 
         {/* floating add item button when scrolling down */}

@@ -4,11 +4,17 @@ import { authOptions } from '../../../api/auth/[...nextauth]/route'
 import { redirect } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import ItemsLoadingSkeleton from "@/components/note-page-components/ItemsLoadingSkeleton"
+import NotebookLoadingSkeleton from "@/components/note-page-components/NotebookLoadingSkeleton"
 import { getNoteEntries } from "@/lib/fetchers"
 import GoBackContainer from "@/components/note-page-components/GoBackContainer"
 
 const NoteItemsList = dynamic(() => import('@/components/note-page-components/NoteItemsList'), {
     loading: () => <ItemsLoadingSkeleton />,
+    ssr: false
+})
+
+const NoteBook = dynamic(() => import('@/components/note-page-components/NoteBook'), {
+    loading: () => <NotebookLoadingSkeleton />,
     ssr: false
 })
 
@@ -38,7 +44,13 @@ export default async function NotePage({params}: {params: {noteId: string}}) {
                 {`${noteEntries?.noteName} - ${noteEntries?.noteType}`}
             </h3>
             
-            <NoteItemsList noteEntries={noteEntries?.entries} noteId={noteId} />
+            {
+                noteEntries?.noteType === "Items list" ?
+
+                <NoteItemsList noteEntries={noteEntries?.entries} noteId={noteId} /> :
+
+                <NoteBook noteEntries={noteEntries?.entries} noteId={noteId} />
+            }
         </main>
     )
 }

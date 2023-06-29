@@ -8,7 +8,7 @@ export default function CardLoadingSkeleton() {
     <>
 
       <Skeleton 
-        sx={{marginBottom: "1.5em", width: "4em", backgroundColor: "silver", alignSelf: "flex-start"}} 
+        sx={{marginBottom: "1.5em", width: "13em", backgroundColor: "silver", alignSelf: "flex-start"}} 
         animation='wave' 
         variant="text" 
         height={25} 

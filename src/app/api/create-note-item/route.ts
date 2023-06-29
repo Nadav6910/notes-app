@@ -8,7 +8,7 @@ export async function POST(request: Request) {
 
     try {
 
-        if (selectedPriorityColor === "none") {
+        if (selectedPriorityColor === "none" || selectedPriorityColor === undefined) {
 
             // create note with no priority
             const createdEntry = await prisma.entry.create({
