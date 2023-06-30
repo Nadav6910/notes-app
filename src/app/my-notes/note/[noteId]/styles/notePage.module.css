@@ -340,6 +340,7 @@
 .noteBookTextArea {
     resize: none;
     width: 100%;
+    font-size: 1rem;
     background-color: var(--note-card-background-card-item);
     padding: 1em;
     border-radius: 12px;
@@ -348,4 +349,8 @@
 .noteBookTextArea:focus {
     outline: none;
     border: 1px solid var(--secondary-color);
+}
+
+.floatingSaveBtn svg {
+    color: white !important;
 }

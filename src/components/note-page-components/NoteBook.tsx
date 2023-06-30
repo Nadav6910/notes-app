@@ -1,23 +1,61 @@
 'use client'
 
 import styles from "../../app/my-notes/note/[noteId]/styles/notePage.module.css"
-import { useState } from "react"
+import { useState, useEffect, useRef } from "react"
 import { CircularProgress, Snackbar, Alert } from "@mui/material"
 import { formatDate } from "@/lib/utils"
 import { AiFillSave } from "react-icons/ai"
 import { Entry } from "../../../types"
 import { kanit } from "@/fonts/fonts"
+import { useScroll, AnimatePresence } from 'framer-motion'
+import MotionWrap from "@/wrappers/MotionWrap"
 
 export default function NoteBook({noteEntries, noteId}: {noteEntries: Entry[] | undefined, noteId: string}) {
-
+    
+    const { scrollY } = useScroll()
 
     const [NotebookText, setNotebookText] = useState(noteEntries?.[0]?.item)
     const [loading, setLoading] = useState<boolean>(false)
+    const [isButtonVisible, setIsButtonVisible] = useState<boolean>(true)
     const [openSuccess, setOpenSuccess] = useState<boolean>(false)
     const [openSaveNoteError, setOpenSaveNoteError] = useState<boolean>(false)
     const [noChangeMadeError, setNoChangeMadeError] = useState<boolean>(false)
+
+    const saveNoteButtonRef = useRef<HTMLDivElement>(null)
+
+    // Check if the save note button is in view
+    useEffect(() => {
+
+        const handleScroll = () => {
+
+            const saveNoteButton = saveNoteButtonRef.current
+
+            if (saveNoteButton) {
+
+                const { top, bottom } = saveNoteButton.getBoundingClientRect()
+                const isElementVisible = top < window.innerHeight && bottom >= 0
+                
+                if (!isElementVisible && isButtonVisible) {
+                // Element is scrolled out of view
+                setIsButtonVisible(false)
+                }
+
+                else if (isElementVisible && !isButtonVisible) {
+                // Element is in view
+                setIsButtonVisible(true)
+                }
+            }
+        }
+
+        scrollY.on("change", handleScroll)
+
+        return () => {
+            scrollY.clearListeners()
+        }
+
+    }, [scrollY, isButtonVisible])
     
-    const handleAddItem = async () => {
+    const handleSaveNotebook = async () => {
 
         setLoading(true)
 
@@ -25,6 +63,10 @@ export default function NoteBook({noteEntries, noteId}: {noteEntries: Entry[] | 
             setLoading(false)
             setNoChangeMadeError(true)
             return
+        }
+
+        if (noteEntries && noteEntries?.length > 0) {
+            noteEntries[0].item = NotebookText!
         }
         
         try {
@@ -65,8 +107,9 @@ export default function NoteBook({noteEntries, noteId}: {noteEntries: Entry[] | 
             }
 
             <div 
-                onClick={handleAddItem} 
+                onClick={handleSaveNotebook} 
                 className={styles.addItemToNote}
+                ref={saveNoteButtonRef}
             >
                 {
                     loading ? 
@@ -80,6 +123,30 @@ export default function NoteBook({noteEntries, noteId}: {noteEntries: Entry[] | 
                 }
               <p>Save Notebook</p>
             </div>
+
+            <AnimatePresence>
+                {!isButtonVisible && 
+                    <MotionWrap
+                    className={styles.addItemToNotePopupSticky}
+                    onClick={handleSaveNotebook}
+                    initial={{scale: 0.5, y: 100}}
+                    animate={{scale: 1, y: 0}}
+                    exit={{scale: 0.5, y: 100}}
+                    transition={{duration: 0.5, type: "spring", bounce: 0.25}}
+                    >
+                        {
+                            loading ? 
+
+                            <CircularProgress 
+                                sx={{width: "1em !important", height: "1em !important", color: "white !important"}} 
+                                className={styles.floatingSaveBtn}
+                            /> : 
+
+                            <AiFillSave style={{height: "1.2em", width: "1.2em"}} />
+                        }
+                    </MotionWrap>
+                }
+            </AnimatePresence>
 
             <textarea 
                 className={`${kanit.className} ${styles.noteBookTextArea}`} 
