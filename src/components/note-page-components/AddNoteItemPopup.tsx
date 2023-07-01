@@ -122,7 +122,7 @@ export default function AddNoteItemPopup(
                             { 
                                 required: {value: true, message: "Item name must be provided!"},
                                 minLength: {value: 2, message: "Item name must be at least 2 characters"},
-                                maxLength: {value: 20, message: "Item name must be shorter then 20 characters"} 
+                                maxLength: {value: 200, message: "Item name must be shorter then 200 characters"} 
                             })} 
                             type='text'
                             placeholder="Item name.."

@@ -95,7 +95,7 @@ export default function NoteBook({noteEntries, noteId}: {noteEntries: Entry[] | 
           setOpenSaveNoteError(true)
         }
     
-      }
+    }
 
     return (
         <>
