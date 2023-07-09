@@ -32,6 +32,7 @@ model Entry {
   item      String
   priority  String?
   isChecked Boolean?
+  category  String?
   createdAt DateTime  @default(now())
   lastEdit  DateTime? @updatedAt
   note      Note      @relation(fields: [noteId], references: [noteId], onDelete: Cascade)

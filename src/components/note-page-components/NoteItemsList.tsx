@@ -55,6 +55,7 @@ export default function NoteItemsList({noteEntries, noteId}: {noteEntries: Entry
   const [selectedEntryId, setSelectedEntryId] = useState<string>("")
   const [selectedEntryName, setSelectedEntryName] = useState<string>("")
   const [selectedEntryPriority, setSelectedEntryPriority] = useState<string>("")
+  const [selectedEntryCategory, setSelectedEntryCategory] = useState("")
   const [openAddItemPopup, setOpenAddItemPopup] = useState<boolean>(false)
   const [openAddItemPopupEmpty, setOpenAddItemPopupEmpty] = useState<boolean>(false)
   const [openDeleteNoteItemPopup, setOpenDeleteNoteItemPopup] = useState<boolean>(false)
@@ -64,7 +65,7 @@ export default function NoteItemsList({noteEntries, noteId}: {noteEntries: Entry
   const [openDeleteItemError, setOpenDeleteItemError] = useState<boolean>(false)
   const [openRenameItemError, setOpenRenameItemError] = useState<boolean>(false)
   const [openSetPriorityError, setOpenSetPriorityError] = useState<boolean>(false)
-  const [loadingCheckingItem, setLoadingCheckingItem] = useState<boolean>(false)
+  const [openSetCategoryError, setOpenSetCategoryError] = useState<boolean>(false)
   const [isButtonVisible, setIsButtonVisible] = useState<boolean>(true)
   const [searchTerm, setSearchTerm] = useState<string>("")
   const [sortMethod, setSortMethod] = useState<string>("newToOld")
@@ -132,63 +133,66 @@ export default function NoteItemsList({noteEntries, noteId}: {noteEntries: Entry
   
   // check and uncheck note item
   const handleToggle = async (value: boolean | null | undefined, entryId: string) => {
-
-    setSelectedEntryId(entryId)
-    setLoadingCheckingItem(true)
+    
+    setNoteItemsState((prevEntries) =>
+      prevEntries?.map((entry) =>
+        entry.entryId === entryId ? { ...entry, isChecked: !value } : entry
+      )
+    )
+    
+    if (sortMethod === "byChecked") {
+      setNoteItemsState((prevEntries: Entry[] | undefined) => {
+        return prevEntries?.sort((a: Entry, b: Entry) => {
+          if (a.isChecked && !b.isChecked) {
+            return 1
+          }
+          else if (!a.isChecked && b.isChecked) {
+            return -1
+          }
+          else {
+            return 0
+          }
+        })
+      })
+    }
 
     try {
 
-      const res = await fetch('/api/change-note-item-is-checked', {
+      await fetch('/api/change-note-item-is-checked', {
         method: 'POST',
         body: JSON.stringify({
           entryId,
           value: !value
         })
       })
-  
-      const response = await res.json()
-  
-      if (response.massage === "success") { 
-  
-        setLoadingCheckingItem(false)
-        setSelectedEntryId("")
-  
-        setNoteItemsState((prevEntries) =>
-          prevEntries?.map((entry) =>
-            entry.entryId === entryId ? { ...entry, isChecked: !value } : entry
-          )
-        )
-        
-        if (sortMethod === "byChecked") {
-          setNoteItemsState((prevEntries: Entry[] | undefined) => {
-            return prevEntries?.sort((a: Entry, b: Entry) => {
-              if (a.isChecked && !b.isChecked) {
-                return 1
-              }
-              else if (!a.isChecked && b.isChecked) {
-                return -1
-              }
-              else {
-                return 0
-              }
-            })
-          })
-        }
-      } 
-  
-      else {
-        setLoadingCheckingItem(false)
-        setSelectedEntryId("")
-        setOpenError(true)
-      }
     } 
     
     catch (error) {
-      setLoadingCheckingItem(false)
-      setSelectedEntryId("")
+
+      setNoteItemsState((prevEntries) =>
+      prevEntries?.map((entry) =>
+        entry.entryId === entryId ? { ...entry, isChecked: !value } : entry
+        )
+      )
+    
+      if (sortMethod === "byChecked") {
+        setNoteItemsState((prevEntries: Entry[] | undefined) => {
+          return prevEntries?.sort((a: Entry, b: Entry) => {
+            if (a.isChecked && !b.isChecked) {
+              return 1
+            }
+            else if (!a.isChecked && b.isChecked) {
+              return -1
+            }
+            else {
+              return 0
+            }
+          })
+        })
+      }
+
       setOpenError(true)
     }
-
   }
 
   // search note items
@@ -204,12 +208,18 @@ export default function NoteItemsList({noteEntries, noteId}: {noteEntries: Entry
   }
 
   const openConfirmRenameItem = (
-    entryId: string, currentEntryName: string, currentEntryPriority: string | undefined | null
+    entryId: string, 
+    currentEntryName: string, 
+    currentEntryPriority: string | undefined | null, 
+    currentEntryCategory: string | undefined | null
   ) => {
     setSelectedEntryId(entryId)
     setSelectedEntryName(currentEntryName)
     if (currentEntryPriority) {
       setSelectedEntryPriority(currentEntryPriority)
+    }
+    if (currentEntryCategory) {
+      setSelectedEntryCategory(currentEntryCategory)
     }
     setOpenRenameNoteItemPopup(true)
   }
@@ -447,7 +457,7 @@ export default function NoteItemsList({noteEntries, noteId}: {noteEntries: Entry
                     secondaryAction={
                         <div style={{display: "flex", gap: "1em"}}>
                         <IconButton 
-                          onClick={() => openConfirmRenameItem(entry.entryId, entry.item, entry?.priority)} 
+                          onClick={() => openConfirmRenameItem(entry.entryId, entry.item, entry?.priority, entry?.category)} 
                           className={styles.iconButtonRename} 
                           edge="end" 
                           aria-label="comments"
@@ -469,12 +479,6 @@ export default function NoteItemsList({noteEntries, noteId}: {noteEntries: Entry
                     <ListItemButton onClick={() => handleToggle(entry?.isChecked, entry?.entryId)} dense>
                       {/* list item checkbox section  */}
                       <ListItemIcon sx={{minWidth: "2em"}}>
-                        {loadingCheckingItem && selectedEntryId === entry.entryId ? 
-
-                        <div style={{paddingTop: "0.5em", paddingBottom: "0.5em"}}>
-                          <CircularProgress size={21} className={styles.loadingCheckingItem} />
-                        </div> : 
-
                         <Checkbox
                           className={styles.noteListCheckbox}
                           edge="start"
@@ -482,7 +486,7 @@ export default function NoteItemsList({noteEntries, noteId}: {noteEntries: Entry
                           tabIndex={-1}
                           disableRipple
                           inputProps={{ 'aria-labelledby': labelId }}
-                        />}
+                        />
                       </ListItemIcon>
                       <div>
                         <ListItemText 
@@ -581,7 +585,6 @@ export default function NoteItemsList({noteEntries, noteId}: {noteEntries: Entry
           })}
           onError={() => {
             setOpenDeleteItemError(true)
-            setSelectedEntryId("")
           }}
         />
       }
@@ -594,10 +597,12 @@ export default function NoteItemsList({noteEntries, noteId}: {noteEntries: Entry
             setSelectedEntryId("")
             setSelectedEntryName("")
             setSelectedEntryPriority("")
+            setSelectedEntryCategory("")
           }}
           entryId={selectedEntryId}
           currentName={selectedEntryName}
           currentPriority={selectedEntryPriority}
+          currentCategory={selectedEntryCategory}
           onRename={(isRenamed: boolean, newName: string) => {
             if (isRenamed) {
               setNoteItemsState((prevEntries) =>
@@ -637,17 +642,23 @@ export default function NoteItemsList({noteEntries, noteId}: {noteEntries: Entry
               }
             }
           }}
+          onCategoryChange={(isCategoryChanged: boolean, newCategory: string) => {
+            if (isCategoryChanged) {
+              setNoteItemsState((prevEntries) =>
+                prevEntries?.map((entry) =>
+                  entry.entryId === selectedEntryId ? { ...entry, category: newCategory } : entry
+                )
+              )
+            }
+          }}
           onError={() => {
             setOpenRenameItemError(true)
-            setSelectedEntryId("")
-            setSelectedEntryName("")
-            setSelectedEntryPriority("")
           }}
           onSetPriorityError={() => {
             setOpenSetPriorityError(true)
-            setSelectedEntryId("")
-            setSelectedEntryName("")
-            setSelectedEntryPriority("")
+          }}
+          onSetCategoryError={() => {
+            setOpenSetCategoryError(true)
           }}
         />
       }
@@ -713,6 +724,19 @@ export default function NoteItemsList({noteEntries, noteId}: {noteEntries: Entry
         >
           <Alert onClose={() => setOpenSetPriorityError(false)} severity="error" sx={{ width: '100%' }}>
               Error setting note item priority!
+          </Alert>
+        </Snackbar>
+      }
+
+      {openSetCategoryError &&
+        <Snackbar
+          open={openSetCategoryError}
+          autoHideDuration={2500}
+          onClose={() => setOpenSetCategoryError(false)}
+          anchorOrigin={{horizontal: "center", vertical: "bottom"}}
+        >
+          <Alert onClose={() => setOpenSetCategoryError(false)} severity="error" sx={{ width: '100%' }}>
+              Error setting note item category!
           </Alert>
         </Snackbar>
       }

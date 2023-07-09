@@ -10,7 +10,12 @@ import {
   CircularProgress,
   FormControlLabel,
   Radio,
-  RadioGroup
+  RadioGroup,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Divider
 } from '@mui/material';
 import { useForm } from 'react-hook-form'
 import { TransitionProps } from '@mui/material/transitions';
@@ -19,6 +24,7 @@ import { RenameNoteFormValues, RenameNoteItemPopupProps } from '../../../types';
 import MotionWrap from '@/wrappers/MotionWrap';
 import { IoMdArrowDropdown } from 'react-icons/io'
 import { AnimatePresence, useAnimationControls } from 'framer-motion';
+import { generalCategories, foodCategories } from '@/text/noteCategories';
 
 const Transition = forwardRef(function Transition(
   props: TransitionProps & {
@@ -35,19 +41,24 @@ export default function RenameNoteItemPopup(
       setIsOpen, 
       entryId, 
       currentName, 
-      currentPriority, 
+      currentPriority,
+      currentCategory, 
       onRename, 
       onPriorityChange, 
+      onCategoryChange,
       onError,
-      onSetPriorityError
+      onSetPriorityError,
+      onSetCategoryError
     }: RenameNoteItemPopupProps
 ) {
-
+  
   const [loading, setLoading] = useState<boolean>(false)
   const [loadingSetPriority, setLoadingSetPriority] = useState<boolean>(false)
+  const [loadingSetCategory, setLoadingSetCategory] = useState<boolean>(false)
   const [openRenameNoteItemOptionsTab, setOpenRenameNoteItemOptionsTab] = useState<boolean>(false)
   const [selectedPriorityColor, setSelectedPriorityColor] = useState<string | undefined | null>(currentPriority ? currentPriority : "none")
-
+  const [selectedCategory, setSelectedCategory] = useState<string| undefined | null>(currentCategory ? currentCategory : "none")
+  
   const controls = useAnimationControls()
 
   useEffect(() => {
@@ -136,6 +147,37 @@ export default function RenameNoteItemPopup(
         setLoadingSetPriority(false)
         onSetPriorityError(true)
       }
+  }
+
+  const handleChangeCategory = async () => {
+
+    setLoadingSetCategory(true)
+
+    try {
+
+      const response = await fetch(`/api/change-note-item-category`, {
+        method: "POST",
+        body: JSON.stringify({entryId, selectedCategory}),
+        cache: "no-cache",
+      })
+      const data = await response.json()
+  
+      if (data.massage === "changed note item category") {
+          setLoadingSetCategory(false)
+          onCategoryChange(true, data.newCategory)
+          setIsOpen(false)
+      }
+  
+      else {
+        setLoadingSetCategory(false)
+        onSetCategoryError(true)
+      }
+    } 
+    
+    catch (error) {
+      setLoadingSetCategory(false)
+      onSetCategoryError(true)
+    }
   }
  
   return (
@@ -264,6 +306,78 @@ export default function RenameNoteItemPopup(
                 >
                   {loadingSetPriority ? <CircularProgress color='inherit' size={22} /> : "Set Priority"}
                 </Button>
+
+                <div className={styles.addNoteItemOptionsEditCategoryContainer}>
+                  <p className={styles.addNoteItemOptionsAddCategoryTitle}>
+                    Add category
+                  </p>
+                  <FormControl fullWidth>
+                    <InputLabel className={styles.selectLabel} id="select-item-category">Category</InputLabel>
+                    <Select
+                      labelId="select-item-category-label"
+                      id="select-item-category"
+                      MenuProps={{classes: {paper: styles.selectMenuPaper}}}
+                      inputProps={{classes: {icon: styles.selectIcon,}}}
+                      value={selectedCategory}
+                      label="Category"
+                      onChange={(e) => setSelectedCategory(e.target.value)}
+                    >
+                      <MenuItem 
+                        className={styles.selectMenuItem}
+                        value={"none"}
+                      >
+                        None
+                      </MenuItem>
+                      <Divider sx={{boxShadow: "0px 0px 15px 0px #39393933"}} />
+                      <MenuItem
+                        disabled 
+                        className={styles.selectMenuItem} 
+                        value={"general"}
+                      >
+                        Groceries
+                      </MenuItem>
+                      <Divider sx={{boxShadow: "0px 0px 15px 0px #39393933"}} />
+                      {foodCategories.map((category, index) => (
+                        <MenuItem
+                          key={index} 
+                          className={styles.selectMenuItem} 
+                          value={category}
+                        >
+                          {category}
+                        </MenuItem>
+                      ))}
+                      <Divider sx={{boxShadow: "0px 0px 15px 0px #39393933"}} />
+                      <MenuItem 
+                        disabled 
+                        className={styles.selectMenuItem} 
+                        value={"general"}
+                      >
+                        General
+                      </MenuItem>
+                      <Divider sx={{boxShadow: "0px 0px 15px 0px #39393933"}} />
+                      {generalCategories.map((category, index) => (
+                        <MenuItem 
+                          key={index} 
+                          className={styles.selectMenuItem} 
+                          value={category}
+                        >
+                          {category}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                  <Button 
+                    className={styles.renamePopupBtn} 
+                    onClick={currentCategory === selectedCategory ?
+                      handleClose : 
+                      !currentCategory && selectedCategory === "none" ? 
+                      handleClose :
+                      handleChangeCategory
+                    }
+                  >
+                    {loadingSetCategory ? <CircularProgress color='inherit' size={22} /> : "Set Category"}
+                </Button>
+                </div>
               </div>
             </MotionWrap>
           }

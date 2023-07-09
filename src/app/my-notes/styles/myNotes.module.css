@@ -212,8 +212,13 @@
     background-color: var(--note-rename-hover-color) !important;
 }
 
-.ConfirmDeletePopupBtn, .renamePopupBtn {
+.ConfirmDeletePopupBtn {
     color: var(--primary-color) !important
+}
+
+.renamePopupBtn {
+    color: var(--primary-color) !important;
+    margin-bottom: 0.5em;
 }
 
 @media screen and (max-width: 450px) {
@@ -241,6 +246,26 @@
     padding: 0.8em 1em;
 }
 
+.addNoteItemOptionsAddCategoryContainer {
+    display: flex;
+    flex-direction: column;
+    padding: 0.8em 1em;
+    gap: 0.8em;
+}
+
+.addNoteItemOptionsEditCategoryContainer {
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    gap: 0.8em;
+}
+
+.addNoteItemOptionsAddCategoryTitle {
+    color: var(--primary-color);
+    font-size: 0.9rem;
+    margin-bottom: 0.5em;
+}
+
 .addNoteItemOptionsSelectPriorityTitle {
     color: var(--primary-color);
     font-size: 0.9rem;
@@ -252,6 +277,31 @@
     flex-direction: column;
     align-items: flex-start;
     gap: 0.2em;
+}
+
+.selectLabel {
+    color: var(--secondary-color) !important;
+}
+
+.selectLabel ~ div {
+    color: var(--primary-color) !important;
+}
+
+.selectLabel ~ div fieldset {
+    border-color: var(--secondary-color) !important;
+}
+
+.selectMenuPaper {
+    color: var(--primary-color) !important;
+    background-color: var(--note-card-background) !important;
+}
+
+.selectIcon {
+    color: var(--primary-color) !important;
+}
+
+.selectMenuItem:focus {
+    background-color: var( --secondary-color-faded) !important;
 }
 
 .noneCheckboxLabel, .greenCheckboxLabel, .yellowCheckboxLabel, .redCheckboxLabel {

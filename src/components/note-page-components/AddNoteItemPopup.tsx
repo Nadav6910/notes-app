@@ -10,7 +10,12 @@ import {
     CircularProgress,
     FormControlLabel,
     Radio,
-    RadioGroup
+    RadioGroup,
+    FormControl,
+    InputLabel,
+    Select,
+    MenuItem,
+    Divider
 } from '@mui/material';
 import { useForm } from 'react-hook-form'
 import { TransitionProps } from '@mui/material/transitions';
@@ -19,6 +24,7 @@ import { IoMdArrowDropdown } from 'react-icons/io'
 import { AddNoteItemFormValues, AddNoteItemPopupProps } from '../../../types';
 import MotionWrap from '@/wrappers/MotionWrap';
 import { AnimatePresence, useAnimationControls } from 'framer-motion';
+import { generalCategories, foodCategories } from '@/text/noteCategories';
 
 const Transition = forwardRef(function Transition(
   props: TransitionProps & {
@@ -36,6 +42,7 @@ export default function AddNoteItemPopup(
   const [loading, setLoading] = useState<boolean>(false)
   const [openAddNoteItemOptionsTab, setOpenAddNoteItemOptionsTab] = useState<boolean>(false)
   const [selectedPriorityColor, setSelectedPriorityColor] = useState<string>("none")
+  const [selectedCategory, setSelectedCategory] = useState<string>("none")
 
   const controls = useAnimationControls()
   
@@ -72,7 +79,7 @@ export default function AddNoteItemPopup(
 
       const response = await fetch('/api/create-note-item', {
         method: "POST",
-        body: JSON.stringify({noteId, itemName, selectedPriorityColor}),
+        body: JSON.stringify({noteId, itemName, selectedPriorityColor, selectedCategory}),
         cache: "no-cache",
       })
 
@@ -211,6 +218,66 @@ export default function AddNoteItemPopup(
                     labelPlacement="end"
                   />
                 </RadioGroup>
+              </div>
+              <div className={styles.addNoteItemOptionsAddCategoryContainer}>
+                <p className={styles.addNoteItemOptionsAddCategoryTitle}>
+                  Add category
+                </p>
+                <FormControl fullWidth>
+                  <InputLabel className={styles.selectLabel} id="select-item-category">Category</InputLabel>
+                  <Select
+                    labelId="select-item-category-label"
+                    id="select-item-category"
+                    MenuProps={{classes: {paper: styles.selectMenuPaper}}}
+                    inputProps={{classes: {icon: styles.selectIcon,}}}
+                    value={selectedCategory}
+                    label="Category"
+                    onChange={(e) => setSelectedCategory(e.target.value)}
+                  >
+                    <MenuItem 
+                      className={styles.selectMenuItem}
+                      value={"none"}
+                    >
+                      None
+                    </MenuItem>
+                    <Divider sx={{boxShadow: "0px 0px 15px 0px #39393933"}} />
+                    <MenuItem
+                      disabled 
+                      className={styles.selectMenuItem} 
+                      value={"general"}
+                    >
+                      Groceries
+                    </MenuItem>
+                    <Divider sx={{boxShadow: "0px 0px 15px 0px #39393933"}} />
+                    {foodCategories.map((category, index) => (
+                      <MenuItem
+                        key={index} 
+                        className={styles.selectMenuItem} 
+                        value={category}
+                      >
+                        {category}
+                      </MenuItem>
+                    ))}
+                    <Divider sx={{boxShadow: "0px 0px 15px 0px #39393933"}} />
+                    <MenuItem 
+                      disabled 
+                      className={styles.selectMenuItem} 
+                      value={"general"}
+                    >
+                      General
+                    </MenuItem>
+                    <Divider sx={{boxShadow: "0px 0px 15px 0px #39393933"}} />
+                    {generalCategories.map((category, index) => (
+                      <MenuItem 
+                        key={index} 
+                        className={styles.selectMenuItem} 
+                        value={category}
+                      >
+                        {category}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
               </div>
             </MotionWrap>
           }

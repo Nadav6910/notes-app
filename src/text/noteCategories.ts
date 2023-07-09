@@ -1,0 +1,40 @@
+export const generalCategories: string[] = [
+    "Personal",
+    "Work",
+    "Errands",
+    "Home",
+    "Health",
+    "Finances",
+    "Social",
+    "Education",
+    "Fitness",
+    "Hobbies",
+    "Travel",
+    "Projects",
+    "Family",
+    "Chores",
+    "Appointments",
+    "Goals",
+    "Self-care",
+    "Entertainment",
+    "Volunteer",
+    "Miscellaneous"
+]
+    
+export const foodCategories: string[] = [
+    "Fruits",
+    "Vegetables",
+    "Meats",
+    "Dairy",
+    "Bakery",
+    "Frozen Foods",
+    "Beverages",
+    "Canned Goods",
+    "Condiments",
+    "Grains",
+    "Snacks",
+    "Spices",
+    "Health Foods",
+    "Baby Food",
+    "Pet Supplies"
+]

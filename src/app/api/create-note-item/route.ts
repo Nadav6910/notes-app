@@ -4,38 +4,21 @@ import { prisma } from '@/prisma'
 export async function POST(request: Request) {
 
     // get body data
-    const { noteId, itemName, selectedPriorityColor } = await request.json()
+    const { noteId, itemName, selectedPriorityColor, selectedCategory } = await request.json()
 
     try {
 
-        if (selectedPriorityColor === "none" || selectedPriorityColor === undefined) {
+        const createdEntry = await prisma.entry.create({
+            data: {
+                noteId: noteId,
+                item: itemName,
+                isChecked: false,
+                priority: selectedPriorityColor,
+                category: selectedCategory
+            }
+        })
 
-            // create note with no priority
-            const createdEntry = await prisma.entry.create({
-                data: {
-                    noteId: noteId,
-                    item: itemName,
-                    isChecked: false
-                }
-            })
-
-            return NextResponse.json({massage: "success", createdEntry: createdEntry})
-        }
-
-        else {
-                
-            // create note with priority
-            const createdEntry = await prisma.entry.create({
-                data: {
-                    noteId: noteId,
-                    item: itemName,
-                    isChecked: false,
-                    priority: selectedPriorityColor
-                }
-            })
-
-            return NextResponse.json({massage: "success", createdEntry: createdEntry})
-        }
+        return NextResponse.json({massage: "success", createdEntry: createdEntry})
     } 
     
     catch (error: any) {

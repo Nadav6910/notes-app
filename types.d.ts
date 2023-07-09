@@ -76,10 +76,13 @@ type RenameNoteItemPopupProps = {
     entryId: string,
     currentName: string,
     currentPriority: string | null | undefined,
+    currentCategory: string | null | undefined,
     onRename: function,
-    onPriorityChange: function, 
+    onPriorityChange: function,
+    onCategoryChange: function, 
     onError: function,
-    onSetPriorityError: function
+    onSetPriorityError: function,
+    onSetCategoryError: function,
 }
 
 type Entry = {
@@ -90,6 +93,7 @@ type Entry = {
     lastEdit?: date;
     isChecked?: boolean | null;
     priority?: string | null;
+    category?: string | undefined | null;
 }
 
 type AddNoteItemPopupProps = {
