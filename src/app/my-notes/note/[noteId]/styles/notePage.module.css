@@ -289,14 +289,14 @@
 }
 
 .accordionContainer {
-    background-color: var(--note-card-background-card-item);
-    color: var(--primary-color);
+    background-color: var(--note-card-background-card-item) !important;
+    color: var(--primary-color) !important;
     width: 100%;
     border-radius: 10px;
 }
 
 .expandIcon {
-    color: var(--primary-color);
+    color: var(--primary-color) !important;
 }
 
 .searchIconContainer {
