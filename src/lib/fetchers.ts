@@ -36,6 +36,7 @@ export const getNoteEntries = async (noteId: string | undefined) => {
         select: {
             noteName: true,
             noteType: true,
+            noteView: true,
             entries: {
                 orderBy: {
                     createdAt: 'desc'

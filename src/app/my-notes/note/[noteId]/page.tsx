@@ -47,7 +47,11 @@ export default async function NotePage({params}: {params: {noteId: string}}) {
             {
                 noteEntries?.noteType === "Items list" ?
 
-                <NoteItemsList noteEntries={noteEntries?.entries} noteId={noteId} /> :
+                <NoteItemsList 
+                    noteEntries={noteEntries?.entries} 
+                    noteView={noteEntries?.noteView} 
+                    noteId={noteId} 
+                /> :
 
                 <NoteBook noteEntries={noteEntries?.entries} noteId={noteId} />
             }

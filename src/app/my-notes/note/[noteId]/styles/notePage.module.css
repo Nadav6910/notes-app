@@ -289,8 +289,10 @@
 }
 
 .accordionContainer {
-    background-color: var(--note-card-background);
+    background-color: var(--note-card-background-card-item);
     color: var(--primary-color);
+    width: 100%;
+    border-radius: 10px;
 }
 
 .expandIcon {
@@ -353,4 +355,60 @@
 
 .floatingSaveBtn svg {
     color: white !important;
+}
+
+.switchNoteViewBtnContainer {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid;
+    border-radius: 10px;
+    /* padding: 0.9em; */
+    gap: 0.8em;
+    margin-bottom: 1em;
+    cursor: pointer;
+}
+
+.switchNoteViewBtnContainer:hover {
+    border-color: var(--secondary-color);
+}
+
+.selectedAreaRegular {
+    position: absolute;
+    background-color: var(--secondary-color-faded);
+    border-top-left-radius: 9px;
+    border-bottom-left-radius: 9px;
+    width: 50%;
+    height: 100%;
+    left: 0;
+    right: 0;
+}
+
+.selectedAreaCategories {
+    position: absolute;
+    background-color: var(--secondary-color-faded);
+    border-top-right-radius: 10px;
+    border-bottom-right-radius: 10px;
+    width: 50%;
+    height: 100%;
+    right: 0;
+}
+
+.regularViewBtnContainer {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2em;
+    height: 2.8em;
+    padding-left: 0.3em;
+}
+
+.categoriesViewBtnContainer {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2em;
+    height: 2.8em;
+    padding-right: 0.3em;
 }

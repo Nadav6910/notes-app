@@ -27,8 +27,8 @@ export default function NoteTypeSelector({createdNoteType}: NoteTypeSelectorProp
     <div className={styles.noteTypeSelectorContainer}>
         <MotionWrap
             className={styles.typeSelectionArea}
-            animate={controls}             
-            transition={{ type: "spring", stiffness: 200, damping: 20, duration: 0.6, bounce: 0.2}}
+            animate={controls}       
+            transition={{ type: "spring", stiffness: 200, damping: 20, duration: 0.5, bounce: 0.2}}
         />
         <div 
             onClick={toggleButton} 

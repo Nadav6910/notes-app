@@ -4,21 +4,19 @@ import { prisma } from '@/prisma'
 export async function POST(request: Request) {
 
     // get body data
-    const { userId, noteType, noteName } = await request.json()
+    const { view, noteId } = await request.json()
 
     try {
         
         // create note
-        await prisma.note.create({
+        await prisma.note.update({
+            where: {
+                noteId: noteId
+            },
             data: {
-                userId: userId,
-                noteType: noteType,
-                noteName: noteName,
-                noteView: "regular"
+                noteView: view
             }
         })
-
-        return NextResponse.json({massage: "created note"})
     } 
     
     catch (error: any) {

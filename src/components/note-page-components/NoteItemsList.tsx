@@ -15,9 +15,9 @@ import {
   Alert,
   Backdrop,
   CircularProgress,
-  // Accordion,
-  // AccordionSummary,
-  // AccordionDetails
+  Accordion,
+  AccordionSummary,
+  AccordionDetails
 } from '@mui/material'
 import { useRouter } from "next/navigation"
 import { formatDate } from "@/lib/utils"
@@ -28,10 +28,11 @@ import NoNoteItemsDrawing from "@/SvgDrawings/NoNoteItemsDrawing"
 import { Entry } from "../../../types"
 import { FaPlus } from 'react-icons/fa'
 import { MdOutlineCancel } from 'react-icons/md'
-// import { BsChevronDown } from 'react-icons/bs'
+import { BsChevronDown } from 'react-icons/bs'
 import { useScroll, AnimatePresence } from 'framer-motion'
 import MotionWrap from "@/wrappers/MotionWrap"
 import SortingMenu from "./SortingMenu"
+import SwitchNoteViewBtn from "./SwitchNoteViewBtn"
 
 const AddNoteItemPopup = dynamic(() => import('./AddNoteItemPopup'), {
   loading: () => <Backdrop open={true}><CircularProgress className={styles.backDropLoader} /></Backdrop>,
@@ -45,7 +46,12 @@ const RenameNoteItemPopup = dynamic(() => import('./RenameNoteItemPopup'), {
   loading: () => <Backdrop open={true}><CircularProgress className={styles.backDropLoader} /></Backdrop>,
 })
 
-export default function NoteItemsList({noteEntries, noteId}: {noteEntries: Entry[] | undefined, noteId: string}) {
+interface GroupedData {
+  category: string
+  data: Entry[]
+}
+
+export default function NoteItemsList({noteEntries, noteView, noteId}: {noteEntries: Entry[] | undefined, noteView: string, noteId: string}) {
 
   const router = useRouter()
 
@@ -69,8 +75,9 @@ export default function NoteItemsList({noteEntries, noteId}: {noteEntries: Entry
   const [isButtonVisible, setIsButtonVisible] = useState<boolean>(true)
   const [searchTerm, setSearchTerm] = useState<string>("")
   const [sortMethod, setSortMethod] = useState<string>("newToOld")
-  const [setChecksCount, setSetChecksCount] = useState(noteEntries?.filter(entry => entry.isChecked).length)
-  const [setUnCheckedCount, setSetUnCheckedCount] = useState(noteEntries?.filter(entry => !entry.isChecked).length)
+  const [noteViewSelect, setNoteViewSelect] = useState<string>(noteView)
+  const [ChecksCount, SetChecksCount] = useState(noteEntries?.filter(entry => entry.isChecked).length)
+  const [UnCheckedCount, SetUnCheckedCount] = useState(noteEntries?.filter(entry => !entry.isChecked).length)
 
   const addItemButtonRef = useRef<HTMLDivElement>(null)
   
@@ -123,8 +130,8 @@ export default function NoteItemsList({noteEntries, noteId}: {noteEntries: Entry
         }
       })
   
-      setSetChecksCount(checkedItemsCount)
-      setSetUnCheckedCount(uncheckedItemsCount)
+      SetChecksCount(checkedItemsCount)
+      SetUnCheckedCount(uncheckedItemsCount)
     }
 
     getCheckedAndUncheckedItems()
@@ -193,6 +200,26 @@ export default function NoteItemsList({noteEntries, noteId}: {noteEntries: Entry
 
       setOpenError(true)
     }
+  }
+
+  const handleChangeView = async (view: string, noteId: string) => {
+      
+      try {
+
+        setNoteViewSelect(view)
+  
+        await fetch('/api/change-note-view', {
+          method: 'POST',
+          body: JSON.stringify({
+            noteId,
+            view
+          })
+        })
+      } 
+      
+      catch (error) {
+        console.log(error)
+      }
   }
 
   // search note items
@@ -316,27 +343,12 @@ export default function NoteItemsList({noteEntries, noteId}: {noteEntries: Entry
         </div>
       </> :
       <>
-
-      {/* <Accordion className={styles.accordionContainer}>
-        <AccordionSummary
-          expandIcon={<BsChevronDown className={styles.expandIcon} />}
-          aria-controls="panel1a-content"
-          id="panel1a-header"
-        >
-          <p>Accordion 1</p>
-        </AccordionSummary>
-        <AccordionDetails>
-          <p>
-            some words
-          </p>
-        </AccordionDetails>
-      </Accordion> */}
       
         {/* items counter  */}
         <h5 style={{marginBottom: "2em", alignSelf: "flex-start", fontSize: "0.75rem"}}>
             {noteItemsState?.length === 1 ? 
             `1 Item` : 
-            `${noteItemsState?.length} Items - ${setChecksCount} Checked ● ${setUnCheckedCount} Unchecked`}
+            `${noteItemsState?.length} Items - ${ChecksCount} Checked ● ${UnCheckedCount} Unchecked`}
         </h5>
 
         {/* list tool bar add items and sort  */}
@@ -350,14 +362,21 @@ export default function NoteItemsList({noteEntries, noteId}: {noteEntries: Entry
               <p>Add Item</p>
           </div>
           
-          <SortingMenu
-            sortMethod={sortMethod}
-            sortByNewToOld={sortByNewToOld}
-            sortByOldToNew={sortByOldToNew}
-            sortByPriority={sortByPriority}
-            sortByChecked={sortByChecked}
-            sortByName={sortByName}
-          />
+          <div style={{display: "flex", alignItems: "center", gap: "0.5em"}}>
+            <SwitchNoteViewBtn 
+              changeNoteView={(view: string) => handleChangeView(view, noteId)}
+              currentNoteView={noteViewSelect}
+            />
+
+            <SortingMenu
+              sortMethod={sortMethod}
+              sortByNewToOld={sortByNewToOld}
+              sortByOldToNew={sortByOldToNew}
+              sortByPriority={sortByPriority}
+              sortByChecked={sortByChecked}
+              sortByName={sortByName}
+            />
+          </div>
         </div>
 
         {/* search input */}
@@ -397,7 +416,7 @@ export default function NoteItemsList({noteEntries, noteId}: {noteEntries: Entry
         </AnimatePresence>
 
         {/* list of note items mapping */}
-        {
+        {noteViewSelect === "regular" ?
           noteItemsState?.filter(entry => {
             if (searchTerm === "") {
               return entry
@@ -522,7 +541,182 @@ export default function NoteItemsList({noteEntries, noteId}: {noteEntries: Entry
             )
           })
           }
-        </List>}
+        </List> : 
+        
+        // categories view if chosen
+        noteItemsState?.reduce((result: GroupedData[], item) => {
+          const category: string = item.category || "no category";
+          const existingCategory: GroupedData | undefined = result.find(obj => obj.category === category);
+        
+          if (existingCategory) {
+            existingCategory.data.push(item);
+          } else {
+            result.push({ category, data: [item] });
+          }
+        
+            return result;
+          }, [])
+          .map((group) => (
+          <AnimatePresence key={group.category}>
+            <MotionWrap
+              initial={{opacity: 0, x: 20}}
+              animate={{opacity: 1, x: 0}}
+              style={{width: "100%"}}
+              exit={{opacity: 0, x: 20}}
+              transition={{duration: 0.3, type: "spring", stiffness: 100, damping: 20}}
+              key={group.category}
+            >
+            <Accordion  className={styles.accordionContainer}>
+              <AccordionSummary
+                expandIcon={<BsChevronDown className={styles.expandIcon} />}
+                aria-controls="panel1a-content"
+                id="panel1a-header"
+              > 
+                <div style={{display: "flex", flexDirection: "column", gap: "0.5em"}}>
+                  <p>{group.category}</p>
+                  {group?.data?.length === 1 ? 
+                    <p style={{fontSize: "0.75rem", color: "gray"}}>
+                      1 Item - {`${group.data?.filter(entry => entry.isChecked).length}/${group?.data?.length}`}
+                    </p> :
+                    <p style={{fontSize: "0.75rem", color: "gray"}}>
+                      {group?.data?.length} Items - {`${group.data?.filter(entry => entry.isChecked).length}/${group?.data?.length}`}
+                    </p>
+                  }
+                </div>
+              </AccordionSummary>
+              <AccordionDetails>
+                {group?.data?.filter(entry => {
+                    if (searchTerm === "") {
+                      return entry
+                    }
+                    else if (entry.item.toLowerCase().includes(searchTerm.toLowerCase())) {
+                      return entry
+                    }
+                  })?.length === 0 ? 
+
+                  <p style={{marginTop: "2em", textAlign: "center"}}>No Results...</p> :
+                  
+                  <List 
+                    className={styles.noteListContainer} 
+                    sx={
+                      { 
+                        width: '100%', 
+                        borderRadius: "12px", 
+                        boxShadow: "0px 2px 18px 3px rgba(0, 0, 0, 0.2)", 
+                        padding: 0
+                      }
+                    }
+                  >
+                  {group?.data?.filter(entry => {
+                    if (searchTerm === "") {
+                      return entry
+                    }
+                    else if (entry.item.toLowerCase().includes(searchTerm.toLowerCase())) {
+                      return entry
+                    }
+                  })?.map((entry, index) => {
+                    const labelId = `checkbox-list-label-${entry.entryId}`
+                    const entryPriority = entry.priority && entry.priority
+
+                    return (
+                      <AnimatePresence key={entry.entryId}>
+                        <MotionWrap
+                          initial={{opacity: 0, x: 20}}
+                          animate={{opacity: 1, x: 0}}
+                          exit={{opacity: 0, x: 20}}
+                          transition={{duration: 0.3, type: "spring", stiffness: 100, damping: 20}}
+                          key={entry.entryId}
+                        >
+                          <ListItem
+                            key={entry.entryId}
+                            className={
+                              `${index === 0 ? 
+                                styles.firstItem : 
+                                index === group?.data.length - 1 ? 
+                                styles.lastItem : ''
+                              } 
+                              ${index % 2 === 0 ? 
+                                styles.noteListItem : 
+                                styles.noteListItemOdd
+                              }`
+                            }
+                            disablePadding
+                            secondaryAction={
+                                <div style={{display: "flex", gap: "1em"}}>
+                                <IconButton 
+                                  onClick={() => openConfirmRenameItem(entry.entryId, entry.item, entry?.priority, entry?.category)} 
+                                  className={styles.iconButtonRename} 
+                                  edge="end" 
+                                  aria-label="comments"
+                                >
+                                  <MdModeEditOutline className={styles.iconRename} />
+                                </IconButton>
+
+                                <IconButton 
+                                  onClick={() => openConfirmDeleteItem(entry.entryId)} 
+                                  className={styles.iconButtonDelete} 
+                                  edge="end" 
+                                  aria-label="comments"
+                                  >
+                                    <MdDelete className={styles.iconDelete} />
+                                </IconButton>
+                              </div>
+                              }
+                          >
+                            <ListItemButton onClick={() => handleToggle(entry?.isChecked, entry?.entryId)} dense>
+                              {/* list item checkbox section  */}
+                              <ListItemIcon sx={{minWidth: "2em"}}>
+                                <Checkbox
+                                  className={styles.noteListCheckbox}
+                                  edge="start"
+                                  checked={entry?.isChecked ?? false}
+                                  tabIndex={-1}
+                                  disableRipple
+                                  inputProps={{ 'aria-labelledby': labelId }}
+                                />
+                              </ListItemIcon>
+                              <div>
+                                <ListItemText 
+                                  className={styles.noteListItemText}
+                                  sx={
+                                    {
+                                      textDecoration: entry?.isChecked ? "line-through" : "none", 
+                                      paddingRight: "3em", 
+                                      lineBreak: "anywhere",
+                                    }
+                                  } 
+                                  id={labelId} 
+                                  primary={entry?.item} 
+                                />
+                                <div style={{display: "flex"}}>
+                                  <ListItemText className={styles.itemCreatedAt}>
+                                    {formatDate(entry?.createdAt)}
+                                  </ListItemText>
+                                  {entry.priority && 
+                                  entryPriority === "green" ?
+                                  <div className={styles.priorityColorGreen} /> :
+                                  entryPriority === "yellow" ?
+                                  <div className={styles.priorityColorYellow} /> :
+                                  entryPriority === "red" &&
+                                  <div className={styles.priorityColorRed} />
+                                  }
+                                </div>
+                              </div>
+                            </ListItemButton>
+                          </ListItem>
+                        </MotionWrap>
+                      </AnimatePresence>
+                    )
+                  })
+                  }
+                </List>}
+              </AccordionDetails>
+            </Accordion> 
+          </MotionWrap>
+          </AnimatePresence>
+        ))
+        
+        }
       </>}
 
       {openAddItemPopup &&
