@@ -612,7 +612,7 @@ export default function NoteItemsList({noteEntries, noteView, noteId}: {noteEntr
                     }
                   })?.length === 0 ? 
 
-                  <p style={{marginTop: "2em", textAlign: "center"}}>No Results...</p> :
+                  <p style={{marginTop: "2em", marginBottom: "1em", textAlign: "center"}}>No Results...</p> :
                   
                   <List 
                     className={styles.noteListContainer} 
