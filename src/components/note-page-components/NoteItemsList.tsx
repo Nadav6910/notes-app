@@ -78,7 +78,14 @@ export default function NoteItemsList({noteEntries, noteView, noteId}: {noteEntr
   const [noteViewSelect, setNoteViewSelect] = useState<string>(noteView)
   const [ChecksCount, SetChecksCount] = useState(noteEntries?.filter(entry => entry.isChecked).length)
   const [UnCheckedCount, SetUnCheckedCount] = useState(noteEntries?.filter(entry => !entry.isChecked).length)
-
+  const [expendedCategory, setExpendedCategory] = useState(Array.from(
+    noteItemsState!.reduce((categorySet: Set<string>, entry: Entry) => {
+      const category = entry.category ?? "no category";
+      categorySet.add(category)
+      return categorySet;
+    }, new Set<string>())
+  ))
+  
   const addItemButtonRef = useRef<HTMLDivElement>(null)
   
   // Check if the add item button is in view
@@ -566,7 +573,18 @@ export default function NoteItemsList({noteEntries, noteView, noteId}: {noteEntr
               transition={{duration: 0.3, type: "spring", stiffness: 100, damping: 20}}
               key={group.category}
             >
-            <Accordion expanded className={styles.accordionContainer}>
+            <Accordion 
+              className={styles.accordionContainer}
+              expanded={expendedCategory?.includes(group.category)}
+              onChange={() => setExpendedCategory(prevState => {
+                if (prevState?.includes(group.category)) {
+                  return prevState.filter(category => category !== group.category)
+                }
+                else {
+                  return [...prevState! , group.category]
+                }
+              })}
+            >
               <AccordionSummary
                 expandIcon={<BsChevronDown className={styles.expandIcon} />}
                 aria-controls="panel1a-content"
@@ -584,7 +602,7 @@ export default function NoteItemsList({noteEntries, noteView, noteId}: {noteEntr
                   }
                 </div>
               </AccordionSummary>
-              <AccordionDetails>
+              <AccordionDetails sx={{padding: 0}}>
                 {group?.data?.filter(entry => {
                     if (searchTerm === "") {
                       return entry
@@ -601,8 +619,6 @@ export default function NoteItemsList({noteEntries, noteView, noteId}: {noteEntr
                     sx={
                       { 
                         width: '100%', 
-                        borderRadius: "12px", 
-                        boxShadow: "0px 2px 18px 3px rgba(0, 0, 0, 0.2)", 
                         padding: 0
                       }
                     }
@@ -629,6 +645,7 @@ export default function NoteItemsList({noteEntries, noteView, noteId}: {noteEntr
                         >
                           <ListItem
                             key={entry.entryId}
+                            style={{borderRadius: "unset"}}
                             className={
                               `${index === 0 ? 
                                 styles.firstItem : 
