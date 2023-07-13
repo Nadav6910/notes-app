@@ -566,14 +566,14 @@ export default function NoteItemsList({noteEntries, noteView, noteId}: {noteEntr
               transition={{duration: 0.3, type: "spring", stiffness: 100, damping: 20}}
               key={group.category}
             >
-            <Accordion  className={styles.accordionContainer}>
+            <Accordion expanded className={styles.accordionContainer}>
               <AccordionSummary
                 expandIcon={<BsChevronDown className={styles.expandIcon} />}
                 aria-controls="panel1a-content"
                 id="panel1a-header"
               > 
                 <div style={{display: "flex", flexDirection: "column", gap: "0.5em"}}>
-                  <p>{group.category}</p>
+                  <p>{group.category === "none" || group.category === undefined ? "No Category" : group.category}</p>
                   {group?.data?.length === 1 ? 
                     <p style={{fontSize: "0.75rem", color: "gray"}}>
                       1 Item - {`${group.data?.filter(entry => entry.isChecked).length}/${group?.data?.length}`}
