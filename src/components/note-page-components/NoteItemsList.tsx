@@ -80,7 +80,7 @@ export default function NoteItemsList({noteEntries, noteView, noteId}: {noteEntr
   const [UnCheckedCount, SetUnCheckedCount] = useState(noteEntries?.filter(entry => !entry.isChecked).length)
   const [expendedCategory, setExpendedCategory] = useState(Array.from(
     noteItemsState!.reduce((categorySet: Set<string>, entry: Entry) => {
-      const category = entry.category ?? "no category";
+      const category = entry.category ?? "No Category";
       categorySet.add(category)
       return categorySet;
     }, new Set<string>())
@@ -551,18 +551,38 @@ export default function NoteItemsList({noteEntries, noteView, noteId}: {noteEntr
         </List> : 
         
         // categories view if chosen
+        noteItemsState?.filter(entry => {
+          if (searchTerm === "") {
+            return entry
+          }
+          else if (entry.item.toLowerCase().includes(searchTerm.toLowerCase())) {
+            return entry
+          }
+        })?.length === 0 ? 
+
+        <p style={{marginTop: "2em", marginBottom: "1em", textAlign: "center"}}>No Results...</p> :
+
         noteItemsState?.reduce((result: GroupedData[], item) => {
-          const category: string = item.category || "no category";
-          const existingCategory: GroupedData | undefined = result.find(obj => obj.category === category);
+          const category: string = !item.category || item.category === "none" ? "No Category" : item.category
+          const existingCategory: GroupedData | undefined = result.find(obj => obj.category === category)
         
           if (existingCategory) {
-            existingCategory.data.push(item);
+            existingCategory.data.push(item)
           } else {
-            result.push({ category, data: [item] });
+            result.push({ category, data: [item] })
           }
-        
-            return result;
+            return result
           }, [])
+
+          .filter(group => {
+            if (searchTerm === "") {
+              return group
+            }
+            else if (group.data.filter(entry => entry.item?.toLowerCase().includes(searchTerm.toLowerCase())).length > 0) {
+              return group
+            }
+          })
+
           .map((group) => (
           <AnimatePresence key={group.category}>
             <MotionWrap
@@ -591,7 +611,7 @@ export default function NoteItemsList({noteEntries, noteView, noteId}: {noteEntr
                 id="panel1a-header"
               > 
                 <div style={{display: "flex", flexDirection: "column", gap: "0.5em"}}>
-                  <p>{group.category === "none" || group.category === undefined ? "No Category" : group.category}</p>
+                  <p>{group.category === "none" || group.category === null ? "No category" : group.category}</p>
                   {group?.data?.length === 1 ? 
                     <p style={{fontSize: "0.75rem", color: "gray"}}>
                       1 Item - {`${group.data?.filter(entry => entry.isChecked).length}/${group?.data?.length}`}
@@ -602,18 +622,7 @@ export default function NoteItemsList({noteEntries, noteView, noteId}: {noteEntr
                   }
                 </div>
               </AccordionSummary>
-              <AccordionDetails sx={{padding: 0}}>
-                {group?.data?.filter(entry => {
-                    if (searchTerm === "") {
-                      return entry
-                    }
-                    else if (entry.item.toLowerCase().includes(searchTerm.toLowerCase())) {
-                      return entry
-                    }
-                  })?.length === 0 ? 
-
-                  <p style={{marginTop: "2em", marginBottom: "1em", textAlign: "center"}}>No Results...</p> :
-                  
+              <AccordionDetails sx={{padding: 0}}>                  
                   <List 
                     className={styles.noteListContainer} 
                     sx={
@@ -726,7 +735,7 @@ export default function NoteItemsList({noteEntries, noteView, noteId}: {noteEntr
                     )
                   })
                   }
-                </List>}
+                </List>
               </AccordionDetails>
             </Accordion> 
           </MotionWrap>
