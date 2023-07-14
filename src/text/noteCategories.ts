@@ -34,6 +34,7 @@ export const foodCategories: string[] = [
     "Grains",
     "Snacks",
     "Spices",
+    "Household Essentials",
     "Health Foods",
     "Baby Food",
     "Pet Supplies"
