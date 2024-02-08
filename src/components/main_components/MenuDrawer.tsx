@@ -151,11 +151,7 @@ export default function MenuDrawer({isSession, userName, userImage}: NavbarDrawe
                 <HiOutlineMenuAlt3 className={styles.menuIcon} />
             </IconButton>
             <Drawer
-                PaperProps={{sx: {
-                    backgroundColor: theme.theme === "dark" ? "#353535" : "white",
-                    color: theme.theme === "dark" ? "white" : "black",
-                    width: "11em"
-                }}}
+                PaperProps={{className: styles.menuDrawer}}
                 anchor={"right"}
                 open={state["right"]}
                 onClose={toggleDrawer(false)}
@@ -165,3 +161,6 @@ export default function MenuDrawer({isSession, userName, userImage}: NavbarDrawe
         </>    
     )
 }
+// backgroundColor: theme.theme === "dark" ? "#353535" : "white",
+// color: theme.theme === "dark" ? "white" : "black",
+// width: "11em"

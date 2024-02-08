@@ -1,5 +1,6 @@
 [data-theme='dark'] {
   --background-color: radial-gradient( circle farthest-corner at 10% 20%,  rgba(51,51,81,1) 0%, rgba(34,72,86,1) 90% );
+  --menu-background-color: #2a3d53;
   --primary-color: white;
   --secondary-color: #19a29b;
   --secondary-color-faded: #19a29b22;
@@ -15,6 +16,7 @@
 
 [data-theme='light'] {
   --background-color: radial-gradient(at top center, rgba(255,255,255,0.03) 0%, rgba(0,0,0,0.03) 100%), linear-gradient(to top, rgba(255,255,255,0.1) 0%, rgba(143,152,157,0.60) 100%);
+  --menu-background-color: #c7cbce;
   --primary-color: black;
   --secondary-color: #610c62;
   --secondary-color-faded: #600c623f;

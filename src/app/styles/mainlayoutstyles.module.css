@@ -57,6 +57,17 @@
     display: none;
 }
 
+.menuDrawer {
+    background-color: var(--menu-background-color);
+    color: var(--primary-color);
+    width: 15em;
+}
+
+.AccountMenuContainer {
+    background-color: var(--menu-background-color);
+    color: var(--primary-color);
+}
+
 @media (max-width: 750px) {
     .mobileNavContainer {
         display: initial;
@@ -106,10 +117,6 @@
     .lottieAnimationNotFound {
         height: 40em !important;
     }
-}
-
-.AccountMenuContainer {
-    background-color: var(--note-card-background) !important;
 }
 
 .loggedInAs {
