@@ -1,7 +1,7 @@
 'use client'
 
 import styles from '../../app/styles/home.module.css'
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { Backdrop, CircularProgress } from '@mui/material';
 import MotionWrap from '../../wrappers/MotionWrap'
@@ -13,6 +13,12 @@ export default function MainPageButton() {
     const session = useSession()
    
     const [pageNavLoading, setPageNavLoading] = useState(false)
+
+    useEffect(() => {
+        // Prefetch pages for faster navigation
+        router.prefetch('/my-notes')
+        router.prefetch('/login')
+    }, [router])
 
     return (
 
