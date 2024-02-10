@@ -19,7 +19,7 @@ export default function MainPageButton() {
         router.prefetch('/my-notes')
         router.prefetch('/login')
     }, [router])
-
+    
     return (
 
         <>
@@ -35,15 +35,15 @@ export default function MainPageButton() {
                 whileTap={{ scale: 0.9 }} 
                 transition={{ type: "spring", stiffness: 400, damping: 10 }}
                 >
-                    <button 
+                    {session.status !== "loading" && <button 
                         className={styles.callToActionBtn}
                         onClick={() => {
                             setPageNavLoading(true)
-                            router.push(session.data ? '/my-notes' : '/login')
+                            router.push(session.status === "authenticated" ? '/my-notes' : '/login')
                         }}
                     >
-                        {session.data ? 'My Notes' : 'Get started'}
-                    </button>
+                        {session.status === "authenticated" ? 'My Notes' : 'Get started'}
+                    </button>}
             </MotionWrap>
         </>
     )

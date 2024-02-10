@@ -1,7 +1,7 @@
 'use client'
 
 import styles from "../../app/styles/mainlayoutstyles.module.css"
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useTheme } from 'next-themes'
 import { 
     Drawer, 
@@ -35,6 +35,12 @@ export default function MenuDrawer({isSession, userName, userImage}: NavbarDrawe
     const [state, setState] = useState({
         right: false,
     })
+
+    useEffect(() => {
+        // Prefetch pages for faster navigation
+        router.prefetch('/my-notes')
+        router.prefetch('/profile')
+    }, [router])
 
     const toggleDrawer =
         (open: boolean) =>

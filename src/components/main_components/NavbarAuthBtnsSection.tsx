@@ -1,7 +1,7 @@
 'use client'
 
 import styles from "../../app/styles/mainlayoutstyles.module.css"
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { signOut } from "next-auth/react"
 import { Avatar, Menu, MenuItem, Button, Divider } from '@mui/material'
 import { CgProfile } from 'react-icons/cg'
@@ -18,6 +18,12 @@ export default function NavbarAuthBtnsSection({userName, userImage}: NavbarBtnsS
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
     
     const open = Boolean(anchorEl)
+
+    useEffect(() => {
+        // Prefetch pages for faster navigation
+        router.prefetch('/my-notes')
+        router.prefetch('/profile')
+    }, [router])
 
     const handleClick = (event: React.MouseEvent<HTMLButtonElement>) => {
         setAnchorEl(event.currentTarget)
