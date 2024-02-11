@@ -1,7 +1,7 @@
 'use client'
 
 import styles from "../../app/my-notes/styles/myNotes.module.css"
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { 
     Card, 
     CardContent, 
@@ -44,6 +44,11 @@ export default function NoteCard({noteName, noteType, createdAt, noteId, entries
     const [openError, setOpenError] = useState<boolean>(false)
     const [openErrorRename, setOpenErrorRename] = useState<boolean>(false)
     const [pageNavLoading, setPageNavLoading] = useState(false)
+
+    useEffect(() => {
+        // Prefetch pages for faster navigation
+        router.prefetch('/my-notes/note/[noteId]')
+    }, [router])
 
     const moveToNotePage = () => {
         setPageNavLoading(true)
