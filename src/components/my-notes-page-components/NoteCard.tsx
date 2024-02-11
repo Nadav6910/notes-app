@@ -47,8 +47,8 @@ export default function NoteCard({noteName, noteType, createdAt, noteId, entries
 
     useEffect(() => {
         // Prefetch pages for faster navigation
-        router.prefetch('/my-notes/note/[noteId]')
-    }, [router])
+        router.prefetch(`/my-notes/note/${noteId}`)
+    }, [noteId, router])
 
     const moveToNotePage = () => {
         setPageNavLoading(true)
