@@ -5,7 +5,7 @@ import MotionWrap from "@/wrappers/MotionWrap"
 import { AiOutlineCheck } from "react-icons/ai"
 import { SortingMenuProps } from "../../../types"
 import { TbSortDescending } from "react-icons/tb"
-import ClickAwayListener from '@mui/base/ClickAwayListener'
+import { ClickAwayListener } from '@mui/base/ClickAwayListener'
 
 export default function SortingMenu({sortMethod, sortByNewToOld, sortByOldToNew, sortByPriority, sortByChecked, sortByName}: SortingMenuProps) {
 

@@ -1,6 +1,6 @@
 import styles from "../[noteId]/styles/notePage.module.css"
 import { getServerSession } from "next-auth/next"
-import { authOptions } from '../../../api/auth/[...nextauth]/route'
+import { authOptions } from '../../../api/auth/[...nextauth]/options'
 import { redirect } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import ItemsLoadingSkeleton from "@/components/note-page-components/ItemsLoadingSkeleton"
@@ -50,7 +50,7 @@ export default async function NotePage({params}: {params: {noteId: string}}) {
                 <NoteItemsList 
                     noteEntries={noteEntries?.entries} 
                     noteView={noteEntries?.noteView} 
-                    noteId={noteId} 
+                    noteId={noteId}
                 /> :
 
                 <NoteBook noteEntries={noteEntries?.entries} noteId={noteId} />

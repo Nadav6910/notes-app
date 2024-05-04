@@ -7,10 +7,14 @@ import animationData from '../../../public/404.json'
 
 export default function NotFoundCatchAll() {
   return (
-    <Lottie
-      className={styles.lottieAnimationNotFound} 
-      style={{height: '45em', marginBottom: "-12em"}} 
-      animationData={animationData} 
-    />
+    <>
+      <h3 className={styles.notFoundTitle}>Page Not Found</h3>
+      
+      <Lottie
+        className={styles.lottieAnimationNotFound} 
+        style={{height: '45em', marginBottom: "-12em"}} 
+        animationData={animationData} 
+      />
+    </>
   )
 }

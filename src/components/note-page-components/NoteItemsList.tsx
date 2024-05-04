@@ -51,7 +51,10 @@ interface GroupedData {
   data: Entry[]
 }
 
-export default function NoteItemsList({noteEntries, noteView, noteId}: {noteEntries: Entry[] | undefined, noteView: string, noteId: string}) {
+export default function NoteItemsList(
+  {noteEntries, noteView, noteId}: 
+  {noteEntries: Entry[] | undefined, noteView: string, noteId: string}
+) {
 
   const router = useRouter()
 
@@ -211,22 +214,22 @@ export default function NoteItemsList({noteEntries, noteView, noteId}: {noteEntr
 
   const handleChangeView = async (view: string, noteId: string) => {
       
-      try {
+    try {
 
-        setNoteViewSelect(view)
-  
-        await fetch('/api/change-note-view', {
-          method: 'POST',
-          body: JSON.stringify({
-            noteId,
-            view
-          })
+      setNoteViewSelect(view)
+
+      await fetch('/api/change-note-view', {
+        method: 'POST',
+        body: JSON.stringify({
+          noteId,
+          view
         })
-      } 
-      
-      catch (error) {
-        console.log(error)
-      }
+      })
+    } 
+    
+    catch (error) {
+      console.log(error)
+    }
   }
 
   // search note items
@@ -234,6 +237,40 @@ export default function NoteItemsList({noteEntries, noteView, noteId}: {noteEntr
 
     const inputValue = e.target.value
     setSearchTerm(inputValue)
+  }
+
+  const handleAddNoteItem = (newEntry: Entry) => {
+
+    setNoteItemsState((prevEntries) => [newEntry, ...prevEntries ?? []])
+
+    if (sortMethod === "oldToNew") {
+      setNoteItemsState((prevEntries: Entry[] | undefined) => {
+        return prevEntries?.sort((a: Entry, b: Entry) => a.createdAt - b.createdAt)
+      })
+    }
+
+    else if (sortMethod === "byPriority") {
+      setNoteItemsState((prevEntries: Entry[] | undefined) => {
+        const priorityOrder = ["red", "yellow", "green", "none", null] as 
+        (string | null | undefined)[]
+        
+        return prevEntries?.sort((a: Entry, b: Entry) => {
+          
+          const priorityA = priorityOrder.indexOf(a?.priority)
+          const priorityB = priorityOrder.indexOf(b?.priority)
+
+          return priorityA - priorityB
+        })
+      })
+    }
+
+    else if (sortMethod === "byName") {
+      setNoteItemsState((prevEntries: Entry[] | undefined) => {
+        return prevEntries?.sort((a: Entry, b: Entry) => a.item.localeCompare(b.item))
+      })
+    }
+
+    router.refresh()
   }
 
   const openConfirmDeleteItem = (entryId: string) => {
@@ -750,36 +787,7 @@ export default function NoteItemsList({noteEntries, noteView, noteId}: {noteEntr
           isOpen={openAddItemPopup}
           setIsOpen={() => setOpenAddItemPopup(false)}
           noteId={noteId}
-          onAdd={(newEntry: Entry) => {
-            setNoteItemsState((prevEntries) => [newEntry, ...prevEntries ?? []])
-
-            if (sortMethod === "oldToNew") {
-              setNoteItemsState((prevEntries: Entry[] | undefined) => {
-                return prevEntries?.sort((a: Entry, b: Entry) => a.createdAt - b.createdAt)
-              })
-            }
-
-            else if (sortMethod === "byPriority") {
-              setNoteItemsState((prevEntries: Entry[] | undefined) => {
-                const priorityOrder = ["red", "yellow", "green", "none", null] as 
-                (string | null | undefined)[]
-                
-                return prevEntries?.sort((a: Entry, b: Entry) => {
-                  
-                    const priorityA = priorityOrder.indexOf(a?.priority)
-                    const priorityB = priorityOrder.indexOf(b?.priority)
-
-                    return priorityA - priorityB
-                })
-              })
-            }
-
-            else if (sortMethod === "byName") {
-              setNoteItemsState((prevEntries: Entry[] | undefined) => {
-                return prevEntries?.sort((a: Entry, b: Entry) => a.item.localeCompare(b.item))
-              })
-            }
-          }}
+          onAdd={(newEntry: Entry) => handleAddNoteItem(newEntry)}
           onError={() => setOpenAddItemError(true)}
         />
       }
@@ -792,17 +800,21 @@ export default function NoteItemsList({noteEntries, noteView, noteId}: {noteEntr
             setSelectedEntryId("")
           }}
           entryId={selectedEntryId}
-          OnDelete={(isDeleted: boolean) => setNoteItemsState((prevEntries) => {
-            if (isDeleted) {
-              if (noteItemsState?.length === 1) {
-                router.refresh()
+          OnDelete={(isDeleted: boolean) => {
+            setNoteItemsState((prevEntries) => {
+              if (isDeleted) {
+                if (noteItemsState?.length === 1) {
+                  router.refresh()
+                }
+  
+                else {
+                  return prevEntries?.filter((entry) => entry.entryId !== selectedEntryId)
+                }
               }
+            })
 
-              else {
-                return prevEntries?.filter((entry) => entry.entryId !== selectedEntryId)
-              }
-            }
-          })}
+            router.refresh()
+          }}
           onError={() => {
             setOpenDeleteItemError(true)
           }}
@@ -836,6 +848,8 @@ export default function NoteItemsList({noteEntries, noteView, noteId}: {noteEntr
                   return prevEntries?.sort((a: Entry, b: Entry) => a.item.localeCompare(b.item))
                 })
               }
+
+              router.refresh()
             }
           }}
           onPriorityChange={(isPriorityChanged: boolean, newPriority: string) => {

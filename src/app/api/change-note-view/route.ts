@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/prisma'
  
-export async function POST(request: Request) {
+export async function POST(request: Request, response: NextResponse) {
 
     // get body data
     const { view, noteId } = await request.json()
@@ -17,6 +17,8 @@ export async function POST(request: Request) {
                 noteView: view
             }
         })
+
+        return NextResponse.json({massage: "note view changed"})
     } 
     
     catch (error: any) {

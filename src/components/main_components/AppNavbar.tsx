@@ -6,7 +6,7 @@ import { rockSalt } from '../../fonts/fonts'
 import Link from 'next/link'
 import { GiNotebook } from 'react-icons/gi'
 import ThemeSwitch from "./ThemeSwitch"
-import { authOptions } from '../../app/api/auth/[...nextauth]/route'
+import { authOptions } from '../../app/api/auth/[...nextauth]/options'
 import MenuDrawer from './MenuDrawer'
 
 export default async function AppNavbar() {

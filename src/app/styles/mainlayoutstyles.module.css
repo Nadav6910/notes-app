@@ -68,6 +68,11 @@
     color: var(--primary-color) !important;
 }
 
+.notFoundTitle {
+    text-align: center;
+    margin: 1.5em;
+}
+
 @media (max-width: 750px) {
     .mobileNavContainer {
         display: initial;

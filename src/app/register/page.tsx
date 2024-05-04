@@ -2,7 +2,7 @@ import styles from "../../app/register/styles/register.module.css"
 import RegisterForm from "../../components/register_page_components/RegisterForm"
 import Link from 'next/link'
 import { getServerSession } from "next-auth/next"
-import { authOptions } from '../../app/api/auth/[...nextauth]/route'
+import { authOptions } from '../api/auth/[...nextauth]/options'
 import { redirect } from 'next/navigation'
 
 export const metadata = {

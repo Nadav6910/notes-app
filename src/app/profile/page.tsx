@@ -1,6 +1,6 @@
 import styles from "../profile/styles/profilePage.module.css"
 import { getServerSession } from "next-auth/next"
-import { authOptions } from '../api/auth/[...nextauth]/route'
+import { authOptions } from '../api/auth/[...nextauth]/options'
 import { redirect } from 'next/navigation'
 import { getUserDetails } from "@/lib/fetchers"
 import ProfileAvatar from "@/components/profile-page-components/ProfileAvatar"

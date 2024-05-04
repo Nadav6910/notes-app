@@ -1,4 +1,3 @@
-import NextAuth from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
 import GoogleProvider from "next-auth/providers/google"
 import GitHubProvider from "next-auth/providers/github"
@@ -7,7 +6,7 @@ import type { NextAuthOptions, User } from 'next-auth'
 import { prisma } from '@/prisma'
 import bcrypt from 'bcrypt'
 
-const authOptions: NextAuthOptions = {
+export const authOptions: NextAuthOptions = {
   // adapter: PrismaAdapter(prisma),
   providers: [
       CredentialsProvider({
@@ -120,8 +119,4 @@ const authOptions: NextAuthOptions = {
       maxAge: 30 * 24 * 60 * 60,
       updateAge: 24 * 60 * 60
     }
-  }
-
-const handler = NextAuth(authOptions)
-
-export { handler as GET, handler as POST }
+}

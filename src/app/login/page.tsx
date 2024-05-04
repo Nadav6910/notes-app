@@ -2,7 +2,7 @@ import styles from '../../app/login/styles/login.module.css'
 import LoginForm from '../../components/login_page_components/LoginForm'
 import Link from 'next/link'
 import { getServerSession } from "next-auth/next"
-import { authOptions } from '../../app/api/auth/[...nextauth]/route'
+import { authOptions } from '../api/auth/[...nextauth]/options'
 import { redirect } from 'next/navigation'
 
 export const metadata = {

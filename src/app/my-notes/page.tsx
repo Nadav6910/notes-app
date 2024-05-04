@@ -1,7 +1,7 @@
 import styles from "./styles/myNotes.module.css"
 import { getServerSession } from "next-auth/next"
 import dynamic from 'next/dynamic'
-import { authOptions } from '../../app/api/auth/[...nextauth]/route'
+import { authOptions } from '../api/auth/[...nextauth]/options'
 import { getNotes } from "@/lib/fetchers"
 import NoNotesDisplay from "@/components/my-notes-page-components/NoNotesDisplay"
 import { redirect } from 'next/navigation'
