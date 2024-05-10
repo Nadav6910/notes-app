@@ -22,7 +22,7 @@ export default async function MyNotes() {
     
 
     const session = await getServerSession(authOptions)
-
+    console.log(session);
     if (!session) {
         redirect('/')
     }

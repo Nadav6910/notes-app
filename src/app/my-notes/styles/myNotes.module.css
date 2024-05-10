@@ -59,7 +59,7 @@
 
 .cardContainer {
     background-color: var( --note-card-background-card-item) !important;
-    max-width: 22em;
+    max-width: 32em;
 }
 
 .svgContainer {
