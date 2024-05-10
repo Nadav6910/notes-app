@@ -50,11 +50,11 @@ export default function CreateNote() {
         setTimeout(() => {
           setOpenSuccess(false)
           startTransition(() => {
-            router.refresh()
             router.push('/my-notes')
+            router.refresh()
           })
           
-        }, 800)
+        }, 400)
       }
   
       else {

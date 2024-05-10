@@ -38,6 +38,7 @@ type NoteTypeSelectorProps = {
 }
 
 type NoteCardProps = {
+    _count: any;
     noteName: string,
     noteType: string,
     createdAt: date,

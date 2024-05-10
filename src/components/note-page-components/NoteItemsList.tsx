@@ -366,24 +366,24 @@ export default function NoteItemsList(
 
       <>
         <div className={styles.noNoteItemsContainer}>
-        <NoNoteItemsDrawing />
-        <h3>No items in this note...</h3>
-        <div onClick={() => setOpenAddItemPopupEmpty(true)} className={styles.addItemToNoteEmptyNotes}>
-          <FaPlus />
-          <p>Add Item</p>
-        </div>
+          <NoNoteItemsDrawing />
+          <h3>No items in this note...</h3>
+          <div onClick={() => setOpenAddItemPopupEmpty(true)} className={styles.addItemToNoteEmptyNotes}>
+            <FaPlus />
+            <p>Add Item</p>
+          </div>
 
-        {openAddItemPopupEmpty &&
-          <AddNoteItemPopup
-            isOpen={openAddItemPopupEmpty}
-            setIsOpen={() => setOpenAddItemPopupEmpty(false)}
-            noteId={noteId}
-            onAdd={(newEntry: Entry) => {
-              setNoteItemsState((prevEntries) => [...prevEntries ?? [], newEntry]); router.refresh()
-            }}
-            onError={() => setOpenAddItemError(true)}
-          />
-        }
+          {openAddItemPopupEmpty &&
+            <AddNoteItemPopup
+              isOpen={openAddItemPopupEmpty}
+              setIsOpen={() => setOpenAddItemPopupEmpty(false)}
+              noteId={noteId}
+              onAdd={(newEntry: Entry) => {
+                setNoteItemsState((prevEntries) => [...prevEntries ?? [], newEntry]); router.refresh()
+              }}
+              onError={() => setOpenAddItemError(true)}
+            />
+          }
         </div>
       </> :
       <>

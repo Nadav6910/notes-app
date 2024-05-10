@@ -27,7 +27,8 @@ export async function POST(request: Request) {
             data: {
                 name,
                 userName,
-                password: hashedPassword
+                password: hashedPassword,
+                notesView: "card"
             }
         })
 

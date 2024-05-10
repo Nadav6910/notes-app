@@ -46,6 +46,12 @@
     gap: 1.5em;
 }
 
+.notesContainerListView {
+    display: flex;
+    flex-direction: column;
+    gap: 1em;
+}
+
 .notesContainer div:not([class]) {
    display: contents;
 }
@@ -60,6 +66,12 @@
 .cardContainer {
     background-color: var( --note-card-background-card-item) !important;
     max-width: 32em;
+}
+
+.cardContainerListView {
+    background-color: var( --note-card-background-card-item) !important;
+    max-width: 100%;
+
 }
 
 .svgContainer {
