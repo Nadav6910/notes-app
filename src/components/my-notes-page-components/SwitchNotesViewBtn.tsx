@@ -16,11 +16,12 @@ export default function SwitchNotesViewBtn(
 
         if (currentNotesView !== "card") {
             controls.start({
-                left: 0, 
-                borderTopLeftRadius: "9px", 
-                borderBottomLeftRadius: "9px", 
-                borderTopRightRadius: "0px", 
-                borderBottomRightRadius: "0px"
+                left: "unset",
+                right: 0, 
+                borderTopRightRadius: "9px", 
+                borderBottomRightRadius: "9px", 
+                borderTopLeftRadius: "0px", 
+                borderBottomLeftRadius: "0px"
             })
            
             changeNotesView("card")
@@ -30,13 +31,12 @@ export default function SwitchNotesViewBtn(
     const listViewSwitch = () => {
         
         if (currentNotesView !== "list") {
-            controls.start({
-                left: "unset",
-                right: 0, 
-                borderTopRightRadius: "9px", 
-                borderBottomRightRadius: "9px", 
-                borderTopLeftRadius: "0px", 
-                borderBottomLeftRadius: "0px"
+                        controls.start({
+                left: 0, 
+                borderTopLeftRadius: "9px", 
+                borderBottomLeftRadius: "9px", 
+                borderTopRightRadius: "0px", 
+                borderBottomRightRadius: "0px"
             })
            
             changeNotesView("list")
@@ -47,15 +47,15 @@ export default function SwitchNotesViewBtn(
 
         <div className={styles.switchNoteViewBtnContainer}>
             <MotionWrap 
-                className={currentNotesView === "card" ? styles.selectedAreaRegular : styles.selectedAreaCategories}
+                className={currentNotesView === "card" ? styles.selectedAreaCategories : styles.selectedAreaRegular}
                 animate={controls}             
                 transition={{ type: "spring", stiffness: 150, damping: 20, duration: 0.4, bounce: 0.1}}
             />
 
-            <div className={styles.regularViewBtnContainer} onClick={cardViewSwitch}>
+            <div className={styles.regularViewBtnContainer} onClick={listViewSwitch}>
                 <TfiLayoutMenuV />
             </div>
-            <div className={styles.categoriesViewBtnContainer} onClick={listViewSwitch}>
+            <div className={styles.categoriesViewBtnContainer} onClick={cardViewSwitch}>
                 <TbCategory />
             </div>
         </div>
