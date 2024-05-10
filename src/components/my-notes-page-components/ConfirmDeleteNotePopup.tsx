@@ -24,7 +24,7 @@ const Transition = forwardRef(function Transition(
 })
 
 export default function ConfirmDeleteNotePopup(
-    {isOpen, setIsOpen, noteId, OnDelete, onError}: ConfirmDeleteNotePopupProps
+    {isOpen, setIsOpen, noteId, noteName, OnDelete, onError}: ConfirmDeleteNotePopupProps
 ) {
 
   const [, startTransition] = useTransition()
@@ -87,7 +87,7 @@ export default function ConfirmDeleteNotePopup(
         <DialogTitle className={styles.ConfirmDeletePopupTitle}>{"Warning"}</DialogTitle>
         <DialogContent>
           <DialogContentText className={styles.ConfirmDeletePopupText} id="alert-dialog-slide-description">
-            Are you sure you want to delete this note?
+            {`Are you sure you want to delete this note? (${noteName})`}
           </DialogContentText>
         </DialogContent>
         <DialogActions>

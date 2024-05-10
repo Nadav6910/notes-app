@@ -273,8 +273,9 @@ export default function NoteItemsList(
     router.refresh()
   }
 
-  const openConfirmDeleteItem = (entryId: string) => {
+  const openConfirmDeleteItem = (entryId: string, entryName: string) => {
     setSelectedEntryId(entryId)
+    setSelectedEntryName(entryName)
     setOpenDeleteNoteItemPopup(true)
   }
 
@@ -529,7 +530,7 @@ export default function NoteItemsList(
                         </IconButton>
 
                         <IconButton 
-                          onClick={() => openConfirmDeleteItem(entry.entryId)} 
+                          onClick={() => openConfirmDeleteItem(entry.entryId, entry.item)} 
                           className={styles.iconButtonDelete} 
                           edge="end" 
                           aria-label="comments"
@@ -716,7 +717,7 @@ export default function NoteItemsList(
                                 </IconButton>
 
                                 <IconButton 
-                                  onClick={() => openConfirmDeleteItem(entry.entryId)} 
+                                  onClick={() => openConfirmDeleteItem(entry.entryId, entry.item)} 
                                   className={styles.iconButtonDelete} 
                                   edge="end" 
                                   aria-label="comments"
@@ -798,8 +799,10 @@ export default function NoteItemsList(
           setIsOpen={() => {
             setOpenDeleteNoteItemPopup(false)
             setSelectedEntryId("")
+            setSelectedEntryName("")
           }}
           entryId={selectedEntryId}
+          entryName={selectedEntryName}
           OnDelete={(isDeleted: boolean) => {
             setNoteItemsState((prevEntries) => {
               if (isDeleted) {

@@ -33,7 +33,7 @@ const RenameNotePopupPopup = dynamic(() => import('../my-notes-page-components/R
 })
 
 export default function NoteCard({noteName, noteType, createdAt, noteId, entriesCount}: NoteCardProps) {
-
+    
     const router = useRouter()
 
     const [openConfirmDelete, setOpenConfirmDelete] = useState<boolean>(false)
@@ -66,7 +66,7 @@ export default function NoteCard({noteName, noteType, createdAt, noteId, entries
             <MotionWrap
                 className={styles.cardWrap}
                 style={{display: "block", maxWidth: "32em"}}
-                whileHover={{y: -5, boxShadow: "0px 0px 10px 0px rgba(0,0,0,0.75)"}}
+                whileHover={{y: -5, boxShadow: "0px 0px 7px 0px rgba(0,0,0,0.65)"}}
                 transition={{ type: "spring", stiffness: 200, damping: 20, duration: 0.2 }}
             >
                 <Card className={styles.cardContainer} >
@@ -134,6 +134,7 @@ export default function NoteCard({noteName, noteType, createdAt, noteId, entries
                     isOpen={openConfirmDelete}
                     setIsOpen={() => setOpenConfirmDelete(false)}
                     noteId={noteId}
+                    noteName={noteName}
                     OnDelete={() => setOpenSuccess(true)}
                     onError={() => setOpenError(true)}
                 />

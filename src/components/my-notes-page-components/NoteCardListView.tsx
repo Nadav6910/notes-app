@@ -64,6 +64,7 @@ export default function NoteCard({noteName, noteType, createdAt, noteId, entries
             <MotionWrap
                 className={styles.cardWrap}
                 style={{display: "block"}}
+                whileHover={{y: -5, boxShadow: "0px 0px 7px 0px rgba(0,0,0,0.65)"}}
                 transition={{ type: "spring", stiffness: 200, damping: 20, duration: 0.2 }}
             >
                 <Card className={styles.cardContainerListView} style={{width: "100%"}} >
@@ -142,6 +143,7 @@ export default function NoteCard({noteName, noteType, createdAt, noteId, entries
                     isOpen={openConfirmDelete}
                     setIsOpen={() => setOpenConfirmDelete(false)}
                     noteId={noteId}
+                    noteName={noteName}
                     OnDelete={() => setOpenSuccess(true)}
                     onError={() => setOpenError(true)}
                 />

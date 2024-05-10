@@ -37,7 +37,11 @@ export default function RenameNotePopup(
     register,
     handleSubmit,
     formState: { errors },
-} = useForm<RenameNoteFormValues>()
+} = useForm<RenameNoteFormValues>({
+  defaultValues: {
+    newName: currentName
+  }
+})
 
   const handleClose = () => {
     setIsOpen(false)
@@ -109,8 +113,6 @@ export default function RenameNotePopup(
                                 maxLength: {value: 25, message: "Name must be shorter then 25 characters"} 
                             })} 
                             type='text'
-                            placeholder={currentName}
-                            
                             style={{borderColor: errors.newName ? "red" : "initial"}} 
                         />
                         <div className={styles.inputIcon}><MdOutlineDriveFileRenameOutline /></div>

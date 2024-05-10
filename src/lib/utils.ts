@@ -12,3 +12,14 @@ export const formatDate = (dateString: Date | undefined) => {
         return `${day}/${month}/${year} - ${hours}:${minutes}`
     }
 }
+
+export const calculateAveragePrices = (prices: any) => {
+    
+    let sum = 0
+    
+    for (let i = 0; i < prices.length; i++) {
+        sum += parseFloat(prices[i].price)
+    }
+
+    return (sum / prices.length).toFixed(2)
+}

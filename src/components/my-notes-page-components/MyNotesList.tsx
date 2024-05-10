@@ -45,6 +45,22 @@ export default function MyNotesList(
     
     return (
         <>
+            {/* <button 
+                onClick={
+                    async () => {
+                        const response = await fetch('/api/scrape-item-prices', {
+                            method: 'POST',
+                            headers: {
+                            'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({itemName: 'חלב'})
+                        })
+                        const data = await response.json()
+                        console.log(data)
+                    }} 
+            >
+                Scrape
+            </button> */}
             <div 
                 style={{
                     display: "flex", 

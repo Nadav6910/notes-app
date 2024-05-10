@@ -50,6 +50,7 @@ type ConfirmDeleteNotePopupProps = {
     isOpen: boolean,
     setIsOpen: Function,
     noteId: string,
+    noteName: string,
     OnDelete: function, 
     onError: function
 }
@@ -58,6 +59,7 @@ type ConfirmDeleteNoteItemPopupProps = {
     isOpen: boolean,
     setIsOpen: Function,
     entryId: string,
+    entryName: string,
     OnDelete: function, 
     onError: function
 }
