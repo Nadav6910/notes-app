@@ -4,6 +4,7 @@ import { SessionProv } from '../providers/SessionProv'
 import { ThemeProv } from '@/providers/ThemeProv'
 import AppNavbar from '@/components/main_components/AppNavbar'
 import { BasicChildrenProps } from '../../types'
+import NextTopLoader from 'nextjs-toploader'
 // import AppFooter from '@/components/main_components/AppFooter'
 
 export const metadata = {
@@ -20,7 +21,7 @@ export default function RootLayout({children}: BasicChildrenProps) {
       >
         <SessionProv>
           <ThemeProv>
-            {/* @ts-expect-error Server Component */}
+            <NextTopLoader />
             <AppNavbar />
             {children}
             {/* <AppFooter />    */}

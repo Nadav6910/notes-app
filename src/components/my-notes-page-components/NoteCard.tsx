@@ -65,7 +65,7 @@ export default function NoteCard({noteName, noteType, createdAt, noteId, entries
 
             <MotionWrap
                 className={styles.cardWrap}
-                style={{display: "block", maxWidth: "20em"}}
+                style={{display: "block", maxWidth: "32em"}}
                 whileHover={{y: -5, boxShadow: "0px 0px 10px 0px rgba(0,0,0,0.75)"}}
                 transition={{ type: "spring", stiffness: 200, damping: 20, duration: 0.2 }}
             >
