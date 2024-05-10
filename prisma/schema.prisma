@@ -8,8 +8,8 @@ datasource db {
 }
 
 enum NotesView {
-  CARD
-  LIST
+  card
+  list
 }
 
 model User {
@@ -18,7 +18,7 @@ model User {
   password  String
   name      String
   notes     Note[]
-  notesView NotesView @default(CARD)
+  notesView NotesView @default(card)
   createdAt DateTime  @default(now())
 }
 
