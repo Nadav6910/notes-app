@@ -45,7 +45,7 @@ export default function SwitchNotesViewBtn(
 
     return (
 
-        <div className={styles.switchNoteViewBtnContainer}>
+        <div className={styles.switchNotesViewBtnContainer}>
             <MotionWrap 
                 className={currentNotesView === "card" ? styles.selectedAreaCategories : styles.selectedAreaRegular}
                 animate={controls}             

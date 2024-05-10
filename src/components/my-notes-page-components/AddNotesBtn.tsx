@@ -8,7 +8,7 @@ export default function AddNotesBtn() {
     return (
       
     <MotionWrap
-        style={{width: "4.5em", height: "4.5em", borderRadius: "50%", marginTop: "2em", marginBottom: "2em"}}
+        style={{borderRadius: "50%"}}
         whileHover={{boxShadow: "inset 0 0 0 200px rgba(255,255,255,0.1)"}}
         transition={{ 
             type: "just" 

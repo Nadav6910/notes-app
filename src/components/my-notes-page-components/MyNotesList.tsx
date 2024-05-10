@@ -45,7 +45,14 @@ export default function MyNotesList(
     
     return (
         <>
-            <div style={{display: "flex", justifyContent: "space-between", alignItems: "center"}}>
+            <div 
+                style={{
+                    display: "flex", 
+                    justifyContent: "space-between", 
+                    alignItems: "center",
+                    marginBottom: "2em"
+                }}
+            >
                 <AddNotesBtn />
                 <SwitchNotesViewBtn 
                     changeNotesView={(view: string) => handleChangeView(view)}
