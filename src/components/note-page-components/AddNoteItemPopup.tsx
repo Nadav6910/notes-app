@@ -121,53 +121,52 @@ export default function AddNoteItemPopup(
                 onSubmit={handleSubmit((data) => handleAddItem(data))} 
                 className={styles.formContainer}
             >
-                <div className={styles.inputContainer}>
-                        <input 
-                            className={styles.renameInput}
-                            autoFocus
-                            {...register('itemName', 
-                            { 
-                                required: {value: true, message: "Item name must be provided!"},
-                                minLength: {value: 2, message: "Item name must be at least 2 characters"},
-                                maxLength: {value: 200, message: "Item name must be shorter then 200 characters"} 
-                            })} 
-                            type='text'
-                            placeholder="Item name.."
-                            
-                            style={{borderColor: errors.itemName? "red" : "initial"}} 
-                        />
-                        <div className={styles.inputIcon}><MdOutlineDriveFileRenameOutline /></div>
-                    </div>
-                    {
-                        errors.itemName ?
-                        <span style={{color: "red", fontSize: "0.8rem"}}>
-                            {errors.itemName?.message}
-                        </span> : null
-                    }
-                <DialogActions sx={{padding: 0, display: "flex"}}>
-                    <Button 
-                      sx={{marginRight: "auto"}} 
-                      className={styles.renamePopupBtn} 
-                      onClick={() => setOpenAddNoteItemOptionsTab(!openAddNoteItemOptionsTab)}
-                      startIcon={
-                        <MotionWrap
-                          style={{display: "flex"}}
-                          animate={controls}
-                          transition={
-                            {duration: 2, type: "spring", stiffness: 200, damping: 20}
-                          }
-                        >
-                          <IoMdArrowDropdown />
-                        </MotionWrap>
+              <div className={styles.inputContainer}>
+                <input 
+                  className={styles.renameInput}
+                  autoFocus
+                  {...register('itemName', 
+                  { 
+                      required: {value: true, message: "Item name must be provided!"},
+                      minLength: {value: 2, message: "Item name must be at least 2 characters"},
+                      maxLength: {value: 200, message: "Item name must be shorter then 200 characters"} 
+                  })} 
+                  type='text'
+                  placeholder="Item name.."
+                  style={{borderColor: errors.itemName? "red" : "initial"}} 
+                />
+                <div className={styles.inputIcon}><MdOutlineDriveFileRenameOutline /></div>
+              </div>
+              {
+                errors.itemName ?
+                <span style={{color: "red", fontSize: "0.8rem"}}>
+                    {errors.itemName?.message}
+                </span> : null
+              }
+              <DialogActions sx={{padding: 0, display: "flex"}}>
+                <Button 
+                  sx={{marginRight: "auto"}} 
+                  className={styles.renamePopupBtn} 
+                  onClick={() => setOpenAddNoteItemOptionsTab(!openAddNoteItemOptionsTab)}
+                  startIcon={
+                    <MotionWrap
+                      style={{display: "flex"}}
+                      animate={controls}
+                      transition={
+                        {duration: 2, type: "spring", stiffness: 200, damping: 20}
                       }
                     >
-                      Options
-                    </Button>
-                    <Button className={styles.renamePopupBtn} type='submit'>
-                        {loading ? <CircularProgress color='inherit' size={22} /> : "Add"}
-                    </Button>
-                    <Button className={styles.renamePopupBtn} onClick={handleClose}>Cancel</Button>
-                </DialogActions>
+                      <IoMdArrowDropdown />
+                    </MotionWrap>
+                  }
+                >
+                  Options
+                </Button>
+                <Button className={styles.renamePopupBtn} type='submit'>
+                    {loading ? <CircularProgress color='inherit' size={22} /> : "Add"}
+                </Button>
+                <Button className={styles.renamePopupBtn} onClick={handleClose}>Cancel</Button>
+              </DialogActions>
             </form>
         </DialogContent>
         <AnimatePresence>

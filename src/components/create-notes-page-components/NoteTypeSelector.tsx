@@ -17,7 +17,7 @@ export default function NoteTypeSelector({createdNoteType}: NoteTypeSelectorProp
     }
 
     if (e.currentTarget.childNodes[0].textContent === "Note book") {
-        controls.start({x: 102})
+        controls.start({x: 100})
         createdNoteType("Note book")
     }
   }

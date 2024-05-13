@@ -9,10 +9,7 @@ export default function GoBackContainer() {
     const router = useRouter()
 
     return (
-        <div className={styles.goBackContainer} onClick={() => {
-            router.refresh()
-            router.push('/my-notes')
-        }}>
+        <div className={styles.goBackContainer} onClick={() => router.push('/my-notes')}>
             <BiArrowBack />
             <p>Back to notes</p>
         </div>

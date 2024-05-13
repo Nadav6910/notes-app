@@ -51,7 +51,7 @@
     position: absolute;
     right: 0;
     width: 9em;
-    background-color: var(--note-card-background);
+    background-color: var(--menu-background-color);
     z-index: 100;
     border: 1px solid var(--primary-color);
     border-radius: 10px;

@@ -205,7 +205,7 @@
 }
 
 .confirmDeletePopupContainer, .renamePopupContainer {
-    background-color: var(--note-card-background) !important;
+    background-color: var(--menu-background-color) !important;
 }
 
 .ConfirmDeletePopupTitle, .renamePopupTitle {
