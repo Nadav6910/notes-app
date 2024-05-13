@@ -19,6 +19,7 @@
 }
 
 .noteTypeSelectorContainer {
+    position: relative;
     display: flex;
     gap: 1em;
     padding: 0.5em;
@@ -33,32 +34,23 @@
     z-index: 1;
 }
 
-.typeSelectionArea {
-    width: 5em;
+.typeSelectionAreaList {
+    width: 5.2em;
     height: 2.75em;
-    transform: none;
     position: absolute;
     background-color: var(--note-type-selector-selected-color);
     border: 1px;
     border-radius: 35px;
 }
 
-@media only screen and (max-width: 450px) {
-    .typeSelectionArea {
-        width: 5.4em;
-    }
-}
-
-@media only screen and (max-width: 850px) {
-    .typeSelectionArea {
-        width: 5.4em;
-    }
-}
-
-@media only screen and ((max-width: 1350px) and (max-height: 820px)) {
-    .typeSelectionArea {
-        width: 5.4em;
-    }
+.typeSelectionAreaBook {
+    width: 5.35em;
+    height: 2.75em;
+    left: 6.7em;
+    position: absolute;
+    background-color: var(--note-type-selector-selected-color);
+    border: 1px;
+    border-radius: 35px;
 }
 
 .typeSelectorBtn {
