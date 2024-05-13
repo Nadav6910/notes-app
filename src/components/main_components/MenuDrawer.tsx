@@ -53,42 +53,46 @@ export default function MenuDrawer({isSession, userName, userImage}: NavbarDrawe
             return
         }
 
-        setState({ ...state, "right": open });
+        setState({ ...state, "right": open })
     }
 
     const list = () => (
         <Box
-        role="presentation"
-        onClick={toggleDrawer(false)}
-        onKeyDown={toggleDrawer(false)}
+            role="presentation"
+            onKeyDown={toggleDrawer(false)}
         >
         {isSession ?
 
         <>
             <List>
-                <div style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between" 
-                }}>
+                <div 
+                    style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between" 
+                    }}
+                >
                     <ThemeSwitch />
 
-                    <div style={{
-                    display: "flex", 
-                    flexDirection: "column", 
-                    alignItems: "flex-end",
-                    paddingRight: "1em", 
-                    paddingTop: "0.5em", 
-                    gap: "0.5em"
-                }}>
+                    <div 
+                        style={{
+                            display: "flex", 
+                            flexDirection: "column", 
+                            alignItems: "flex-end",
+                            paddingRight: "1em", 
+                            paddingTop: "0.5em", 
+                            gap: "0.5em"
+                        }}
+                    >
                         <Avatar src={userImage ? userImage : ""} sx={{backgroundColor: "#9e9797"}} />
-                        <p style={
-                            {
-                                marginBottom: "1em", 
-                                textAlign: "end",
-                                fontSize: "0.9rem !important"
+                        <p 
+                            style={
+                                {
+                                    marginBottom: "1em", 
+                                    textAlign: "end",
+                                    fontSize: "0.9rem !important"
+                                }
                             }
-                        }
                         >
                             {userName}
                         </p>
@@ -167,6 +171,3 @@ export default function MenuDrawer({isSession, userName, userImage}: NavbarDrawe
         </>    
     )
 }
-// backgroundColor: theme.theme === "dark" ? "#353535" : "white",
-// color: theme.theme === "dark" ? "white" : "black",
-// width: "11em"

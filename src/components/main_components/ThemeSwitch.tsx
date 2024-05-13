@@ -1,6 +1,5 @@
 'use client'
 
-import { useEffect } from "react"
 import styles from "../../app/styles/mainlayoutstyles.module.css"
 import { styled } from '@mui/material/styles'
 import Switch from '@mui/material/Switch'
@@ -59,10 +58,6 @@ const MaterialUISwitch = styled(Switch)(({thememode}: {thememode: string | undef
 export default function ThemeSwitch() {
 
   const { theme, setTheme } = useTheme()
-
-  if (theme === "system") {
-    setTheme('dark')
-  }
 
   return (
     <NoSsr>
