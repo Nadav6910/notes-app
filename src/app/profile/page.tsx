@@ -25,7 +25,7 @@ export default async function ProfilePage() {
     return (
 
         <main className={styles.profilePageContainer}>
-            <ProfileAvatar userImage={session.user.image} />
+            <ProfileAvatar userImage={session.user.image} userId={userDetails?.id} />
             <div className={styles.detailsContainer}>
                 <div className={styles.detailsSubContainer}>
                     <p className={styles.detailTitle}>Name:</p>

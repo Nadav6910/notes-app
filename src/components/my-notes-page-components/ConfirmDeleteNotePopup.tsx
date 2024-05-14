@@ -51,19 +51,19 @@ export default function ConfirmDeleteNotePopup(
       const data = await response.json()
   
       if (data.massage === "deleted note") {
-          setLoading(false)
-          OnDelete(true)
-          setIsOpen(false)
-          setTimeout(() => {
-            startTransition(() => {
-              router.refresh()
-            })
-          }, 400)
+        setLoading(false)
+        OnDelete(true)
+        setIsOpen(false)
+        setTimeout(() => {
+          startTransition(() => {
+            router.refresh()
+          })
+        }, 400)
       }
   
       else {
-          setLoading(false)
-          onError(true)
+        setLoading(false)
+        onError(true)
       }
     } 
     
