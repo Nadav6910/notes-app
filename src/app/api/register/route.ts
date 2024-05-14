@@ -28,7 +28,8 @@ export async function POST(request: Request) {
                 name,
                 userName,
                 password: hashedPassword,
-                notesView: "card"
+                notesView: "card",
+                profileImage: ""
             }
         })
 

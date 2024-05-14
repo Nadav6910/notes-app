@@ -109,7 +109,7 @@ export default function RegisterForm() {
                         type='text'
                         placeholder='Username'
                         
-                        style={{borderColor: errors.userName || userExistsError ? "red" : "initial"}} 
+                        style={{borderColor: errors.userName || userExistsError ? "red" : undefined}} 
                     />
                     <div className={styles.inputIcon}><AiOutlineUser /></div>
                 </div>

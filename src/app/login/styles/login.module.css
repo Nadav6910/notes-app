@@ -34,6 +34,7 @@
 .loginInput {
     width: 100%;
     border: 1px solid var(--borders-color);
+    background-color: var(--note-card-background-card-item);
     border-radius: 5px;
     padding: 1.2em;
     padding-left: 3em;

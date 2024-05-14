@@ -84,7 +84,7 @@ export default function LoginForm() {
                         type='text'
                         placeholder='Username'
                         
-                        style={{borderColor: errors.userName || userNameErr ? "red" : "initial"}} 
+                        style={{borderColor: errors.userName || userNameErr ? "red" : undefined}} 
                     />
                     <div className={styles.inputIcon}><AiOutlineUser /></div>
                 </div>
@@ -103,7 +103,7 @@ export default function LoginForm() {
                         })} 
                         type='password'
                         placeholder='Password'
-                        style={{borderColor: errors.password || passwordErr ? "red" : "initial"}} 
+                        style={{borderColor: errors.password || passwordErr ? "red" : undefined}} 
                     />
                     <div className={styles.inputIcon}><RiLockPasswordLine /></div>
                 </div>

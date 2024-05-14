@@ -18,40 +18,39 @@ const authOptions: NextAuthOptions = {
           },
           async authorize(credentials, req) {
               
-              const { userName, password } = credentials as {
-                  userName: string
-                  password: string
+            const { userName, password } = credentials as {
+              userName: string
+              password: string
+            }
+
+            try {
+              
+              // Check if user exists
+              const userData = await prisma.user.findUnique({where: {userName: userName}})
+              
+              // if no user
+              if (!userData) {
+                  throw new Error('wrong user name')
               }
 
-              try {
-                
-                  // Check if user exists
-                  const userData = await prisma.user.findUnique({where: {userName: userName}})
-                  
-                  // if no user
-                  if (!userData) {
-                      throw new Error('wrong user name')
-                  }
+              // check password
+              const match = await bcrypt.compare(password, userData.password)
 
-                  // check password
-                  const match = await bcrypt.compare(password, userData.password)
-
-                  if (!match) {
-                      throw new Error('wrong password')
-                  }
-                  const user = {
-                    id: userData.id,
-                    name: userData.name,
-                  }
-              
-                  return user  
-              } 
-              
-              catch (error: any) {
-                  console.log(error)
-                  throw new Error(error.message)
+              if (!match) {
+                  throw new Error('wrong password')
               }
-              
+              const user = {
+                id: userData.id,
+                name: userData.name,
+              }
+          
+              return user  
+            }
+            
+            catch (error: any) {
+                console.log(error)
+                throw new Error(error.message)
+            }
           }
       }),
       GoogleProvider({
@@ -65,16 +64,31 @@ const authOptions: NextAuthOptions = {
     ],
     callbacks: {
       signIn: async ({account, user}: any) => {
-
+        
         if (account.provider === "google" || account.provider === "github") {
           
           try {
             // Check if user exists
-            const userData = await prisma.user.findUnique({where: {userName: user?.email}}) as User
+            const userData = await prisma.user.findUnique({where: {userName: user?.email}})
             
             if (userData) {
         
               user.id = userData.id
+
+              if (userData.profileImage) {
+                user.image = userData.profileImage
+              }
+
+              // update db with new image
+              else {
+                await prisma.user.update({
+                  where: {id: userData.id},
+                  data: {
+                    profileImage: user?.image
+                  }
+                })
+              }
+
               return user
             }
 
@@ -83,7 +97,9 @@ const authOptions: NextAuthOptions = {
               data: {
                   name: user?.name,
                   userName: user?.email,
-                  password: "social-account"
+                  password: "social-account",
+                  notesView: "card",
+                  profileImage: user?.image
               }
             })
 
@@ -109,7 +125,13 @@ const authOptions: NextAuthOptions = {
       session: async ({session, token}: any) => {
         
         if (session.user && token.sub) {
-          session.user.id = token.sub 
+          // get user data
+          const userData = await prisma.user.findUnique({where: {id: token.sub}})
+          session.user.id = token.sub
+          
+          if (userData) {
+            session.user.image = userData.profileImage
+          }
         }
 
         return session
