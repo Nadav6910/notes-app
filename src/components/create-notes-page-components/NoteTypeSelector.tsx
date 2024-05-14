@@ -5,12 +5,15 @@ import { useState } from "react";
 import MotionWrap from "@/wrappers/MotionWrap";
 import { useAnimationControls } from "framer-motion"
 import { NoteTypeSelectorProps } from "../../../types";
+import useMediaQuery from "@/app/hooks/useMediaQuery";
 
 export default function NoteTypeSelector({createdNoteType}: NoteTypeSelectorProps) {
 
     const [selectedNoteType, setSelectedNoteType] = useState("Items list")
 
     const controls = useAnimationControls()
+
+    const breakPoint = useMediaQuery(450)
 
     const toggleButton = (e: React.MouseEvent) => {
 
@@ -21,7 +24,13 @@ export default function NoteTypeSelector({createdNoteType}: NoteTypeSelectorProp
         }
 
         if (e.currentTarget.childNodes[0].textContent === "Note book") {
-            controls.start({left: "6.9em"})
+            if (breakPoint) {
+                controls.start({left: "7em"})
+            }
+
+            else {
+                controls.start({left: "6.85em"})
+            }
             setSelectedNoteType("Note book")
             createdNoteType("Note book")
         }
