@@ -59,6 +59,12 @@ export default function MenuDrawer({isSession, userName, userImage}: NavbarDrawe
     const list = () => (
         <Box
             role="presentation"
+            onClick={e => {
+                const target = e.target as HTMLElement
+                if (!target.classList.contains("PrivateSwitchBase-input")) {
+                    toggleDrawer(false)(e)
+                }
+            }}
             onKeyDown={toggleDrawer(false)}
         >
         {isSession ?

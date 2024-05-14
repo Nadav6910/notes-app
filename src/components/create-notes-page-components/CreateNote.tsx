@@ -113,17 +113,17 @@ export default function CreateNote() {
 
             <button className={styles.createNoteSubmitBtn} type='submit'>
                     {
-                        isSubmitting ?
-                        
-                        <CircularProgress 
-                            sx={
-                                {
-                                    width: "1.2em !important", 
-                                    height: "1.2em !important", 
-                                    color: resolvedTheme === 'dark' ? "#19a29b" : "#610c62"
-                                }
-                            } 
-                        /> : "Create"
+                      isSubmitting ?
+                      
+                      <CircularProgress 
+                        sx={
+                          {
+                            width: "1.2em !important", 
+                            height: "1.2em !important", 
+                            color: resolvedTheme === 'dark' ? "#19a29b" : "#610c62"
+                          }
+                        } 
+                      /> : "Create"
                     }
                 </button>
         </form>
