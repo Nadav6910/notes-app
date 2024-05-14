@@ -53,6 +53,18 @@
     border-radius: 35px;
 }
 
+@media screen and (max-width: 450px) {
+    .typeSelectionAreaBook {
+        width: 5.3em;
+        height: 2.75em;
+        left: 6.95em;
+        position: absolute;
+        background-color: var(--note-type-selector-selected-color);
+        border: 1px;
+        border-radius: 35px;
+    }
+}
+
 .typeSelectorBtn {
     background-color: transparent;
     border: transparent;
