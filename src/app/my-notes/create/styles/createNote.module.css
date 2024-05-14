@@ -57,7 +57,7 @@
     .typeSelectionAreaBook {
         width: 5.3em;
         height: 2.75em;
-        left: 6.95em;
+        left: 7.1em;
         position: absolute;
         background-color: var(--note-type-selector-selected-color);
         border: 1px;
