@@ -19,7 +19,7 @@ export default function ProfileAvatar({userImage, userId}: {userImage: string | 
   const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
 
     const imageFile = event.target.files?.[0]
-    const maxSize = 3145728 // 3MB
+    const maxSize = 5242880 // 5MB
 
     if (!imageFile) return
     
@@ -33,7 +33,7 @@ export default function ProfileAvatar({userImage, userId}: {userImage: string | 
 
     // prevent files that are larger than 3MB
     if (imageFile.size > maxSize) {
-      setImageTypeError(true)
+      setImageSizeError(true)
       setTimeout(() => setImageSizeError(false), 3000)
       event.target.files = null
       return

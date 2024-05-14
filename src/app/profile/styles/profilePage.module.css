@@ -47,8 +47,9 @@
     flex-direction: column;
     padding: 1em;
     gap: 1em;
-    background-color: var(--note-card-background);
+    background-color: var(--menu-background-color);
     border-radius: 25px;
+    box-shadow: 0 0 10px 0 rgba(0, 0, 0, 0.3);
 }
 
 .detailsSubContainer {
