@@ -18,7 +18,7 @@ export default async function MyNotes() {
     if (!session) {
         redirect('/')
     }
-    console.log(session);
+    
     const userNotes = await getNotes(session?.user.id)
     const userNotesView = await getUserNotesView(session?.user.id)
     
