@@ -1,9 +1,13 @@
 import styles from './styles/home.module.css'
+import { getServerSession } from "next-auth/next"
+import { authOptions } from './api/auth/[...nextauth]/options'
 import HeroSectionDrawing from '@/SvgDrawings/HeroSectionDrawing'
 import { oswald } from '@/fonts/fonts'
 import MainPageButton from '@/components/main_components/MainPageButton'
 
 export default async function Home() {
+
+  const session = await getServerSession(authOptions)
   
   return (
     <main className={styles.mainPageContainer}>
@@ -20,7 +24,7 @@ export default async function Home() {
           NotesApp is here to make your life easier.
         </p>
 
-        <MainPageButton />
+        <MainPageButton session={session} />
       </section>
 
       <HeroSectionDrawing />

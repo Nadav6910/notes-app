@@ -2,15 +2,22 @@
 
 import styles from '../../app/styles/home.module.css'
 import { useState, useEffect } from 'react';
-import { useSession } from 'next-auth/react';
 import { Backdrop, CircularProgress } from '@mui/material';
 import MotionWrap from '../../wrappers/MotionWrap'
 import { useRouter } from "next/navigation";
 
-export default function MainPageButton() {
+type Session = {
+    user: {
+        id: string;
+        name: string;
+        email?: string;
+        image?: string;
+    }
+}
+
+export default function MainPageButton({session}: {session: Session | null}) {
 
     const router = useRouter()
-    const session = useSession()
    
     const [pageNavLoading, setPageNavLoading] = useState(false)
 
@@ -19,6 +26,27 @@ export default function MainPageButton() {
         router.prefetch('/my-notes')
         router.prefetch('/login')
     }, [router])
+
+    if (session === null) {
+        return (
+            <MotionWrap
+                style={{width: "10em"}} 
+                whileHover={{scale: 1.1}}
+                whileTap={{ scale: 0.9 }} 
+                transition={{ type: "spring", stiffness: 400, damping: 10 }}
+            >
+                <button 
+                    className={styles.callToActionBtn}
+                    onClick={() => {
+                        setPageNavLoading(true)
+                        router.push('/login')
+                    }}
+                >
+                    Get started
+                </button>
+            </MotionWrap>
+        )
+    }
     
     return (
 
@@ -35,15 +63,15 @@ export default function MainPageButton() {
                 whileTap={{ scale: 0.9 }} 
                 transition={{ type: "spring", stiffness: 400, damping: 10 }}
                 >
-                    {session.status !== "loading" && <button 
+                    <button 
                         className={styles.callToActionBtn}
                         onClick={() => {
                             setPageNavLoading(true)
-                            router.push(session.status === "authenticated" ? '/my-notes' : '/login')
+                            router.push('/my-notes')
                         }}
                     >
-                        {session.status === "authenticated" ? 'My Notes' : 'Get started'}
-                    </button>}
+                        My Notes
+                    </button>
             </MotionWrap>
         </>
     )
