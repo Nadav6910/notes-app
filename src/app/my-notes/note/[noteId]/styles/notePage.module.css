@@ -424,3 +424,7 @@
     height: 2.8em;
     padding-right: 0.3em;
 }
+
+.noteItemsListSkeleton {
+    background-color: var(--note-card-background-card-item) !important;
+}

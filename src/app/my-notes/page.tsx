@@ -27,7 +27,7 @@ export default async function MyNotes() {
             {userNotes && userNotes?.notes.length < 1 ? 
                 
                 <NoNotesDisplay /> :
-                    
+                       
                 <MyNotesList 
                     userNotes={userNotes} 
                     notesViewSelect={userNotesView?.notesView} 

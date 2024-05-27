@@ -31,11 +31,12 @@ export default async function AppNavbar() {
         </div>
 
         <div className={styles.desktopNavContainer}>
+          
           <ThemeSwitch />
 
           {session ? 
           
-          <NavbarAuthBtnsSection userName={session?.user?.name} userImage={session?.user?.image} /> :
+            <NavbarAuthBtnsSection userName={session?.user?.name} userImage={session?.user?.image} /> :
 
             <div style={{display: "flex", alignItems: "center", gap: "1em"}}>
               <MotionWrap 

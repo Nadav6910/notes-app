@@ -305,7 +305,7 @@
 
 .selectMenuPaper {
     color: var(--primary-color) !important;
-    background-color: var(--note-card-background) !important;
+    background-color: var(--menu-background-color) !important;
 }
 
 .selectIcon {
@@ -334,4 +334,14 @@
 
 .redCheckBox {
     color: rgb(147, 30, 30) !important;
+}
+
+.skeletonCard {
+    background-color: var(--note-card-background-card-item) !important;
+    max-width: 32em;
+}
+
+.skeletonCardListView {
+    background-color: var(--note-card-background-card-item) !important;
+    max-width: 100%;
 }
