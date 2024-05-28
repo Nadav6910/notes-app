@@ -1,7 +1,7 @@
 'use client'
 
 import styles from "../../app/my-notes/note/[noteId]/styles/notePage.module.css"
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import dynamic from 'next/dynamic'
 import {
   List, 
@@ -33,6 +33,7 @@ import { useScroll, AnimatePresence } from 'framer-motion'
 import MotionWrap from "@/wrappers/MotionWrap"
 import SortingMenu from "./SortingMenu"
 import SwitchNoteViewBtn from "./SwitchNoteViewBtn"
+import CategoriesSelector from "./CategoriesSelector"
 
 const AddNoteItemPopup = dynamic(() => import('./AddNoteItemPopup'), {
   loading: () => <Backdrop open={true}><CircularProgress className={styles.backDropLoader} /></Backdrop>,
@@ -81,13 +82,23 @@ export default function NoteItemsList(
   const [noteViewSelect, setNoteViewSelect] = useState<string>(noteView)
   const [ChecksCount, SetChecksCount] = useState(noteEntries?.filter(entry => entry.isChecked).length)
   const [UnCheckedCount, SetUnCheckedCount] = useState(noteEntries?.filter(entry => !entry.isChecked).length)
-  const [expendedCategory, setExpendedCategory] = useState(Array.from(
-    noteItemsState!.reduce((categorySet: Set<string>, entry: Entry) => {
-      const category = entry.category ?? "No Category";
-      categorySet.add(category)
-      return categorySet;
-    }, new Set<string>())
-  ))
+
+  const itemsCategories = useMemo(() => {
+    return Array.from(
+      noteEntries!.reduce((categorySet: Set<string>, entry: Entry) => {
+        const category = entry.category ?? "No Category";
+        categorySet.add(category)
+        return categorySet;
+      }, new Set<string>())
+    )
+  }, [noteEntries])
+
+  const [allCategories, setAllCategories] = useState(itemsCategories)
+  const [expendedCategory, setExpendedCategory] = useState(itemsCategories)
+
+  useEffect(() => {
+    setAllCategories(itemsCategories)
+  }, [itemsCategories])
   
   const addItemButtonRef = useRef<HTMLDivElement>(null)
   
@@ -392,7 +403,7 @@ export default function NoteItemsList(
         {/* items counter  */}
         <h5 style={{marginBottom: "2em", alignSelf: "flex-start", fontSize: "0.75rem"}}>
             {noteItemsState?.length === 1 ? 
-            `1 Item` : 
+            `1 Item - ${ChecksCount} Checked ● ${UnCheckedCount} Unchecked` : 
             `${noteItemsState?.length} Items - ${ChecksCount} Checked ● ${UnCheckedCount} Unchecked`}
         </h5>
 
@@ -442,6 +453,23 @@ export default function NoteItemsList(
             null
           }
         </div>
+
+        {/* categories selector */}
+        {noteViewSelect === "categories" && 
+          <CategoriesSelector 
+            availableCategories={allCategories}
+            filterByCategory={(category: string) => {
+              setNoteItemsState(() => {
+
+                if (category === "All") {
+                  return noteEntries
+                }
+
+                return noteEntries?.filter(entry => entry.category === category)
+              })
+            }}
+          />
+        }
 
         {/* floating add item button when scrolling down */}
         <AnimatePresence>
@@ -603,7 +631,7 @@ export default function NoteItemsList(
         noteItemsState?.reduce((result: GroupedData[], item) => {
           const category: string = !item.category || item.category === "none" ? "No Category" : item.category
           const existingCategory: GroupedData | undefined = result.find(obj => obj.category === category)
-        
+          
           if (existingCategory) {
             existingCategory.data.push(item)
           } else {
@@ -611,7 +639,7 @@ export default function NoteItemsList(
           }
             return result
           }, [])
-
+          
           .filter(group => {
             if (searchTerm === "") {
               return group
@@ -877,6 +905,8 @@ export default function NoteItemsList(
                   })
                 })
               }
+
+              router.refresh()
             }
           }}
           onCategoryChange={(isCategoryChanged: boolean, newCategory: string) => {
@@ -886,6 +916,8 @@ export default function NoteItemsList(
                   entry.entryId === selectedEntryId ? { ...entry, category: newCategory } : entry
                 )
               )
+
+              router.refresh()
             }
           }}
           onError={() => {

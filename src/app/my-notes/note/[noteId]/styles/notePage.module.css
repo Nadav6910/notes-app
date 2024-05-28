@@ -428,3 +428,31 @@
 .noteItemsListSkeleton {
     background-color: var(--note-card-background-card-item) !important;
 }
+
+.categoriesSelectorContainer {
+    display: flex;
+    gap: 0.5em;
+    padding-bottom: 0.5rem;
+    margin-bottom: 0.5rem;
+    width: 100%;
+    overflow-x: auto;
+}
+
+.categoryBox {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.5em;
+    border-radius: 10px;
+    cursor: pointer;
+    text-wrap: nowrap;
+    background-color: var(--note-card-background-card-item);
+    border: 1px solid var(--primary-color);
+    color: var(--primary-color);
+}
+
+.categoryBoxSelected {
+    background-color: var(--secondary-color-faded);
+    color: var(--primary-color);
+    border: none;
+}

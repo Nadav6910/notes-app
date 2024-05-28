@@ -123,3 +123,8 @@ type SortingMenuProps = {
     sortByChecked: Function, 
     sortByName: Function
 }
+
+type CategoriesSelectorProps = {
+    availableCategories: string[]
+    filterByCategory: (category: string) => void
+}

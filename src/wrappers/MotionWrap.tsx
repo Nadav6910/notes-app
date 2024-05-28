@@ -1,6 +1,6 @@
 'use client'
 
-import { motion } from "framer-motion"
+import { m, domAnimation, LazyMotion } from "framer-motion"
 import { MotionProps } from "framer-motion"
 
 interface MotionWrapperProps extends MotionProps {
@@ -23,18 +23,20 @@ export default function MotionWrap(
   }: MotionWrapperProps) {
   
   return (
-    <motion.div
-      className={className}
-      style={style} 
-      animate={animate} 
-      whileHover={whileHover} 
-      whileTap={whileTap} 
-      transition={transition}
-      initial={initial}
-      exit={exit}
-      onClick={onClick}
-    >
+    <LazyMotion features={domAnimation}>
+      <m.div
+        className={className}
+        style={style} 
+        animate={animate} 
+        whileHover={whileHover} 
+        whileTap={whileTap} 
+        transition={transition}
+        initial={initial}
+        exit={exit}
+        onClick={onClick}
+      >
         {children}
-    </motion.div>
+      </m.div>
+    </LazyMotion>
   )
 }
