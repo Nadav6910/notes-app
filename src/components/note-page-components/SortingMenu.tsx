@@ -67,7 +67,7 @@ export default function SortingMenu({sortMethod, sortByNewToOld, sortByOldToNew,
                             setOpenSortingMenu(false)
                             sortByChecked()
                         }}>
-                            By Checked
+                            By checked
                             <span style={{width: "1em", height: "1em"}}>
                             {sortMethod === "byChecked" && <AiOutlineCheck />}
                             </span>

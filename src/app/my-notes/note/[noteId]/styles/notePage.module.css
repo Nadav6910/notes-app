@@ -432,7 +432,7 @@
 .categoriesSelectorContainer {
     display: flex;
     gap: 0.5em;
-    padding-bottom: 0.5rem;
+    padding-bottom: 1.2rem;
     margin-bottom: 0.5rem;
     width: 100%;
     overflow-x: auto;
@@ -452,7 +452,6 @@
 }
 
 .categoryBoxSelected {
-    background-color: var(--secondary-color-faded);
-    color: var(--primary-color);
-    border: none;
+    color: var(--secondary-color);
+    border-color: var(--secondary-color);
 }

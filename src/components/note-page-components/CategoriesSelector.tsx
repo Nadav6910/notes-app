@@ -14,17 +14,23 @@ export default function CategoriesSelector({availableCategories, filterByCategor
    
     return (
         <div className={styles.categoriesSelectorContainer}>
-            <div 
-                className={`${styles.categoryBox} ${selectedCategory === "All" && styles.categoryBoxSelected}`}
-                onClick={() => handleSelectCategory("All")}
+            <MotionWrap
+                whileHover={{ y: 2 }}
+                transition={{duration: 0.2, type: "spring", stiffness: 120, damping: 20}}
             >
-                All
-            </div>
+                <div 
+                    className={`${styles.categoryBox} ${selectedCategory === "All" && styles.categoryBoxSelected}`}
+                    onClick={() => handleSelectCategory("All")}
+                >
+                    All
+                </div>
+            </MotionWrap>
             {availableCategories.map((category) => (
                 <MotionWrap
                     key={category}         
                     initial={{ opacity: 0, x: 20 }}
                     animate={{ opacity: 1, x: 0 }}
+                    whileHover={{ y: 2 }}
                     exit={{ opacity: 0, x: 20 }}
                     transition={{duration: 0.2, type: "spring", stiffness: 120, damping: 20}}
                 >
