@@ -2,6 +2,7 @@ import styles from "../../app/my-notes/note/[noteId]/styles/notePage.module.css"
 import { CategoriesSelectorProps } from "../../../types";
 import { useState } from "react";
 import MotionWrap from "@/wrappers/MotionWrap";
+import useMediaQuery from "@/app/hooks/useMediaQuery";
 
 export default function CategoriesSelector({availableCategories, filterByCategory}: CategoriesSelectorProps) {
 
@@ -11,11 +12,13 @@ export default function CategoriesSelector({availableCategories, filterByCategor
         setSelectedCategory(category)
         filterByCategory(category)
     }
-   
+
+    const breakPoint = useMediaQuery(800)
+    
     return (
         <div className={styles.categoriesSelectorContainer}>
             <MotionWrap
-                whileHover={{ y: 2 }}
+                whileHover={{ y: breakPoint ? 0 : 2 }}
                 transition={{duration: 0.2, type: "spring", stiffness: 120, damping: 20}}
             >
                 <div 
@@ -30,7 +33,7 @@ export default function CategoriesSelector({availableCategories, filterByCategor
                     key={category}         
                     initial={{ opacity: 0, x: 20 }}
                     animate={{ opacity: 1, x: 0 }}
-                    whileHover={{ y: 2 }}
+                    whileHover={{ y: breakPoint ? 0 : 2 }}
                     exit={{ opacity: 0, x: 20 }}
                     transition={{duration: 0.2, type: "spring", stiffness: 120, damping: 20}}
                 >
