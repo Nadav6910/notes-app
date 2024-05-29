@@ -13,7 +13,7 @@ export default function CategoriesSelector({availableCategories, filterByCategor
         filterByCategory(category)
     }
 
-    const breakPoint = useMediaQuery(800)
+    const breakPoint = useMediaQuery(850)
     
     return (
         <div className={styles.categoriesSelectorContainer}>

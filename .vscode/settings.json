@@ -14,5 +14,6 @@
     "thememode",
     "toploader",
     "zustand"
-  ]
+  ],
+  "CodeGPT.apiKey": "CodeGPT Plus Beta"
 }
