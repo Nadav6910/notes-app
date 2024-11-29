@@ -397,6 +397,11 @@
     right: 0;
 }
 
+.notSelectedArea {
+    z-index: -500;
+    position: absolute;
+}
+
 .selectedAreaCategories {
     position: absolute;
     background-color: var(--secondary-color-faded);
@@ -416,6 +421,13 @@
     padding-left: 0.3em;
 }
 
+.divider {
+    position: absolute;
+    border-left: 1px solid var(--primary-color);
+    height: 2.194em;
+    width: fit-content;
+}
+
 .categoriesViewBtnContainer {
     display: flex;
     align-items: center;
@@ -423,6 +435,24 @@
     width: 2em;
     height: 2.8em;
     padding-right: 0.3em;
+}
+
+.checkedFilterViewBtnContainer {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2em;
+    height: 2.23em;
+    padding-left: 0.5em;
+}
+
+.uncheckedFilterViewBtnContainer {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2em;
+    height: 2.23em;
+    padding-right: 0.5em;
 }
 
 .noteItemsListSkeleton {

@@ -3,6 +3,7 @@ import { CategoriesSelectorProps } from "../../../types";
 import { useState } from "react";
 import MotionWrap from "@/wrappers/MotionWrap";
 import useMediaQuery from "@/app/hooks/useMediaQuery";
+import SwitchCheckedBtn from "./SwitchCheckedBtn";
 
 export default function CategoriesSelector({availableCategories, filterByCategory}: CategoriesSelectorProps) {
 
@@ -12,7 +13,7 @@ export default function CategoriesSelector({availableCategories, filterByCategor
         setSelectedCategory(category)
         filterByCategory(category)
     }
-
+    // This is a custom hook that returns a boolean value based on the width of the screen
     const breakPoint = useMediaQuery(850)
     
     return (
@@ -28,23 +29,36 @@ export default function CategoriesSelector({availableCategories, filterByCategor
                     All
                 </div>
             </MotionWrap>
-            {availableCategories.map((category) => (
-                <MotionWrap
-                    key={category}         
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    whileHover={{ y: breakPoint ? 0 : 2 }}
-                    exit={{ opacity: 0, x: 20 }}
-                    transition={{duration: 0.2, type: "spring", stiffness: 120, damping: 20}}
-                >
-                    <div  
-                        className={`${styles.categoryBox} ${selectedCategory === category && styles.categoryBoxSelected}`}
-                        onClick={() => handleSelectCategory(category)}
+            {availableCategories.map((category) => {
+
+                if (category === "checked") {
+                    return (
+                        <SwitchCheckedBtn 
+                            changeFilterView={(filter) => handleSelectCategory(filter)} 
+                            currentFilterView={selectedCategory}
+                            key={category}
+                        />
+                    )
+                }
+
+                return (
+                    <MotionWrap
+                        key={category}         
+                        initial={{ opacity: 0, x: 20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        whileHover={{ y: breakPoint ? 0 : 2 }}
+                        exit={{ opacity: 0, x: 20 }}
+                        transition={{duration: 0.2, type: "spring", stiffness: 120, damping: 20}}
                     >
-                        {category === "none" ? "No Category" : category}
-                    </div>
-                </MotionWrap>
-            ))}
+                        <div  
+                            className={`${styles.categoryBox} ${selectedCategory === category && styles.categoryBoxSelected}`}
+                            onClick={() => handleSelectCategory(category)}
+                        >
+                            {category === "none" ? "No Category" : category}
+                        </div>
+                    </MotionWrap>
+                )
+            })}
         </div>
     )
 }

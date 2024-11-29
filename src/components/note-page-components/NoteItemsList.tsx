@@ -88,11 +88,11 @@ export default function NoteItemsList(
       noteEntries!.reduce((categorySet: Set<string>, entry: Entry) => {
         const category = entry.category ?? "No Category";
         categorySet.add(category)
-        return categorySet;
-      }, new Set<string>())
+        return categorySet
+      }, new Set<string>(["checked"]))
     )
   }, [noteEntries])
-
+  
   const [allCategories, setAllCategories] = useState(itemsCategories)
   const [expendedCategory, setExpendedCategory] = useState(itemsCategories)
 
@@ -463,6 +463,14 @@ export default function NoteItemsList(
 
                 if (category === "All") {
                   return noteEntries
+                }
+
+                if (category === "checked" || category === "unchecked") {
+                  if (category === "checked") {
+                    return noteEntries?.filter(entry => entry.isChecked)
+                  }
+
+                  return noteEntries?.filter(entry => !entry.isChecked)
                 }
 
                 return noteEntries?.filter(entry => entry.category === category)
