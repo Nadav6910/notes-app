@@ -13,6 +13,7 @@ export default function CategoriesSelector({availableCategories, filterByCategor
         setSelectedCategory(category)
         filterByCategory(category)
     }
+    
     // This is a custom hook that returns a boolean value based on the width of the screen
     const breakPoint = useMediaQuery(850)
     

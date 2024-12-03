@@ -380,6 +380,7 @@
     gap: 0.8em;
     margin-bottom: 1em;
     cursor: pointer;
+    width: 5.5em;
 }
 
 .switchNoteViewBtnContainer:hover {
@@ -441,18 +442,18 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 2em;
-    height: 2.23em;
-    padding-left: 0.5em;
+    width: 5.8em;
+    height: 2.245em;
+    padding-left: 0.4em;
 }
 
 .uncheckedFilterViewBtnContainer {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 2em;
-    height: 2.23em;
-    padding-right: 0.5em;
+    width: 5.8em;
+    height: 2.245em;
+    padding-right: 0.3em;
 }
 
 .noteItemsListSkeleton {
@@ -462,8 +463,6 @@
 .categoriesSelectorContainer {
     display: flex;
     gap: 0.5em;
-    padding-bottom: 1rem;
-    margin-bottom: 0.5rem;
     width: 100%;
     overflow-x: auto;
 }

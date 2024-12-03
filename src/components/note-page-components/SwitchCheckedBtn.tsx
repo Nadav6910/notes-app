@@ -6,17 +6,17 @@ import MotionWrap from "@/wrappers/MotionWrap";
 
 export default function SwitchCheckedBtn({
   changeFilterView,
-  currentFilterView,
+  currentFilterView
 }: {
-  changeFilterView: (view: string) => void;
-  currentFilterView: string;
+  changeFilterView: (view: string) => void
+  currentFilterView: string
 }) {
 
   const variants = {
     hidden: {
       scaleX: 0,
       opacity: 0,
-      originX: 0.5,
+      originX: 0.5
     },
     checked: {
       scaleX: 1,
@@ -25,7 +25,7 @@ export default function SwitchCheckedBtn({
       borderTopLeftRadius: "9px",
       borderBottomLeftRadius: "9px",
       borderTopRightRadius: "0px",
-      borderBottomRightRadius: "0px",
+      borderBottomRightRadius: "0px"
     },
     unchecked: {
       scaleX: 1,
@@ -34,19 +34,19 @@ export default function SwitchCheckedBtn({
       borderTopRightRadius: "9px",
       borderBottomRightRadius: "9px",
       borderTopLeftRadius: "0px",
-      borderBottomLeftRadius: "0px",
-    },
+      borderBottomLeftRadius: "0px"
+    }
   }
 
   const checkedSwitch = () => {
     if (currentFilterView !== "checked") {
-      changeFilterView("checked");
+      changeFilterView("checked")
     }
   }
 
   const uncheckedSwitch = () => {
     if (currentFilterView !== "unchecked") {
-      changeFilterView("unchecked");
+      changeFilterView("unchecked")
     }
   }
 
@@ -74,7 +74,7 @@ export default function SwitchCheckedBtn({
           stiffness: 150,
           damping: 20,
           duration: 0.4,
-          bounce: 0.1,
+          bounce: 0.1
         }}
       />
 
