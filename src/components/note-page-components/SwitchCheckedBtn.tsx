@@ -51,7 +51,7 @@ export default function SwitchCheckedBtn({
   }
 
   return (
-    <div className={styles.switchNoteViewBtnContainer}>
+    <div className={(currentFilterView === "checked" || currentFilterView === "unchecked") ? styles.switchNoteViewBtnContainerSelected : styles.switchNoteViewBtnContainer}>
       <MotionWrap
         className={
           currentFilterView !== "checked" && currentFilterView !== "unchecked"
@@ -82,14 +82,14 @@ export default function SwitchCheckedBtn({
         className={styles.checkedFilterViewBtnContainer}
         onClick={checkedSwitch}
       >
-        <MdOutlineDoneAll />
+        <MdOutlineDoneAll className={currentFilterView === "checked" ? styles.selectedCheckIcon : "none"} />
       </div>
       <div className={styles.divider} />
       <div
         className={styles.uncheckedFilterViewBtnContainer}
         onClick={uncheckedSwitch}
       >
-        <MdOutlineRemoveDone />
+        <MdOutlineRemoveDone className={currentFilterView === "unchecked" ? styles.selectedUncheckIcon : "none"} />
       </div>
     </div>
   )

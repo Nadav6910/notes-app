@@ -376,11 +376,24 @@
     justify-content: center;
     border: 1px solid;
     border-radius: 10px;
-    /* padding: 0.9em; */
     gap: 0.8em;
     margin-bottom: 1em;
     cursor: pointer;
     width: 5.5em;
+}
+
+.switchNoteViewBtnContainerSelected {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid;
+    border-radius: 10px;
+    gap: 0.8em;
+    margin-bottom: 1em;
+    cursor: pointer;
+    width: 5.5em;
+    border-color: var(--secondary-color);
 }
 
 .switchNoteViewBtnContainer:hover {
@@ -454,6 +467,10 @@
     width: 5.8em;
     height: 2.245em;
     padding-right: 0.3em;
+}
+
+.selectedCheckIcon, .selectedUncheckIcon {
+    color: var(--secondary-color);
 }
 
 .noteItemsListSkeleton {
