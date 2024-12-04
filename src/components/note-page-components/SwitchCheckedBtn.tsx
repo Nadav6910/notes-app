@@ -84,7 +84,11 @@ export default function SwitchCheckedBtn({
       >
         <MdOutlineDoneAll className={currentFilterView === "checked" ? styles.selectedCheckIcon : "none"} />
       </div>
-      <div className={styles.divider} />
+      <div 
+        className={
+          (currentFilterView === "checked" || currentFilterView === "unchecked") ? styles.dividerSelected : styles.divider
+        } 
+      />
       <div
         className={styles.uncheckedFilterViewBtnContainer}
         onClick={uncheckedSwitch}

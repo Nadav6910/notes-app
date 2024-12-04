@@ -507,7 +507,7 @@ export default function NoteItemsList(
             }
           })?.length === 0 ? 
 
-          <p style={{marginTop: "2em"}}>No Results...</p> :
+          <p style={{marginTop: "7em"}}>No Results...</p> :
           
           <List 
             className={styles.noteListContainer} 
@@ -634,7 +634,7 @@ export default function NoteItemsList(
           }
         })?.length === 0 ? 
 
-        <p style={{marginTop: "2em", marginBottom: "1em", textAlign: "center"}}>No Results...</p> :
+        <p style={{marginTop: "7em", marginBottom: "1em", textAlign: "center"}}>No Results...</p> :
 
         noteItemsState?.reduce((result: GroupedData[], item) => {
           const category: string = !item.category || item.category === "none" ? "No Category" : item.category

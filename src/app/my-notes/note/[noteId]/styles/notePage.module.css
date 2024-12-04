@@ -382,6 +382,10 @@
     width: 5.5em;
 }
 
+/* .switchNoteViewBtnContainer:hover .divider {
+    border-color: var(--secondary-color);
+} */
+
 .switchNoteViewBtnContainerSelected {
     position: relative;
     display: flex;
@@ -396,9 +400,9 @@
     border-color: var(--secondary-color);
 }
 
-.switchNoteViewBtnContainer:hover {
+/* .switchNoteViewBtnContainer:hover {
     border-color: var(--secondary-color);
-}
+} */
 
 .selectedAreaRegular {
     position: absolute;
@@ -438,6 +442,13 @@
 .divider {
     position: absolute;
     border-left: 1px solid var(--primary-color);
+    height: 2.194em;
+    width: fit-content;
+}
+
+.dividerSelected {
+    position: absolute;
+    border-left: 1px solid var(--secondary-color);
     height: 2.194em;
     width: fit-content;
 }

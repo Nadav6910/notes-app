@@ -34,11 +34,20 @@ export default function CategoriesSelector({availableCategories, filterByCategor
 
                 if (category === "checked") {
                     return (
-                        <SwitchCheckedBtn 
-                            changeFilterView={(filter) => handleSelectCategory(filter)} 
-                            currentFilterView={selectedCategory}
+                        <MotionWrap
                             key={category}
-                        />
+                            initial={{ opacity: 0, x: 20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            whileHover={{ y: breakPoint ? 0 : 2 }}
+                            exit={{ opacity: 0, x: 20 }}
+                            transition={{duration: 0.2, type: "spring", stiffness: 120, damping: 20}}
+                        >
+                            <SwitchCheckedBtn 
+                                changeFilterView={(filter) => handleSelectCategory(filter)} 
+                                currentFilterView={selectedCategory}
+                                key={category}
+                            />
+                        </MotionWrap>
                     )
                 }
 
