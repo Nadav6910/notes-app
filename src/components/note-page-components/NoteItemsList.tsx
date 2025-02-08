@@ -384,7 +384,10 @@ export default function NoteItemsList({ noteEntries, noteView, noteId }: { noteE
           {/* Filter selectors */}
           <FilterByCheckedSelector filterByChecked={(filter: string) => setFilterByChecked(filter)} />
           {noteViewSelect === "categories" && (
-            <CategoriesSelector availableCategories={allCategories} filterByCategory={(category: string) => setFilterByCategory(category)} />
+            <CategoriesSelector 
+              availableCategories={allCategories} 
+              filterByCategory={(category: string) => setFilterByCategory(category)} 
+            />
           )}
 
           {/* Floating add item button when scrolling down */}

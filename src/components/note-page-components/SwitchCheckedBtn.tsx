@@ -51,7 +51,7 @@ export default function SwitchCheckedBtn({
   }
 
   return (
-    <div className={(currentFilterView === "checked" || currentFilterView === "unchecked") ? styles.switchNoteViewBtnContainerSelected : styles.switchNoteViewBtnContainer}>
+    <div className={(currentFilterView === "checked" || currentFilterView === "unchecked") ? styles.filterNoteItemsSwitchBtnContainerSelected : styles.filterNoteItemsSwitchBtnContainer}>
       <MotionWrap
         className={
           currentFilterView !== "checked" && currentFilterView !== "unchecked"

@@ -382,11 +382,7 @@
     width: 5.5em;
 }
 
-/* .switchNoteViewBtnContainer:hover .divider {
-    border-color: var(--secondary-color);
-} */
-
-.switchNoteViewBtnContainerSelected {
+.filterNoteItemsSwitchBtnContainer {
     position: relative;
     display: flex;
     align-items: center;
@@ -394,7 +390,24 @@
     border: 1px solid;
     border-radius: 10px;
     gap: 0.8em;
-    margin-bottom: 1em;
+    margin-bottom: 0.7em;
+    cursor: pointer;
+    width: 5.5em;
+}
+
+/* .switchNoteViewBtnContainer:hover .divider {
+    border-color: var(--secondary-color);
+} */
+
+.filterNoteItemsSwitchBtnContainerSelected {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid;
+    border-radius: 10px;
+    gap: 0.8em;
+    margin-bottom: 0.7em;
     cursor: pointer;
     width: 5.5em;
     border-color: var(--secondary-color);
