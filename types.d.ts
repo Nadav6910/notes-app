@@ -128,3 +128,7 @@ type CategoriesSelectorProps = {
     availableCategories: string[]
     filterByCategory: (category: string) => void
 }
+
+type FilterByCheckedSelectorProps = {
+    filterByChecked: (filter: string) => void
+}

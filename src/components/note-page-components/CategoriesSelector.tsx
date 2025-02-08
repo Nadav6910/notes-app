@@ -3,13 +3,17 @@ import { CategoriesSelectorProps } from "../../../types";
 import { useState } from "react";
 import MotionWrap from "@/wrappers/MotionWrap";
 import useMediaQuery from "@/app/hooks/useMediaQuery";
-import SwitchCheckedBtn from "./SwitchCheckedBtn";
 
 export default function CategoriesSelector({availableCategories, filterByCategory}: CategoriesSelectorProps) {
 
-    const [selectedCategory, setSelectedCategory] = useState("All")
+    const [selectedCategory, setSelectedCategory] = useState("empty")
 
     const handleSelectCategory = (category: string) => {
+        if (selectedCategory === category) {
+            setSelectedCategory("empty")
+            filterByCategory("empty")
+            return
+        }
         setSelectedCategory(category)
         filterByCategory(category)
     }
@@ -19,38 +23,7 @@ export default function CategoriesSelector({availableCategories, filterByCategor
     
     return (
         <div className={styles.categoriesSelectorContainer}>
-            <MotionWrap
-                whileHover={{ y: breakPoint ? 0 : 2 }}
-                transition={{duration: 0.2, type: "spring", stiffness: 120, damping: 20}}
-            >
-                <div 
-                    className={`${styles.categoryBox} ${selectedCategory === "All" && styles.categoryBoxSelected}`}
-                    onClick={() => handleSelectCategory("All")}
-                >
-                    All
-                </div>
-            </MotionWrap>
             {availableCategories.map((category) => {
-
-                if (category === "checked") {
-                    return (
-                        <MotionWrap
-                            key={category}
-                            initial={{ opacity: 0, x: 20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            whileHover={{ y: breakPoint ? 0 : 2 }}
-                            exit={{ opacity: 0, x: 20 }}
-                            transition={{duration: 0.2, type: "spring", stiffness: 120, damping: 20}}
-                        >
-                            <SwitchCheckedBtn 
-                                changeFilterView={(filter) => handleSelectCategory(filter)} 
-                                currentFilterView={selectedCategory}
-                                key={category}
-                            />
-                        </MotionWrap>
-                    )
-                }
-
                 return (
                     <MotionWrap
                         key={category}         

@@ -493,6 +493,16 @@
     gap: 0.5em;
     width: 100%;
     overflow-x: auto;
+    overflow-y: hidden;
+    padding-bottom: 1em;
+}
+
+.filterSelectorContainer {
+    display: flex;
+    gap: 0.5em;
+    width: 100%;
+    overflow-x: hidden;
+    overflow-y: hidden;
 }
 
 .categoryBox {
