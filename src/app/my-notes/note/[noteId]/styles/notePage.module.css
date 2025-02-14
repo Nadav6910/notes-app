@@ -502,6 +502,7 @@
 }
 
 .categoriesSelectorContainer {
+    position: relative;
     display: flex;
     gap: 0.5em;
     width: 100%;
@@ -534,4 +535,30 @@
 .categoryBoxSelected {
     color: var(--secondary-color);
     border-color: var(--secondary-color);
+    position: sticky;
+    transition: all 0.3s ease;
+    z-index: 1000;
+}
+
+.categoryBoxSelectedAll {
+    color: var(--secondary-color);
+    border-color: var(--secondary-color);
+    background-color: var(--secondary-color-faded);
+    transition: all 0.3s ease;
+}
+
+.categoryBoxLeft {
+    right: 0;
+    /* give background blur effect */
+    backdrop-filter: blur(5px);
+    /* give radius to box shadow */
+    border-radius: 10px;
+}
+
+.categoryBoxRight {
+    left: 0;
+    /* give background blur effect */
+    backdrop-filter: blur(5px);
+    /* give radius to box shadow */
+    border-radius: 10px;
 }

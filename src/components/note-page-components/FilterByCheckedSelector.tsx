@@ -24,7 +24,7 @@ export default function FilterByCheckedSelector({filterByChecked}: FilterByCheck
                 transition={{duration: 0.2, type: "spring", stiffness: 120, damping: 20}}
             >
                 <div 
-                    className={`${styles.categoryBox} ${selectedFilter === "All" && styles.categoryBoxSelected}`}
+                    className={`${styles.categoryBox} ${selectedFilter === "All" && styles.categoryBoxSelectedAll}`}
                     onClick={() => handleSelectFilter("All")}
                 >
                     All
