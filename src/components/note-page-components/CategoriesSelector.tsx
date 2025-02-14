@@ -12,9 +12,9 @@ export default function CategoriesSelector({ availableCategories, filterByCatego
 
     const handleSelectCategory = (category: string) => {
         if (selectedCategory === category) {
-        setSelectedCategory("empty")
-        filterByCategory("empty")
-        return
+            setSelectedCategory("empty")
+            filterByCategory("empty")
+            return
         }
         setSelectedCategory(category)
         filterByCategory(category)
@@ -26,51 +26,42 @@ export default function CategoriesSelector({ availableCategories, filterByCatego
     useEffect(() => {
         const container = containerRef.current
         if (!container) return
-    
-        const updateStickySide = () => {
-          const currentScrollLeft = container.scrollLeft
-          // Determine scroll direction and update stickySide accordingly
-          if (currentScrollLeft > prevScrollLeft.current) {
-            setStickySide("right")
-          } else if (currentScrollLeft < prevScrollLeft.current) {
-            setStickySide("left")
-          }
-          prevScrollLeft.current = currentScrollLeft
+
+        const handleScroll = () => {
+            const currentScrollLeft = container.scrollLeft
+            
+            if (currentScrollLeft > prevScrollLeft.current) {
+                setStickySide("right")
+            } else if (currentScrollLeft < prevScrollLeft.current) {
+                setStickySide("left")
+            }
+            prevScrollLeft.current = currentScrollLeft
         }
+
+        container.addEventListener("scroll", handleScroll)
+        return () => container.removeEventListener("scroll", handleScroll)
+    }, [])    
     
-        // Standard scroll events
-        container.addEventListener("scroll", updateStickySide)
-        // For mobile, fire update when touch events finish
-        container.addEventListener("touchend", updateStickySide)
-        container.addEventListener("touchcancel", updateStickySide)
-    
-        return () => {
-          container.removeEventListener("scroll", updateStickySide)
-          container.removeEventListener("touchend", updateStickySide)
-          container.removeEventListener("touchcancel", updateStickySide)
-        }
-    }, [])  
-  
     return (
         <div className={styles.categoriesSelectorContainer} ref={containerRef}>
-        {availableCategories.map(category => (
-            <MotionWrap
-            key={category}
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            whileHover={{ y: breakPoint ? 0 : 2 }}
-            exit={{ opacity: 0, x: 20 }}
-            transition={{ duration: 0.2, type: "spring", stiffness: 120, damping: 20 }}
-            className={`${selectedCategory === category ? styles.categoryBoxSelected : ""} ${selectedCategory === category ? (stickySide === "left" ? styles.categoryBoxLeft : styles.categoryBoxRight) : ""}`}
-            >
-            <div
-                className={`${styles.categoryBox} ${selectedCategory === category ? styles.categoryBoxSelected : ""}`}
-                onClick={() => handleSelectCategory(category)}
-            >
-                {category === "none" ? "No Category" : category}
-            </div>
-            </MotionWrap>
-        ))}
+            {availableCategories.map(category => (
+                <MotionWrap
+                key={category}
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                whileHover={{ y: breakPoint ? 0 : 2 }}
+                exit={{ opacity: 0, x: 20 }}
+                transition={{ duration: 0.2, type: "spring", stiffness: 120, damping: 20 }}
+                className={`${selectedCategory === category ? styles.categoryBoxSelected : ""} ${selectedCategory === category ? (stickySide === "left" ? styles.categoryBoxLeft : styles.categoryBoxRight) : ""}`}
+                >
+                <div
+                    className={`${styles.categoryBox} ${selectedCategory === category ? styles.categoryBoxSelected : ""}`}
+                    onClick={() => handleSelectCategory(category)}
+                >
+                    {category === "none" ? "No Category" : category}
+                </div>
+                </MotionWrap>
+            ))}
         </div>
     )
 }

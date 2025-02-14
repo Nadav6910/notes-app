@@ -549,6 +549,7 @@
 
 .categoryBoxLeft {
     right: 0;
+    left: 0;
     /* give background blur effect */
     backdrop-filter: blur(5px);
     /* give radius to box shadow */
@@ -557,6 +558,7 @@
 
 .categoryBoxRight {
     left: 0;
+    right: 0;
     /* give background blur effect */
     backdrop-filter: blur(5px);
     /* give radius to box shadow */
