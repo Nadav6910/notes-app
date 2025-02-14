@@ -26,20 +26,30 @@ export default function CategoriesSelector({ availableCategories, filterByCatego
     useEffect(() => {
         const container = containerRef.current
         if (!container) return
-
-        const handleScroll = () => {
-        const currentScrollLeft = container.scrollLeft
-        if (currentScrollLeft > prevScrollLeft.current) {
+    
+        const updateStickySide = () => {
+          const currentScrollLeft = container.scrollLeft
+          // Determine scroll direction and update stickySide accordingly
+          if (currentScrollLeft > prevScrollLeft.current) {
             setStickySide("right")
-        } else if (currentScrollLeft < prevScrollLeft.current) {
+          } else if (currentScrollLeft < prevScrollLeft.current) {
             setStickySide("left")
+          }
+          prevScrollLeft.current = currentScrollLeft
         }
-        prevScrollLeft.current = currentScrollLeft
+    
+        // Standard scroll events
+        container.addEventListener("scroll", updateStickySide)
+        // For mobile, fire update when touch events finish
+        container.addEventListener("touchend", updateStickySide)
+        container.addEventListener("touchcancel", updateStickySide)
+    
+        return () => {
+          container.removeEventListener("scroll", updateStickySide)
+          container.removeEventListener("touchend", updateStickySide)
+          container.removeEventListener("touchcancel", updateStickySide)
         }
-
-        container.addEventListener("scroll", handleScroll)
-        return () => container.removeEventListener("scroll", handleScroll)
-    }, [])    
+    }, [])  
   
     return (
         <div className={styles.categoriesSelectorContainer} ref={containerRef}>
