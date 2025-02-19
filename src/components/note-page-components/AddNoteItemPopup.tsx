@@ -36,7 +36,7 @@ const Transition = forwardRef(function Transition(
 })
 
 export default function AddNoteItemPopup(
-    {isOpen, setIsOpen, noteId, onAdd, onError}: AddNoteItemPopupProps
+    {isOpen, setIsOpen, clientId, noteId, onAdd, onError}: AddNoteItemPopupProps
 ) {
 
   const [loading, setLoading] = useState<boolean>(false)
@@ -79,7 +79,7 @@ export default function AddNoteItemPopup(
 
       const response = await fetch('/api/create-note-item', {
         method: "POST",
-        body: JSON.stringify({noteId, itemName, selectedPriorityColor, selectedCategory}),
+        body: JSON.stringify({clientId, noteId, itemName, selectedPriorityColor, selectedCategory}),
         cache: "no-cache",
       })
 

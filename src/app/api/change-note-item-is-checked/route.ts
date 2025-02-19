@@ -1,14 +1,17 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/prisma'
+import Ably from 'ably'
+
+const ably = new Ably.Rest({ key: process.env.ABLY_API_KEY })
  
 export async function POST(request: Request) {
 
     // get body data
-    const { entryId, value } = await request.json()
+    const { clientId, noteId, entryId, value } = await request.json()
 
     try {
         
-        // create note
+        // update entry isChecked value
         await prisma.entry.update({
             where: {
                 entryId: entryId
@@ -17,6 +20,10 @@ export async function POST(request: Request) {
                 isChecked: value
             }
         })
+
+        // publish to Ably
+        const channel = ably.channels.get(`note-${noteId}`)
+        await channel.publish('note-item-toggle-checked', { entryId, sender: clientId })
 
         return NextResponse.json({massage: "success"})
     } 

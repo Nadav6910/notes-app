@@ -1,4 +1,5 @@
 import NoteItemsList from './src/components/note-page-components/NoteItemsList';
+
 type BasicChildrenProps = {
     children: React.ReactNode
 }
@@ -58,6 +59,8 @@ type ConfirmDeleteNotePopupProps = {
 type ConfirmDeleteNoteItemPopupProps = {
     isOpen: boolean,
     setIsOpen: Function,
+    clientId: string,
+    noteId: string,
     entryId: string,
     entryName: string,
     OnDelete: function, 
@@ -76,6 +79,8 @@ type RenameNotePopupProps = {
 type RenameNoteItemPopupProps = {
     isOpen: boolean,
     setIsOpen: Function,
+    clientId: string,
+    noteId: string,
     entryId: string,
     currentName: string,
     currentPriority: string | null | undefined,
@@ -102,6 +107,7 @@ type Entry = {
 type AddNoteItemPopupProps = {
     isOpen: boolean,
     setIsOpen: Function,
+    clientId: string,
     noteId: string,
     onAdd: function,
     onError: function

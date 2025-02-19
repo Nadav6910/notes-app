@@ -38,7 +38,9 @@ const Transition = forwardRef(function Transition(
 export default function RenameNoteItemPopup(
     {
       isOpen, 
-      setIsOpen, 
+      setIsOpen,
+      clientId,
+      noteId,
       entryId, 
       currentName, 
       currentPriority,
@@ -97,7 +99,7 @@ export default function RenameNoteItemPopup(
 
       const response = await fetch(`/api/rename-note-item`, {
         method: "POST",
-        body: JSON.stringify({entryId, newName}),
+        body: JSON.stringify({clientId, noteId, entryId, newName}),
         cache: "no-cache",
       })
 

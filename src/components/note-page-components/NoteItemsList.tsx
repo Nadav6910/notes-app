@@ -35,6 +35,7 @@ import SortingMenu from "./SortingMenu"
 import SwitchNoteViewBtn from "./SwitchNoteViewBtn"
 import CategoriesSelector from "./CategoriesSelector"
 import FilterByCheckedSelector from "./FilterByCheckedSelector"
+import { ably, clientId } from "@/lib/Ably/Ably"
 
 const AddNoteItemPopup = dynamic(() => import('./AddNoteItemPopup'), {
   loading: () => <Backdrop open={true}><CircularProgress className={styles.backDropLoader} /></Backdrop>
@@ -232,6 +233,8 @@ export default function NoteItemsList({ noteEntries, noteView, noteId }: { noteE
       await fetch('/api/change-note-item-is-checked', {
         method: 'POST',
         body: JSON.stringify({
+          clientId,
+          noteId,
           entryId,
           value: !value
         })
@@ -245,7 +248,7 @@ export default function NoteItemsList({ noteEntries, noteView, noteId }: { noteE
       )
       setOpenError(true)
     }
-  }, [])
+  }, [noteId])
 
   const handleChangeView = useCallback(async (view: string, noteId: string) => {
     setNoteViewSelect(view)
@@ -321,6 +324,74 @@ export default function NoteItemsList({ noteEntries, noteView, noteId }: { noteE
     }
   }, [sortMethod])
 
+  // Subscribe to Ably channel for real-time updates
+  useEffect(() => {
+    const channel = ably.channels.get(`note-${noteId}`)
+
+    channel.subscribe('note-created', message => {
+      // Ignore message if it originated from this client
+      if (message.data.sender === clientId) return
+
+      const createdEntry = message.data.createdEntry
+      const updatedEntry = {
+        ...createdEntry,
+        createdAt: new Date(createdEntry.createdAt)
+      }
+
+      handleAddNoteItem(updatedEntry)
+    })
+
+    channel.subscribe('note-item-toggle-checked', message => {
+      // Ignore message if it originated from this client
+      if (message.data.sender === clientId) return
+
+      const toggledEntryId = message.data.entryId
+      setNoteItemsState(prevEntries =>
+        prevEntries?.map(entry =>
+          entry.entryId === toggledEntryId ? { ...entry, isChecked: !entry.isChecked } : entry
+        )
+      )
+    })
+
+    channel.subscribe('note-item-deleted', message => {
+      // Ignore message if it originated from this client
+      if (message.data.sender === clientId) return
+
+      const deletedEntryId = message.data.entryId
+      setNoteItemsState(prevEntries => {
+        if (noteItemsState?.length === 1) {
+          router.refresh()
+        }
+        else {
+          return prevEntries?.filter(entry => entry.entryId !== deletedEntryId)
+        }
+      })
+      router.refresh()
+    })
+
+    channel.subscribe('note-item-renamed', message => {
+      // Ignore message if it originated from this client
+      if (message.data.sender === clientId) return
+
+      const renamedEntryId = message.data.entryId
+      const newName = message.data.newName
+
+      setNoteItemsState(prevEntries =>
+        prevEntries?.map(entry =>
+          entry.entryId === renamedEntryId ? { ...entry, item: newName } : entry
+        )
+      )
+      router.refresh()
+    })
+
+    return () => {
+      channel.unsubscribe('note-created')
+      channel.unsubscribe('note-item-toggle-checked')
+      channel.unsubscribe('note-item-deleted')
+      channel.unsubscribe('note-item-renamed')
+    }
+  }, [noteId, handleAddNoteItem, router, noteItemsState?.length])
+
   return (
     <>
       {noteEntries && noteEntries.length < 1 ? (
@@ -335,6 +406,7 @@ export default function NoteItemsList({ noteEntries, noteView, noteId }: { noteE
             <AddNoteItemPopup
               isOpen={openAddItemPopupEmpty}
               setIsOpen={() => setOpenAddItemPopupEmpty(false)}
+              clientId={clientId}
               noteId={noteId}
               onAdd={(newEntry: Entry) => {
                 setNoteItemsState(prevEntries => [...prevEntries ?? [], newEntry])
@@ -566,12 +638,13 @@ export default function NoteItemsList({ noteEntries, noteView, noteId }: { noteE
         <AddNoteItemPopup
           isOpen={openAddItemPopup}
           setIsOpen={() => setOpenAddItemPopup(false)}
+          clientId={clientId}
           noteId={noteId}
           onAdd={(newEntry: Entry) => handleAddNoteItem(newEntry)}
           onError={() => setOpenAddItemError(true)}
         />
       )}
-
+      
       {openDeleteNoteItemPopup && (
         <DeleteNoteItemPopup
           isOpen={openDeleteNoteItemPopup}
@@ -580,6 +653,8 @@ export default function NoteItemsList({ noteEntries, noteView, noteId }: { noteE
             setSelectedEntryId("")
             setSelectedEntryName("")
           }}
+          clientId={clientId}
+          noteId={noteId}
           entryId={selectedEntryId}
           entryName={selectedEntryName}
           OnDelete={(isDeleted: boolean) => {
@@ -609,6 +684,8 @@ export default function NoteItemsList({ noteEntries, noteView, noteId }: { noteE
             setSelectedEntryPriority("")
             setSelectedEntryCategory("")
           }}
+          clientId={clientId}
+          noteId={noteId}
           entryId={selectedEntryId}
           currentName={selectedEntryName}
           currentPriority={selectedEntryPriority}

@@ -23,7 +23,7 @@ const Transition = forwardRef(function Transition(
 })
 
 export default function DeleteNoteItemPopup(
-    {isOpen, setIsOpen, entryId, entryName, OnDelete, onError}: ConfirmDeleteNoteItemPopupProps
+    {isOpen, setIsOpen, clientId, noteId, entryId, entryName, OnDelete, onError}: ConfirmDeleteNoteItemPopupProps
 ) {
 
   const [loading, setLoading] = useState<boolean>(false)
@@ -40,7 +40,7 @@ export default function DeleteNoteItemPopup(
 
       const response = await fetch(`/api/delete-note-item`, {
         method: "POST",
-        body: JSON.stringify({entryId}),
+        body: JSON.stringify({clientId, noteId, entryId}),
         cache: "no-cache",
       })
       

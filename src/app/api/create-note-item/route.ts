@@ -1,10 +1,13 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/prisma'
+import Ably from 'ably'
+
+const ably = new Ably.Rest({ key: process.env.ABLY_API_KEY })
  
 export async function POST(request: Request) {
 
     // get body data
-    const { noteId, itemName, selectedPriorityColor, selectedCategory } = await request.json()
+    const { clientId, noteId, itemName, selectedPriorityColor, selectedCategory } = await request.json()
 
     try {
 
@@ -17,6 +20,10 @@ export async function POST(request: Request) {
                 category: selectedCategory
             }
         })
+
+        // publish to Ably
+        const channel = ably.channels.get(`note-${noteId}`)
+        await channel.publish('note-created', { createdEntry, sender: clientId })
 
         return NextResponse.json({massage: "success", createdEntry: createdEntry})
     } 
