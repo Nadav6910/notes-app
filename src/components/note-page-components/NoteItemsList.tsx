@@ -20,6 +20,7 @@ import {
   AccordionDetails
 } from '@mui/material'
 import { useRouter } from "next/navigation"
+import { useTheme } from 'next-themes'
 import { formatDate } from "@/lib/utils"
 import { AiOutlineSearch } from 'react-icons/ai'
 import { MdDelete } from 'react-icons/md'
@@ -36,6 +37,7 @@ import SwitchNoteViewBtn from "./SwitchNoteViewBtn"
 import CategoriesSelector from "./CategoriesSelector"
 import FilterByCheckedSelector from "./FilterByCheckedSelector"
 import { ably, clientId } from "@/lib/Ably/Ably"
+import FlipNumbers from 'react-flip-numbers'
 
 const AddNoteItemPopup = dynamic(() => import('./AddNoteItemPopup'), {
   loading: () => <Backdrop open={true}><CircularProgress className={styles.backDropLoader} /></Backdrop>
@@ -74,8 +76,9 @@ const throttle = <T extends (...args: any[]) => any>(
 export default function NoteItemsList({ noteEntries, noteView, noteId }: { noteEntries: Entry[] | undefined, noteView: string, noteId: string }) {
 
   const router = useRouter()
+  const { resolvedTheme } = useTheme()
   const { scrollY } = useScroll()
-
+  
   // Keep the raw data in state
   const [noteItemsState, setNoteItemsState] = useState(noteEntries)
   const [selectedEntryId, setSelectedEntryId] = useState<string>("")
@@ -98,8 +101,8 @@ export default function NoteItemsList({ noteEntries, noteView, noteId }: { noteE
   const [filterByCategory, setFilterByCategory] = useState<string>("empty")
   const [sortMethod, setSortMethod] = useState<string>("newToOld")
   const [noteViewSelect, setNoteViewSelect] = useState<string>(noteView)
-  const [ChecksCount, SetChecksCount] = useState(noteEntries?.filter(entry => entry.isChecked).length)
-  const [UnCheckedCount, SetUnCheckedCount] = useState(noteEntries?.filter(entry => !entry.isChecked).length)
+  const [ChecksCount, SetChecksCount] = useState(noteEntries?.filter(entry => entry.isChecked).length ?? 0)
+  const [UnCheckedCount, SetUnCheckedCount] = useState(noteEntries?.filter(entry => !entry.isChecked).length ?? 0)
 
   // Compute available categories from the initial data
   const itemsCategories = useMemo(() => {
@@ -419,10 +422,52 @@ export default function NoteItemsList({ noteEntries, noteView, noteId }: { noteE
       ) : (
         <>
           {/* Items counter */}
-          <h5 style={{ marginBottom: "2em", alignSelf: "flex-start", fontSize: "0.75rem" }}>
-            {filteredNoteItems?.length === 1
-              ? `1 Item - ${ChecksCount} Checked ● ${UnCheckedCount} Unchecked`
-              : `${filteredNoteItems?.length} Items - ${ChecksCount} Checked ● ${UnCheckedCount} Unchecked`}
+          <h5 
+            style={{ 
+              marginBottom: '2em', 
+              alignSelf: 'flex-start', 
+              fontSize: '0.75rem', 
+              lineHeight: '1.2', 
+              display: "flex", 
+              gap: "0.35em" 
+            }}
+          >
+            <span style={{ display: 'inline-flex', alignItems: 'center', verticalAlign: 'middle' }}>
+              <FlipNumbers
+                key={`flip-${resolvedTheme}`}
+                height={13.5}
+                width={8.5}
+                numbers={filteredNoteItems?.length.toString()}
+                play
+                perspective={100}
+                color={resolvedTheme === 'dark' ? 'white' : 'black'}
+              />
+            </span>
+            <span style={{paddingTop: "0.1em"}}>{filteredNoteItems?.length === 1 ? 'Item' : 'Items'} -</span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', verticalAlign: 'middle' }}>
+              <FlipNumbers
+                key={`flip-${resolvedTheme}`}
+                height={13.5}
+                width={8.5}
+                numbers={ChecksCount.toString()}
+                play
+                perspective={100}
+                color={resolvedTheme === 'dark' ? 'white' : 'black'}
+              />
+            </span>
+            <span style={{ paddingTop: "0.1em" }}>Checked ●</span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', verticalAlign: 'middle' }}>
+              <FlipNumbers
+                key={`flip-${resolvedTheme}`}
+                height={13.5}
+                width={8.5}
+                numbers={UnCheckedCount.toString()}
+                play
+                perspective={100}
+                color={resolvedTheme === 'dark' ? 'white' : 'black'}
+              />
+            </span>
+            <span style={{ paddingTop: "0.1em" }}>Unchecked</span>
           </h5>
 
           {/* Toolbar: add items, sort, etc. */}
