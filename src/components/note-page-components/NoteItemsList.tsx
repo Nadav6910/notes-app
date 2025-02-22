@@ -444,7 +444,7 @@ export default function NoteItemsList({ noteEntries, noteView, noteId }: { noteE
             >
               <FlipNumbers
                 key={`flip-${resolvedTheme}`}
-                height={15}
+                height={15.2}
                 width={11.5}
                 duration={1.5}
                 numbers={filteredNoteItems?.length.toString()}
@@ -465,7 +465,7 @@ export default function NoteItemsList({ noteEntries, noteView, noteId }: { noteE
             >
               <FlipNumbers
                 key={`flip-${resolvedTheme}`}
-                height={15}
+                height={15.2}
                 width={11.5}
                 duration={1.5}
                 numbers={ChecksCount.toString()}
@@ -486,7 +486,7 @@ export default function NoteItemsList({ noteEntries, noteView, noteId }: { noteE
             >
               <FlipNumbers
                 key={`flip-${resolvedTheme}`}
-                height={15}
+                height={15.2}
                 width={11.5}
                 duration={1.5}
                 numbers={UnCheckedCount.toString()}
