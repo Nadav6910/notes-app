@@ -432,7 +432,7 @@ export default function NoteItemsList({ noteEntries, noteView, noteId }: { noteE
               gap: "0.35em" 
             }}
           >
-            <span style={{ display: 'inline-flex', alignItems: 'center', verticalAlign: 'middle' }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', verticalAlign: 'middle', paddingLeft: (filteredNoteItems?.length || 0) === 0 ? '2px' : '0' }}>
               <FlipNumbers
                 key={`flip-${resolvedTheme}`}
                 height={13.5}
@@ -444,7 +444,7 @@ export default function NoteItemsList({ noteEntries, noteView, noteId }: { noteE
               />
             </span>
             <span style={{paddingTop: "0.1em"}}>{filteredNoteItems?.length === 1 ? 'Item' : 'Items'} -</span>
-            <span style={{ display: 'inline-flex', alignItems: 'center', verticalAlign: 'middle' }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', verticalAlign: 'middle', paddingLeft: ChecksCount === 0 ? '2px' : '0' }}>
               <FlipNumbers
                 key={`flip-${resolvedTheme}`}
                 height={13.5}
@@ -456,7 +456,7 @@ export default function NoteItemsList({ noteEntries, noteView, noteId }: { noteE
               />
             </span>
             <span style={{ paddingTop: "0.1em" }}>Checked ●</span>
-            <span style={{ display: 'inline-flex', alignItems: 'center', verticalAlign: 'middle' }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', verticalAlign: 'middle', paddingLeft: UnCheckedCount === 0 ? '2px' : '0' }}>
               <FlipNumbers
                 key={`flip-${resolvedTheme}`}
                 height={13.5}
