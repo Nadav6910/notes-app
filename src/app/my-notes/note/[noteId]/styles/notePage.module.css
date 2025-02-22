@@ -146,6 +146,30 @@
     margin-bottom: 0 !important;
 }
 
+/* note item text wrapper */
+.textWrapper {
+    position: relative;
+    display: inline-block;
+}
+
+/* line that expands when hovered */
+.textWrapper::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 0%;
+    height: 2px;
+    background: currentColor;
+    transition: width 0.5s ease-in-out;
+}
+  
+/* This class triggers the line to expand to 100% (or contract back to 0% when removed) */
+.lineActive::after {
+    width: 100%
+}
+
 .noteListItemText span {
     font-size: 1.1em;
 }

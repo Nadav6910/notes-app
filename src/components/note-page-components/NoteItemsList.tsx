@@ -674,9 +674,13 @@ export default function NoteItemsList({ noteEntries, noteView, noteId }: { noteE
                                     <div>
                                       <ListItemText
                                         className={styles.noteListItemText}
-                                        sx={{ textDecoration: entry?.isChecked ? "line-through" : "none", paddingRight: "3em", lineBreak: "anywhere" }}
+                                        sx={{ paddingRight: "3em", lineBreak: "anywhere" }}
                                         id={labelId}
-                                        primary={entry.item}
+                                        primary={
+                                          <span className={`${styles.textWrapper} ${entry?.isChecked ? styles.lineActive : ''}`}>
+                                            {entry.item}
+                                          </span>
+                                        }
                                       />
                                       <div style={{ display: "flex" }}>
                                         <ListItemText className={styles.itemCreatedAt}>
