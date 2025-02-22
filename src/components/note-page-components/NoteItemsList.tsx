@@ -19,6 +19,7 @@ import {
   AccordionSummary,
   AccordionDetails
 } from '@mui/material'
+import AnimatedCheckbox from "./AnimatedCheckbox"
 import { useRouter } from "next/navigation"
 import { useTheme } from 'next-themes'
 import { formatDate } from "@/lib/utils"
@@ -669,7 +670,23 @@ export default function NoteItemsList({ noteEntries, noteView, noteId }: { noteE
                                 >
                                   <ListItemButton onClick={() => handleToggle(entry?.isChecked, entry.entryId)} dense>
                                     <ListItemIcon sx={{ minWidth: "2em" }}>
-                                      <Checkbox className={styles.noteListCheckbox} edge="start" checked={entry?.isChecked ?? false} tabIndex={-1} disableRipple inputProps={{ 'aria-labelledby': labelId }} />
+                                      <AnimatedCheckbox                    
+                                        className={styles.noteListCheckbox} 
+                                        edge="start" 
+                                        checked={entry?.isChecked ?? false} 
+                                        tabIndex={-1} 
+                                        disableRipple 
+                                        inputProps={{ 'aria-labelledby': labelId }} 
+                                        sx={{
+                                          '& svg': {
+                                            transition: 'transform 0.5s ease-in-out'
+                                          },
+                                          '&.Mui-checked svg': {
+                                            transform: 'scale(1.2)'
+                                          }
+                                        }}
+                                        theme={resolvedTheme}
+                                      />
                                     </ListItemIcon>
                                     <div>
                                       <ListItemText
