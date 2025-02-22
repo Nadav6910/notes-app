@@ -37,6 +37,7 @@ import SwitchNoteViewBtn from "./SwitchNoteViewBtn"
 import CategoriesSelector from "./CategoriesSelector"
 import FilterByCheckedSelector from "./FilterByCheckedSelector"
 import { ably, clientId } from "@/lib/Ably/Ably"
+import { kanit } from "@/fonts/fonts"
 import FlipNumbers from 'react-flip-numbers'
 
 const AddNoteItemPopup = dynamic(() => import('./AddNoteItemPopup'), {
@@ -432,42 +433,69 @@ export default function NoteItemsList({ noteEntries, noteView, noteId }: { noteE
               gap: "0.35em" 
             }}
           >
-            <span style={{ display: 'inline-flex', alignItems: 'center', verticalAlign: 'middle', paddingLeft: (filteredNoteItems?.length || 0) === 0 ? '2px' : '0' }}>
+            <span 
+              style={{ 
+                display: 'inline-flex', 
+                alignItems: 'center', 
+                verticalAlign: 'middle', 
+                fontWeight: "bold"
+              }}
+              className={`${kanit.className}`} 
+            >
               <FlipNumbers
                 key={`flip-${resolvedTheme}`}
-                height={13.5}
-                width={8.5}
+                height={15}
+                width={11.5}
+                duration={1.5}
                 numbers={filteredNoteItems?.length.toString()}
                 play
                 perspective={100}
                 color={resolvedTheme === 'dark' ? 'white' : 'black'}
               />
             </span>
-            <span style={{paddingTop: "0.1em"}}>{filteredNoteItems?.length === 1 ? 'Item' : 'Items'} -</span>
-            <span style={{ display: 'inline-flex', alignItems: 'center', verticalAlign: 'middle', paddingLeft: ChecksCount === 0 ? '2px' : '0' }}>
+            <span style={{paddingTop: "0.2em"}}>{filteredNoteItems?.length === 1 ? 'Item' : 'Items'} -</span>
+            <span 
+              style={{ 
+                display: 'inline-flex', 
+                alignItems: 'center', 
+                verticalAlign: 'middle',
+                fontWeight: "bold"
+              }}
+              className={`${kanit.className}`}
+            >
               <FlipNumbers
                 key={`flip-${resolvedTheme}`}
-                height={13.5}
-                width={8.5}
+                height={15}
+                width={11.5}
+                duration={1.5}
                 numbers={ChecksCount.toString()}
                 play
                 perspective={100}
                 color={resolvedTheme === 'dark' ? 'white' : 'black'}
               />
             </span>
-            <span style={{ paddingTop: "0.1em" }}>Checked ●</span>
-            <span style={{ display: 'inline-flex', alignItems: 'center', verticalAlign: 'middle', paddingLeft: UnCheckedCount === 0 ? '2px' : '0' }}>
+            <span style={{ paddingTop: "0.2em" }}>Checked ●</span>
+            <span 
+              style={{ 
+                display: 'inline-flex', 
+                alignItems: 'center', 
+                verticalAlign: 'middle', 
+                fontWeight: "bold"
+              }}
+              className={`${kanit.className}`}
+            >
               <FlipNumbers
                 key={`flip-${resolvedTheme}`}
-                height={13.5}
-                width={8.5}
+                height={15}
+                width={11.5}
+                duration={1.5}
                 numbers={UnCheckedCount.toString()}
                 play
                 perspective={100}
                 color={resolvedTheme === 'dark' ? 'white' : 'black'}
               />
             </span>
-            <span style={{ paddingTop: "0.1em" }}>Unchecked</span>
+            <span style={{ paddingTop: "0.2em" }}>Unchecked</span>
           </h5>
 
           {/* Toolbar: add items, sort, etc. */}
