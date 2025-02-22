@@ -444,7 +444,7 @@ export default function NoteItemsList({ noteEntries, noteView, noteId }: { noteE
             >
               <FlipNumbers
                 key={`flip-${resolvedTheme}`}
-                height={15.2}
+                height={15.5}
                 width={11.5}
                 duration={1.5}
                 numbers={filteredNoteItems?.length.toString()}
@@ -453,7 +453,7 @@ export default function NoteItemsList({ noteEntries, noteView, noteId }: { noteE
                 color={resolvedTheme === 'dark' ? 'white' : 'black'}
               />
             </span>
-            <span style={{paddingTop: "0.2em"}}>{filteredNoteItems?.length === 1 ? 'Item' : 'Items'} -</span>
+            <span style={{paddingTop: "0.18em"}}>{filteredNoteItems?.length === 1 ? 'Item' : 'Items'} -</span>
             <span 
               style={{ 
                 display: 'inline-flex', 
@@ -465,7 +465,7 @@ export default function NoteItemsList({ noteEntries, noteView, noteId }: { noteE
             >
               <FlipNumbers
                 key={`flip-${resolvedTheme}`}
-                height={15.2}
+                height={15.5}
                 width={11.5}
                 duration={1.5}
                 numbers={ChecksCount.toString()}
@@ -474,7 +474,7 @@ export default function NoteItemsList({ noteEntries, noteView, noteId }: { noteE
                 color={resolvedTheme === 'dark' ? 'white' : 'black'}
               />
             </span>
-            <span style={{ paddingTop: "0.2em" }}>Checked ●</span>
+            <span style={{ paddingTop: "0.18em" }}>Checked ●</span>
             <span 
               style={{ 
                 display: 'inline-flex', 
@@ -486,7 +486,7 @@ export default function NoteItemsList({ noteEntries, noteView, noteId }: { noteE
             >
               <FlipNumbers
                 key={`flip-${resolvedTheme}`}
-                height={15.2}
+                height={15.5}
                 width={11.5}
                 duration={1.5}
                 numbers={UnCheckedCount.toString()}
@@ -495,7 +495,7 @@ export default function NoteItemsList({ noteEntries, noteView, noteId }: { noteE
                 color={resolvedTheme === 'dark' ? 'white' : 'black'}
               />
             </span>
-            <span style={{ paddingTop: "0.2em" }}>Unchecked</span>
+            <span style={{ paddingTop: "0.18em" }}>Unchecked</span>
           </h5>
 
           {/* Toolbar: add items, sort, etc. */}
