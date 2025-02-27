@@ -682,7 +682,7 @@ export default function NoteItemsList({ noteEntries, noteView, noteId }: { noteE
                                             transition: 'transform 0.5s ease-in-out'
                                           },
                                           '&.Mui-checked svg': {
-                                            transform: 'scale(1.2)'
+                                            transform: 'scale(1.1)'
                                           }
                                         }}
                                         theme={resolvedTheme}

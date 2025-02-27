@@ -146,14 +146,32 @@
     margin-bottom: 0 !important;
 }
 
-/* note item text wrapper */
 .textWrapper {
-    position: relative;
-    display: inline-block;
+    display: inline
+}
+  
+/* Use the advanced animated strike-through when supported */
+@supports (box-decoration-break: clone) {
+    .textWrapper {
+      -webkit-box-decoration-break: clone;
+      box-decoration-break: clone;
+      background: linear-gradient(currentColor, currentColor) 0 55% / 0% 2px no-repeat;
+      transition: background-size 0.5s ease-in-out;
+    }
+    .textWrapper.lineActive {
+      background-size: 100% 2px
+    }
+}
+  
+/* Fallback: simply apply a non-animated line-through */
+@supports not (box-decoration-break: clone) {
+    .textWrapper.lineActive {
+        text-decoration: line-through
+    }
 }
 
 /* line that expands when hovered */
-.textWrapper::after {
+/* .textWrapper::after {
     content: "";
     position: absolute;
     left: 0;
@@ -163,12 +181,12 @@
     height: 2px;
     background: currentColor;
     transition: width 0.5s ease-in-out;
-}
+} */
   
 /* This class triggers the line to expand to 100% (or contract back to 0% when removed) */
-.lineActive::after {
+/* .lineActive::after {
     width: 100%
-}
+} */
 
 .noteListItemText span {
     font-size: 1.1em;

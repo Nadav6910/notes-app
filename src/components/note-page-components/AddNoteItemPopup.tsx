@@ -127,9 +127,9 @@ export default function AddNoteItemPopup(
                   autoFocus
                   {...register('itemName', 
                   { 
-                      required: {value: true, message: "Item name must be provided!"},
-                      minLength: {value: 2, message: "Item name must be at least 2 characters"},
-                      maxLength: {value: 200, message: "Item name must be shorter then 200 characters"} 
+                    required: {value: true, message: "Item name must be provided!"},
+                    minLength: {value: 2, message: "Item name must be at least 2 characters"},
+                    maxLength: {value: 80, message: "Item name must be shorter than 80 characters"} 
                   })} 
                   type='text'
                   placeholder="Item name.."

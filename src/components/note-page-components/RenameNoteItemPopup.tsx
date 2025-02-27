@@ -211,7 +211,7 @@ export default function RenameNoteItemPopup(
                             { 
                                 required: {value: true, message: "New name must be provided!"},
                                 minLength: {value: 2, message: "Name must be at least 2 characters"},
-                                maxLength: {value: 20, message: "Name must be shorter then 20 characters"} 
+                                maxLength: {value: 80, message: "Name must be shorter than 80 characters"} 
                             })} 
                             type='text'
                             style={{borderColor: errors.newName ? "red" : "initial"}} 
