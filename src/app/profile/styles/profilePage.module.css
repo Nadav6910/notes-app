@@ -70,13 +70,16 @@
 
 .goToMyNotesBtn {
     display: flex;
-    align-self: flex-start;
+    align-items: center; /* Centers text and icon vertically */
+    justify-content: center; /* Ensures everything is aligned in the center horizontally */
     color: var(--secondary-color);
     border: 1px solid var(--secondary-color);
     text-decoration: none;
-    padding: 0.8em;
+    padding: 0.8em 1.2em; /* Add some extra padding to the right for the icon */
     border-radius: 12px;
     cursor: pointer;
+    gap: 0.5em; /* Space between the text and icon */
+    width: fit-content;
 }
 
 .goToMyNotesBtn:hover {

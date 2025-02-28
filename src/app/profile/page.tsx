@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation'
 import { getUserDetails } from "@/lib/fetchers"
 import ProfileAvatar from "@/components/profile-page-components/ProfileAvatar"
 import { formatDate } from "@/lib/utils"
+import { FaArrowRight } from 'react-icons/fa';
 import Link from "next/link"
 
 export const metadata = {
@@ -62,7 +63,10 @@ export default async function ProfilePage() {
                     </h4>
                 </div>
 
-                <Link className={styles.goToMyNotesBtn} href="/my-notes">Go to my notes</Link>
+                <Link className={styles.goToMyNotesBtn} href="/my-notes">
+                    Go to my notes
+                    <FaArrowRight />
+                </Link>
 
             </div>
         </main>
