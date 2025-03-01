@@ -136,9 +136,12 @@ export default function MenuDrawer({isSession, userName, userImage}: NavbarDrawe
         </> :
 
         <List>
-            <p style={{paddingTop: "0.5em", paddingLeft: "1.3em", marginBottom: "1em", fontWeight: "bolder"}}>
-                Hello guest ,
-            </p>
+            <div style={{display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0.5em"}}>
+                <p style={{padding: "7px", fontWeight: "bolder"}}>
+                    Hello guest
+                </p>
+                <ThemeSwitch />
+            </div>
             <Divider />
             <ListItem disablePadding>
                 <ListItemButton sx={{gap: "1em"}} onClick={() => router.push('/login')}>
