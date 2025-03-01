@@ -454,7 +454,7 @@ export default function NoteItemsList({ noteEntries, noteView, noteId }: { noteE
                 color={resolvedTheme === 'dark' ? 'white' : 'black'}
               />
             </span>
-            <span style={{paddingTop: "0.25em"}}>{filteredNoteItems?.length === 1 ? 'Item' : 'Items'} -</span>
+            <span style={{paddingTop: "0.2em"}}>{filteredNoteItems?.length === 1 ? 'Item' : 'Items'} -</span>
             <span 
               style={{ 
                 display: 'inline-flex', 
@@ -475,7 +475,7 @@ export default function NoteItemsList({ noteEntries, noteView, noteId }: { noteE
                 color={resolvedTheme === 'dark' ? 'white' : 'black'}
               />
             </span>
-            <span style={{ paddingTop: "0.25em" }}>Checked ●</span>
+            <span style={{ paddingTop: "0.2em" }}>Checked ●</span>
             <span 
               style={{ 
                 display: 'inline-flex', 
@@ -496,7 +496,7 @@ export default function NoteItemsList({ noteEntries, noteView, noteId }: { noteE
                 color={resolvedTheme === 'dark' ? 'white' : 'black'}
               />
             </span>
-            <span style={{ paddingTop: "0.25em" }}>Unchecked</span>
+            <span style={{ paddingTop: "0.2em" }}>Unchecked</span>
           </h5>
 
           {/* Toolbar: add items, sort, etc. */}
