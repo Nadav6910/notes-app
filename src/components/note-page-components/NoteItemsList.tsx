@@ -40,6 +40,7 @@ import FilterByCheckedSelector from "./FilterByCheckedSelector"
 import { ably, clientId } from "@/lib/Ably/Ably"
 import { kanit } from "@/fonts/fonts"
 import FlipNumbers from 'react-flip-numbers'
+import useChannelOccupancy from '../../app/hooks/useChannelOccupancy'
 
 const AddNoteItemPopup = dynamic(() => import('./AddNoteItemPopup'), {
   loading: () => <Backdrop open={true}><CircularProgress className={styles.backDropLoader} /></Backdrop>
@@ -91,6 +92,8 @@ export default function NoteItemsList({ noteEntries, noteView, noteId }: { noteE
   const [openAddItemPopupEmpty, setOpenAddItemPopupEmpty] = useState<boolean>(false)
   const [openDeleteNoteItemPopup, setOpenDeleteNoteItemPopup] = useState<boolean>(false)
   const [openRenameNoteItemPopup, setOpenRenameNoteItemPopup] = useState<boolean>(false)
+  const [showUserEntered, setShowUserEntered] = useState<boolean>(false)
+  const [showUserLeft, setShowUserLeft] = useState<boolean>(false)
   const [openError, setOpenError] = useState<boolean>(false)
   const [openAddItemError, setOpenAddItemError] = useState<boolean>(false)
   const [openDeleteItemError, setOpenDeleteItemError] = useState<boolean>(false)
@@ -329,6 +332,20 @@ export default function NoteItemsList({ noteEntries, noteView, noteId }: { noteE
     }
   }, [sortMethod])
 
+  // Memoize the callback so it doesn't change every render
+  const handlePresenceEvent = useCallback((incomingClientId: string, action: string) => {
+    if (incomingClientId === clientId) return
+
+    if (action === 'enter') {
+      setShowUserEntered(true)
+    }
+    else if (action === 'leave') {
+      setShowUserLeft(true)
+    }
+  }, [])
+  
+  const occupancy = useChannelOccupancy(`note-${noteId}`, handlePresenceEvent)
+
   // Subscribe to Ably channel for real-time updates
   useEffect(() => {
     const channel = ably.channels.get(`note-${noteId}`)
@@ -426,7 +443,7 @@ export default function NoteItemsList({ noteEntries, noteView, noteId }: { noteE
           {/* Items counter */}
           <h5 
             style={{ 
-              marginBottom: '2em', 
+              marginBottom: '0.5em', 
               alignSelf: 'flex-start', 
               fontSize: '0.75rem', 
               lineHeight: '1.2', 
@@ -498,6 +515,51 @@ export default function NoteItemsList({ noteEntries, noteView, noteId }: { noteE
             </span>
             <span style={{ paddingTop: "0.2em" }}>Unchecked</span>
           </h5>
+
+          {/* show occupancy */}
+          {(occupancy === 0 || occupancy === 1) ?
+          
+          <span 
+            style={{ marginBottom: '1em', alignSelf: 'flex-start', fontSize: '0.75rem', lineHeight: '1.2' }}
+            className={`${kanit.className}`} 
+          >
+            Note is being viewed only by you
+          </span> :
+
+          <h6
+            style={{ 
+              marginBottom: '1em', 
+              alignSelf: 'flex-start', 
+              fontSize: '0.75rem', 
+              lineHeight: '1.2', 
+              display: "flex", 
+              gap: "0.35em" 
+            }}
+          >
+            <span 
+              style={{ 
+                display: 'inline-flex', 
+                alignItems: 'center', 
+                verticalAlign: 'middle', 
+                fontWeight: "bold",
+                gap: "0.35em"
+              }}
+              className={`${kanit.className}`} 
+            >
+              <span>You and</span>
+              <FlipNumbers
+                key={`flip-${resolvedTheme}`}
+                height={12.5}
+                width={6.5}
+                duration={1.5}
+                numbers={(occupancy - 1).toString()}
+                play
+                perspective={100}
+                color={resolvedTheme === 'dark' ? 'white' : 'black'}
+              />
+              <span>{`other ${occupancy - 1 === 1 ? 'user' : 'users'} are viewing this note`}</span>
+            </span>
+          </h6>}
 
           {/* Toolbar: add items, sort, etc. */}
           <div style={{ display: "flex", justifyContent: "space-between", width: "100%" }}>
@@ -818,6 +880,22 @@ export default function NoteItemsList({ noteEntries, noteView, noteId }: { noteE
           onSetPriorityError={() => setOpenSetPriorityError(true)}
           onSetCategoryError={() => setOpenSetCategoryError(true)}
         />
+      )}
+
+      {showUserEntered && (
+        <Snackbar open={showUserEntered} autoHideDuration={2500} onClose={() => setShowUserEntered(false)} anchorOrigin={{ horizontal: "center", vertical: "bottom" }}>
+          <Alert onClose={() => setShowUserEntered(false)} severity="info" sx={{ width: '100%' }}>
+            User entered the note!
+          </Alert>
+        </Snackbar>
+      )}
+
+      {showUserLeft && (
+        <Snackbar open={showUserLeft} autoHideDuration={2500} onClose={() => setShowUserLeft(false)} anchorOrigin={{ horizontal: "center", vertical: "bottom" }}>
+          <Alert onClose={() => setShowUserLeft(false)} severity="info" sx={{ width: '100%' }}>
+            User left the note!
+          </Alert>
+        </Snackbar>
       )}
 
       {openError && (
