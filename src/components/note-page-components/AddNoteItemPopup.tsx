@@ -470,7 +470,7 @@ export default function AddNoteItemPopup (
             {(pricesLoading || pricesError || pricesRows) && (
               <Box sx={{ maxHeight: '350px', overflowY: 'auto', pr: 0.5 }}>
                 {pricesLoading && (
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, justifyContent: 'center' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, justifyContent: 'center', height: '2.5em' }}>
                     <CircularProgress size={18} sx={{ color: 'var(--primary-color)' }} />
                     <Typography sx={{ color: 'var(--primary-color)', textAlign: 'center' }}>Loading prices…</Typography>
                   </Box>

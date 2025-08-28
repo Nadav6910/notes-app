@@ -1,6 +1,9 @@
-// app/api/scrape-autocomplete/route.ts
+// app/api/auto-complete-products-search/route.ts
 import { NextResponse } from 'next/server'
-import puppeteer, { Browser, Page } from 'puppeteer'
+import puppeteer, { Browser, Page } from 'puppeteer-core'
+import chromium from '@sparticuz/chromium'
+import fs from 'node:fs'
+import path from 'node:path'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -9,12 +12,12 @@ type RequestBody = {
   itemName: string
   maxResults?: number
   locationName?: string
-  keepAliveMs?: number          // optional: override keep-alive window for warm page/browser
+  keepAliveMs?: number
 }
 
 export type AutocompleteSuggestion = {
   primary: string
-  extra: string | null          // brand only
+  extra: string | null
   img: string | null
   href: string | null
   barcode: string | null
@@ -25,21 +28,79 @@ const HOME = 'https://chp.co.il/'
 const ADDRESS_SEL = '#shopping_address'
 const PRODUCT_SEL = '#product_name_or_barcode'
 
+// ---------- resolve a Chrome/Chromium executable path cross-platform ----------
+function exists(p: string) {
+  try { return fs.existsSync(p) } catch { return false }
+}
+
+async function resolveExecutablePath(): Promise<string> {
+  // Prefer the lambda chromium build on Linux (serverless/prod)
+  try {
+    const p = await chromium.executablePath()
+    if (p && process.platform === 'linux' && exists(p)) return p
+  } catch {
+    /* ignore */
+  }
+
+  // Local fallbacks by OS
+  if (process.platform === 'darwin') {
+    const macCandidates = [
+      '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+      '/Applications/Chromium.app/Contents/MacOS/Chromium',
+      path.join(process.env.HOME || '', 'Applications/Google Chrome.app/Contents/MacOS/Google Chrome'),
+    ]
+    const found = macCandidates.find(exists)
+    if (found) return found
+  }
+
+  if (process.platform === 'win32') {
+    const winCandidates = [
+      'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+      'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+      path.join(process.env.LOCALAPPDATA || '', 'Google\\Chrome\\Application\\chrome.exe'),
+    ]
+    const found = winCandidates.find(exists)
+    if (found) return found
+  }
+
+  // Linux dev machine
+  if (process.platform === 'linux') {
+    const linuxCandidates = [
+      '/usr/bin/google-chrome',
+      '/usr/bin/google-chrome-stable',
+      '/usr/bin/chromium',
+      '/usr/bin/chromium-browser',
+    ]
+    const found = linuxCandidates.find(exists)
+    if (found) return found
+  }
+
+  throw new Error('Could not find a Chrome/Chromium executable on this system')
+}
+
 // ---------- shared browser + warm page with keep-alive ----------
 let browser: Browser | null = null
 let warmPage: Page | null = null
-let browserTimer: NodeJS.Timeout | null = null
-let pageTimer: NodeJS.Timeout | null = null
-
-// simple mutex so only one request uses the warm page at a time
+let browserTimer: ReturnType<typeof setTimeout> | null = null
+let pageTimer: ReturnType<typeof setTimeout> | null = null
 let lock: Promise<void> | null = null
 let release: (() => void) | null = null
 
-const launchArgs = ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu']
-
 async function getBrowser(): Promise<Browser> {
   if (browser) return browser
-  browser = await puppeteer.launch({ headless: true, args: launchArgs })
+  const executablePath = await resolveExecutablePath()
+  browser = await puppeteer.launch({
+    headless: true,
+    executablePath,
+    // Use chromium args on Linux (they’re safe elsewhere too)
+    args: [
+      ...chromium.args,
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-gpu',
+    ],
+  })
   browser.on('disconnected', () => { browser = null })
   return browser
 }
@@ -61,22 +122,16 @@ function keepAlive(ms: number) {
 
 async function hardenPage(page: Page) {
   await page.setUserAgent(
-    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 ' +
-    '(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
   )
   await page.setExtraHTTPHeaders({ 'accept-language': 'he-IL,he;q=0.9,en;q=0.8' })
   await page.setViewport({ width: 1280, height: 900 })
 
   await page.setRequestInterception(true)
   const blockedHosts = [
-    'facebook.com',
-    'staticxx.facebook.com',
-    'connect.facebook.net',
-    'google-analytics.com',
-    'googletagmanager.com',
-    'g.doubleclick.net',
-    'hotjar.com',
-    'fullstory.com'
+    'facebook.com', 'staticxx.facebook.com', 'connect.facebook.net',
+    'google-analytics.com', 'googletagmanager.com', 'g.doubleclick.net',
+    'hotjar.com', 'fullstory.com',
   ]
   page.on('request', req => {
     const t = req.resourceType()
@@ -100,10 +155,8 @@ async function acquirePage(): Promise<Page> {
     await hardenPage(warmPage)
     await warmPage.goto(HOME, { waitUntil: 'domcontentloaded' })
   } else {
-    // if the page strayed away or was left mid-dialog, bring it back fast without a full reload if possible
     try {
-      const url = warmPage.url()
-      if (!url.startsWith(HOME)) {
+      if (!warmPage.url().startsWith(HOME)) {
         await warmPage.goto(HOME, { waitUntil: 'domcontentloaded' })
       }
     } catch {
@@ -123,10 +176,9 @@ async function releasePage(keepAliveMs: number) {
       const prod = document.querySelector<HTMLInputElement>('#product_name_or_barcode')
       if (addr) addr.value = ''
       if (prod) prod.value = ''
-
       const menus = document.querySelectorAll<HTMLElement>('ul.ui-autocomplete')
       menus.forEach(ul => {
-        ul.innerHTML = ''         // clear old items
+        ul.innerHTML = ''
         ul.style.display = 'none'
         ul.removeAttribute('data-stamp')
       })
@@ -137,7 +189,7 @@ async function releasePage(keepAliveMs: number) {
   lock = null
 }
 
-// ---------- UI helpers using jQuery-UI when available ----------
+// ---------- UI helpers ----------
 async function ensureJQueryUI(page: Page) {
   await page.waitForFunction(() => {
     // @ts-ignore
@@ -145,7 +197,6 @@ async function ensureJQueryUI(page: Page) {
     return !!$ && !!$.fn && typeof $.fn.autocomplete === 'function'
   })
 
-  // ↓ kill debounce & allow instant queries
   await page.evaluate((addrSel, prodSel) => {
     // @ts-ignore
     const $ = (window as any).jQuery
@@ -168,9 +219,8 @@ async function openWidgetAndGetListId(page: Page, selector: string, value: strin
     const el = $(sel)
     if (!el.length || !el.autocomplete) return { id: null as string | null, stamp: null as string | null }
 
-    // ensure closed and empty before new search
     el.autocomplete('close')
-    const widget = el.autocomplete('widget')   // the <ul> for this input
+    const widget = el.autocomplete('widget')
     if (!widget || !widget.length) return { id: null, stamp: null }
 
     let id = widget.attr('id')
@@ -182,23 +232,21 @@ async function openWidgetAndGetListId(page: Page, selector: string, value: strin
     widget.removeAttr('data-stamp')
 
     const stamp = `${Date.now()}-${Math.random().toString(36).slice(2)}`
-
-    // return a promise that resolves when *this* search responds
-    const once = () => new Promise<{ id: string, stamp: string }>(resolve => {
-      el.one('autocompleteresponse', () => {
-        widget.attr('data-stamp', stamp)
-        resolve({ id: id!, stamp })
+    const once = () =>
+      new Promise<{ id: string, stamp: string }>(resolve => {
+        el.one('autocompleteresponse', () => {
+          widget.attr('data-stamp', stamp)
+          resolve({ id: id!, stamp })
+        })
+        el.val(v)
+        el.autocomplete('search', v)
       })
-      el.val(v)
-      el.autocomplete('search', v)
-    })
 
     return await once()
   }, selector, value)
 
   if (!data.id || !data.stamp) throw new Error(`no widget id for ${selector}`)
 
-  // wait until the UL acknowledges *this* response
   await page.waitForFunction((id: string, stamp: string) => {
     const ul = document.getElementById(id)
     return !!ul && ul.getAttribute('data-stamp') === stamp
@@ -231,9 +279,6 @@ function buildScrapeFn() {
       .slice(0, limit)
 
     const results = lis.map(li => {
-      const a = (li.querySelector('a') ?? li) as HTMLElement
-
-      // primary = text strictly before the first <span> at LI level
       let primary = ''
       const firstSpan = li.querySelector('span')
       if (firstSpan) {
@@ -245,7 +290,6 @@ function buildScrapeFn() {
         primary = compact(li.textContent || '')
       }
 
-      // brand from first span
       const spans = Array.from(li.querySelectorAll('span'))
       let extra: string | null = null
       if (spans[0]?.textContent) {
@@ -258,7 +302,8 @@ function buildScrapeFn() {
       const imgEl = li.querySelector('img')
       const img = imgEl ? imgEl.getAttribute('src') : null
 
-      const href = (a as HTMLAnchorElement).getAttribute?.('href') || null
+      const a = li.querySelector('a') as HTMLAnchorElement | null
+      const href = a?.getAttribute('href') ?? null
 
       const liText = compact(li.textContent || '')
       const bc = liText.match(/\b(\d{7,14})\b/)
@@ -300,45 +345,40 @@ function buildScrapeFn() {
 
 // ---------- route ----------
 export async function POST(req: Request) {
+  const { itemName, maxResults = 15, locationName = 'תל אביב', keepAliveMs = 30_000 } =
+    await req.json() as RequestBody
 
-  const { itemName, maxResults = 15, locationName = 'תל אביב', keepAliveMs = 30_000 } = await req.json() as RequestBody
   if (!itemName || itemName.trim().length < 2) {
     return NextResponse.json({ ok: false, error: 'itemName too short' }, { status: 400 })
   }
 
   let page: Page | null = null
-  
   try {
     page = await acquirePage()
     await ensureJQueryUI(page)
 
-    // 1) address → open widget fast → click first → wait until city/street id set
+    // 1) Address
     const addrListId = await openWidgetAndGetListId(page, ADDRESS_SEL, locationName)
     await clickFirstByListId(page, addrListId)
-
     await page.waitForFunction(() => {
       const city = document.querySelector<HTMLInputElement>('#shopping_address_city_id')
       const street = document.querySelector<HTMLInputElement>('#shopping_address_street_id')
       return !!((city && city.value && city.value !== '0') || (street && street.value && street.value !== '0'))
     })
 
-    // 2) product → open widget fast → scrape only its UL
+    // 2) Product
     const productListId = await openWidgetAndGetListId(page, PRODUCT_SEL, itemName.trim())
-
     const suggestions = await page.evaluate(buildScrapeFn(), productListId, maxResults)
 
     await releasePage(keepAliveMs)
-
     return NextResponse.json({ ok: true, count: suggestions.length, suggestions }, { status: 200 })
-  } 
-  
-  catch (err: any) {
-    // if page went into a weird state, drop it so next call creates a fresh one
+  } catch (err: any) {
+    console.error('Error occurred while processing request:', err)
     try { await warmPage?.close() } catch {}
     warmPage = null
     if (release) release()
     lock = null
-    keepAlive(keepAliveMs)
+    keepAlive(30_000)
     return NextResponse.json({ ok: false, error: err?.message || 'Unknown error' }, { status: 500 })
   }
 }
