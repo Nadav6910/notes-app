@@ -1,6 +1,9 @@
 // app/api/get-product-prices/route.ts
 import { NextResponse } from 'next/server'
-import puppeteer, { Browser, Page } from 'puppeteer'
+import puppeteer, { Browser, Page } from 'puppeteer-core'
+import chromium from '@sparticuz/chromium'
+import fs from 'node:fs'
+import path from 'node:path'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -29,6 +32,47 @@ const PRODUCT_SEL = '#product_name_or_barcode'
 const SUBMIT_BTN = '#get_compare_results_button'
 const RESULTS_SEL = '#results-table'
 
+// ---------- resolve Chrome executable (dev vs prod) ----------
+const exists = (p: string) => { try { return fs.existsSync(p) } catch { return false } }
+
+async function resolveExecutablePath(): Promise<string> {
+  if (process.platform === 'linux') {
+    // Vercel / serverless
+    const execPath = await chromium.executablePath()
+    if (execPath && exists(execPath)) return execPath
+
+    const fallback = [
+      '/usr/bin/google-chrome-stable',
+      '/usr/bin/google-chrome',
+      '/usr/bin/chromium',
+      '/usr/bin/chromium-browser'
+    ].find(exists)
+    if (fallback) return fallback
+
+    throw new Error('No Chromium executable on Linux')
+  }
+
+  if (process.platform === 'darwin') {
+    const mac = [
+      '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+      '/Applications/Chromium.app/Contents/MacOS/Chromium',
+      path.join(process.env.HOME || '', 'Applications/Google Chrome.app/Contents/MacOS/Google Chrome'),
+    ].find(exists)
+    if (mac) return mac
+  }
+
+  if (process.platform === 'win32') {
+    const win = [
+      'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+      'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+      path.join(process.env.LOCALAPPDATA || '', 'Google\\Chrome\\Application\\chrome.exe'),
+    ].find(exists)
+    if (win) return win
+  }
+
+  throw new Error('Could not find a Chrome/Chromium executable on this system')
+}
+
 // ---------- shared browser + warm page ----------
 let browser: Browser | null = null
 let warmPage: Page | null = null
@@ -38,11 +82,30 @@ let pageTimer: NodeJS.Timeout | null = null
 let lock: Promise<void> | null = null
 let release: (() => void) | null = null
 
-const launchArgs = ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu']
-
 async function getBrowser(): Promise<Browser> {
   if (browser) return browser
-  browser = await puppeteer.launch({ headless: true, args: launchArgs })
+
+  const executablePath = await resolveExecutablePath()
+  const isLinux = process.platform === 'linux'
+
+  browser = await puppeteer.launch({
+    executablePath,
+    headless: true,
+    args: isLinux
+      ? [
+          ...chromium.args,
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--disable-dev-shm-usage',
+          '--single-process',
+        ]
+      : [
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--disable-dev-shm-usage',
+        ],
+  })
+
   browser.on('disconnected', () => { browser = null })
   return browser
 }
@@ -79,7 +142,7 @@ async function hardenPage(page: Page) {
   page.on('request', req => {
     const t = req.resourceType()
     const url = req.url()
-    // do NOT block fonts here (some digits are font-mapped)
+    // IMPORTANT: don't block fonts (digits can be font-mapped)
     if (t === 'image' || t === 'media') return req.abort()
     if (blockedHosts.some(h => url.includes(h))) return req.abort()
     req.continue()
@@ -139,6 +202,21 @@ async function ensureJQueryUI(page: Page) {
     const $ = (window as any).jQuery
     return !!$ && !!$.fn && typeof $.fn.autocomplete === 'function'
   })
+
+  // speed up autocomplete responses
+  await page.evaluate((addrSel, prodSel) => {
+    // @ts-ignore
+    const $ = (window as any).jQuery
+    ;[addrSel, prodSel].forEach(sel => {
+      try {
+        const el = $(sel)
+        if (el.length && el.autocomplete) {
+          el.autocomplete('option', 'delay', 0)
+          el.autocomplete('option', 'minLength', 0)
+        }
+      } catch {}
+    })
+  }, ADDRESS_SEL, PRODUCT_SEL)
 }
 
 async function openWidgetAndGetListId(page: Page, selector: string, value: string) {
@@ -231,7 +309,6 @@ function buildScrapeTableFn() {
       return out
     }
 
-    // sale button → min number is usually the sale price
     const extractSale = (btn: HTMLButtonElement | null) => {
       if (!btn) return { price: null as string | null, title: null as string | null, desc: null as string | null }
       const title = btn.getAttribute('data-discount-title') || btn.getAttribute('title') || null
@@ -249,11 +326,9 @@ function buildScrapeTableFn() {
       return { price, title, desc }
     }
 
-    // price cell → use visible text only, pick the last number there
     const extractPrice = (td: HTMLElement | null, saleStr: string | null): string | null => {
       if (!td) return null
 
-      // prefer explicit sort hint if present
       const ds = td.getAttribute('data-sort') || ''
       const dsNum = ds.match(/\d+(?:[.,]\d{1,2})?/)
       if (dsNum) return dsNum[0].replace(',', '.')
@@ -261,17 +336,14 @@ function buildScrapeTableFn() {
       const vis = compact((td as HTMLElement).innerText || '')
       const matches = Array.from(vis.matchAll(/\d{1,3}(?:[.,]\d{1,2})/g)).map(m => parseFloat(m[0].replace(',', '.')))
       const nums = matches.filter(n => Number.isFinite(n) && n > 0)
-
       if (!nums.length) return null
 
-      // if we know the sale price, try to choose a number >= sale (base price)
       const sale = saleStr ? parseFloat(saleStr) : NaN
       if (Number.isFinite(sale)) {
         const geSale = nums.filter(n => n >= sale + 0.01)
         if (geSale.length) return Math.min(...geSale).toFixed(2)
       }
 
-      // fallback: last visible number in the cell (commonly the base price)
       return nums[nums.length - 1].toFixed(2)
     }
 
@@ -343,12 +415,9 @@ export async function POST(req: Request) {
     await releasePage(keepAliveMs)
 
     return NextResponse.json({ ok: true, count: rows.length, rows }, { status: 200 })
-  } 
-  
-  catch (err: any) {
-    console.log(err)
+  } catch (err: any) {
+    console.error(err)
     try { await warmPage?.close() } catch {}
-    console.log(err);
     warmPage = null
     if (release) release()
     lock = null
