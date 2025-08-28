@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic'
 
 type RequestBody = {
   productName: string
-  barcode: string
+  barcode?: string                // ← now optional
   locationName?: string
   maxRows?: number
   keepAliveMs?: number
@@ -37,10 +37,8 @@ const exists = (p: string) => { try { return fs.existsSync(p) } catch { return f
 
 async function resolveExecutablePath(): Promise<string> {
   if (process.platform === 'linux') {
-    // Vercel / serverless
     const execPath = await chromium.executablePath()
     if (execPath && exists(execPath)) return execPath
-
     const fallback = [
       '/usr/bin/google-chrome-stable',
       '/usr/bin/google-chrome',
@@ -48,7 +46,6 @@ async function resolveExecutablePath(): Promise<string> {
       '/usr/bin/chromium-browser'
     ].find(exists)
     if (fallback) return fallback
-
     throw new Error('No Chromium executable on Linux')
   }
 
@@ -142,7 +139,7 @@ async function hardenPage(page: Page) {
   page.on('request', req => {
     const t = req.resourceType()
     const url = req.url()
-    // IMPORTANT: don't block fonts (digits can be font-mapped)
+    // DO NOT block fonts (digit glyphs can be font-mapped)
     if (t === 'image' || t === 'media') return req.abort()
     if (blockedHosts.some(h => url.includes(h))) return req.abort()
     req.continue()
@@ -185,7 +182,7 @@ async function releasePage(keepAliveMs: number) {
       if (addr) addr.value = ''
       if (prod) prod.value = ''
       const menus = document.querySelectorAll<HTMLElement>('ul.ui-autocomplete')
-      menus.forEach(ul => ul.style.display = 'none')
+      menus.forEach(ul => { ul.style.display = 'none'; ul.innerHTML = '' })
       const results = document.querySelector<HTMLElement>('#compare_results')
       if (results) results.innerHTML = ''
     })
@@ -195,7 +192,7 @@ async function releasePage(keepAliveMs: number) {
   lock = null
 }
 
-// ---------- jQuery UI helpers ----------
+// ---------- jQuery UI helpers (with "stamp" to avoid stale results) ----------
 async function ensureJQueryUI(page: Page) {
   await page.waitForFunction(() => {
     // @ts-ignore
@@ -203,7 +200,7 @@ async function ensureJQueryUI(page: Page) {
     return !!$ && !!$.fn && typeof $.fn.autocomplete === 'function'
   })
 
-  // speed up autocomplete responses
+  // speed up autocomplete
   await page.evaluate((addrSel, prodSel) => {
     // @ts-ignore
     const $ = (window as any).jQuery
@@ -220,60 +217,101 @@ async function ensureJQueryUI(page: Page) {
 }
 
 async function openWidgetAndGetListId(page: Page, selector: string, value: string) {
-  const listId = await page.evaluate((sel: string, v: string) => {
+  const data = await page.evaluate(async (sel: string, v: string) => {
     // @ts-ignore
     const $ = (window as any).jQuery
     const el = $(sel)
-    if (!el.length || !el.autocomplete) return null
+    if (!el.length || !el.autocomplete) return { id: null as string | null, stamp: null as string | null }
 
-    el.val(v)
-    el.autocomplete('search', v)
-
+    el.autocomplete('close')
     const widget = el.autocomplete('widget')
-    if (!widget || !widget.length) return null
+    if (!widget || !widget.length) return { id: null, stamp: null }
 
     let id = widget.attr('id')
-    if (!id) {
-      id = `auto-${Math.random().toString(36).slice(2)}`
-      widget.attr('id', id)
-    }
-    return id as string
+    if (!id) { id = `auto-${Math.random().toString(36).slice(2)}`; widget.attr('id', id) }
+    widget.empty()
+    widget.removeAttr('data-stamp')
+
+    const stamp = `${Date.now()}-${Math.random().toString(36).slice(2)}`
+    const once = () => new Promise<{ id: string, stamp: string }>(resolve => {
+      el.one('autocompleteresponse', () => { widget.attr('data-stamp', stamp); resolve({ id: id!, stamp }) })
+      el.val(v)
+      el.autocomplete('search', v)
+    })
+
+    return await once()
   }, selector, value)
 
-  if (!listId) throw new Error(`no widget id for ${selector}`)
+  if (!data.id || !data.stamp) throw new Error(`no widget id for ${selector}`)
 
-  await page.waitForFunction((id: string) => {
+  await page.waitForFunction((id: string, stamp: string) => {
     const ul = document.getElementById(id)
-    return !!ul && ul.querySelectorAll('li.ui-menu-item').length > 0
-  }, {}, listId)
+    return !!ul && ul.getAttribute('data-stamp') === stamp && ul.querySelectorAll('li.ui-menu-item').length > 0
+  }, {}, data.id, data.stamp)
 
-  return listId
+  return data.id
 }
 
-async function clickFirstByListId(page: Page, listId: string) {
-  await page.evaluate((id: string) => {
-    const ul = document.getElementById(id)
-    if (!ul) return
-    const li = ul.querySelector('li.ui-menu-item') as HTMLLIElement | null
-    const target = (li?.querySelector('a') as HTMLElement) || (li as unknown as HTMLElement)
-    target?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))
-    target?.click()
-  }, listId)
-}
-
-async function clickByBarcode(page: Page, listId: string, barcode: string) {
-  const clicked = await page.evaluate((id: string, bc: string) => {
+// ---------- selection helpers (barcode OR name OR fallback) ----------
+async function selectProductByBarcodeOrName(page: Page, listId: string, desiredName: string, desiredBarcode?: string) {
+  const clicked = await page.evaluate((id: string, name: string, bc?: string) => {
     const ul = document.getElementById(id)
     if (!ul) return false
+
+    // Filter list items, drop the "view more" row
     const items = Array.from(ul.querySelectorAll('li.ui-menu-item'))
-    const match = items.find(li => new RegExp(`\\b${bc}\\b`).test(li.textContent || ''))
-    const target = (match?.querySelector('a') as HTMLElement) || (match as unknown as HTMLElement)
-    if (!target) return false
-    target.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))
-    target.click()
-    return true
-  }, listId, barcode)
-  if (!clicked) throw new Error('product with given barcode not found in suggestions')
+      .filter(li => !/הצג\s+ערכים\s+נוספים/.test(li.textContent || ''))
+
+    const clickEl = (li: HTMLLIElement | null) => {
+      if (!li) return false
+      const target = (li.querySelector('a') as HTMLElement) || (li as unknown as HTMLElement)
+      if (!target) return false
+      target.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))
+      target.click()
+      return true
+    }
+
+    const compact = (s: string | null | undefined) => (s || '').replace(/\s+/g, ' ').trim()
+    const crop = (s: string) => s.split(/[,،‚，]/)[0].trim().toLowerCase()
+    const norm = (s: string) =>
+      crop(compact(s).replace(/[()"'״׳]/g, '').replace(/\s+/g, ' '))
+
+    const desiredNorm = norm(name)
+
+    // 1) Try barcode
+    if (bc && /\d{7,14}/.test(bc)) {
+      const byBC = items.find(li => new RegExp(`\\b${bc}\\b`).test(li.textContent || ''))
+      if (byBC && clickEl(byBC as HTMLLIElement)) return true
+    }
+
+    // 2) Try strict name match against the "primary" (text before first <span>)
+    const getPrimary = (li: Element) => {
+      const firstSpan = li.querySelector('span')
+      if (firstSpan) {
+        const r = document.createRange()
+        r.setStart(li, 0)
+        r.setEndBefore(firstSpan)
+        return compact(r.toString())
+      }
+      // fallback: remove img+span and read the rest
+      const clone = li.cloneNode(true) as HTMLElement
+      clone.querySelectorAll('img, span').forEach(el => el.remove())
+      return compact(clone.textContent || '')
+    }
+
+    const withPrimary = items.map(li => ({ li, p: norm(getPrimary(li)) }))
+    let match = withPrimary.find(x => x.p === desiredNorm)?.li as HTMLLIElement | undefined
+    if (match && clickEl(match)) return true
+
+    // 3) Soft match (contains)
+    match = withPrimary.find(x => x.p.includes(desiredNorm) || desiredNorm.includes(x.p))?.li as HTMLLIElement | undefined
+    if (match && clickEl(match)) return true
+
+    // 4) Fallback: first item
+    return clickEl(items[0] as HTMLLIElement | null)
+  }, listId, desiredName, desiredBarcode)
+
+  if (!clicked) throw new Error('failed to select product by barcode or name')
 }
 
 // ---------- scrape table (with normalization) ----------
@@ -329,10 +367,12 @@ function buildScrapeTableFn() {
     const extractPrice = (td: HTMLElement | null, saleStr: string | null): string | null => {
       if (!td) return null
 
+      // prefer explicit sort hint if present
       const ds = td.getAttribute('data-sort') || ''
       const dsNum = ds.match(/\d+(?:[.,]\d{1,2})?/)
       if (dsNum) return dsNum[0].replace(',', '.')
 
+      // visible text fallback
       const vis = compact((td as HTMLElement).innerText || '')
       const matches = Array.from(vis.matchAll(/\d{1,3}(?:[.,]\d{1,2})/g)).map(m => parseFloat(m[0].replace(',', '.')))
       const nums = matches.filter(n => Number.isFinite(n) && n > 0)
@@ -375,14 +415,14 @@ function buildScrapeTableFn() {
 export async function POST(req: Request) {
   const {
     productName,
-    barcode,
+    barcode,                               // optional
     locationName = 'תל אביב',
     maxRows = 200,
     keepAliveMs = 20_000
   } = await req.json() as RequestBody
 
-  if (!productName || !barcode) {
-    return NextResponse.json({ ok: false, error: 'productName and barcode are required' }, { status: 400 })
+  if (!productName || productName.trim().length < 2) {
+    return NextResponse.json({ ok: false, error: 'productName is required' }, { status: 400 })
   }
 
   let page: Page | null = null
@@ -392,16 +432,24 @@ export async function POST(req: Request) {
 
     // 1) Set location
     const addrListId = await openWidgetAndGetListId(page, ADDRESS_SEL, locationName)
-    await clickFirstByListId(page, addrListId)
+    await page.evaluate((id: string) => {
+      const ul = document.getElementById(id)
+      if (!ul) return
+      const li = ul.querySelector('li.ui-menu-item') as HTMLLIElement | null
+      const target = (li?.querySelector('a') as HTMLElement) || (li as unknown as HTMLElement)
+      target?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))
+      target?.click()
+    }, addrListId)
+
     await page.waitForFunction(() => {
       const city = document.querySelector<HTMLInputElement>('#shopping_address_city_id')
       const street = document.querySelector<HTMLInputElement>('#shopping_address_street_id')
       return !!((city && city.value && city.value !== '0') || (street && street.value && street.value !== '0'))
     })
 
-    // 2) Pick the product by barcode
-    const productListId = await openWidgetAndGetListId(page, PRODUCT_SEL, productName)
-    await clickByBarcode(page, productListId, barcode)
+    // 2) Open product autocomplete & select by barcode OR name (fallback first)
+    const productListId = await openWidgetAndGetListId(page, PRODUCT_SEL, productName.trim())
+    await selectProductByBarcodeOrName(page, productListId, productName.trim(), barcode)
 
     // 3) Render results
     await page.click(SUBMIT_BTN)
@@ -415,8 +463,10 @@ export async function POST(req: Request) {
     await releasePage(keepAliveMs)
 
     return NextResponse.json({ ok: true, count: rows.length, rows }, { status: 200 })
-  } catch (err: any) {
-    console.error(err)
+  } 
+  
+  catch (err: any) {
+    console.error('Error occurred while fetching product prices:', err)
     try { await warmPage?.close() } catch {}
     warmPage = null
     if (release) release()

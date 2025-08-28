@@ -16,6 +16,7 @@ import MotionWrap from '@/wrappers/MotionWrap'
 import { AnimatePresence, useAnimationControls } from 'framer-motion'
 import { generalCategories, foodCategories } from '@/text/noteCategories'
 import { useDebouncedValue } from '../../app/hooks/useDebouncedValue'
+import { useHebrewCity } from '@/app/hooks/useHebrewCity'
 
 const Transition = forwardRef(function Transition (
   props: TransitionProps & { children: React.ReactElement<any, any> },
@@ -74,6 +75,8 @@ export default function AddNoteItemPopup (
   const [inputValue, setInputValue] = useState('')      // updated by typing/clear only
   const [hadError, setHadError] = useState(false)       // used to drive empty-state visibility
 
+  const { city } = useHebrewCity({ preferGPS: true })
+  
   const abortRef = useRef<AbortController | null>(null)
   const controls = useAnimationControls()
 
@@ -120,7 +123,7 @@ export default function AddNoteItemPopup (
 
   const fetchPrices = async (prod?: SelectedProduct | null) => {
     const p = prod ?? selectedProduct
-    if (!p || !p.barcode) return
+    if (!p) return
 
     setPricesLoading(true)
     setPricesError(null)
@@ -132,7 +135,7 @@ export default function AddNoteItemPopup (
         body: JSON.stringify({
           productName: p.name,           // original (uncropped) name
           barcode: p.barcode,
-          // locationName: 'חיפה',       // optional: pass if you want to pin the city
+          locationName: city,       // optional: pass if you want to pin the city
         })
       })
 
@@ -185,7 +188,7 @@ export default function AddNoteItemPopup (
         const res = await fetch('/api/auto-complete-products-search', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ itemName: q }),
+          body: JSON.stringify({ itemName: q, locationName: city }),
           signal: ac.signal
         })
 
@@ -207,8 +210,8 @@ export default function AddNoteItemPopup (
     }
 
     run()
-  }, [debouncedQuery])
-  
+  }, [debouncedQuery, city])
+
   return (
     <div>
       <Dialog
@@ -440,7 +443,7 @@ export default function AddNoteItemPopup (
                   <Button
                     variant="text"
                     onClick={() => fetchPrices()}
-                    disabled={!selectedProduct?.barcode || pricesLoading}
+                    disabled={!selectedProduct || pricesLoading}
                     sx={{
                       color: 'var(--secondary-color)'
                     }}
