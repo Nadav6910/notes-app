@@ -33,46 +33,39 @@ function exists(p: string) {
   try { return fs.existsSync(p) } catch { return false }
 }
 
+// Prefer Sparticuz chromium ONLY on Linux (e.g. Vercel). Use local Chrome on mac/win.
 async function resolveExecutablePath(): Promise<string> {
-  // Prefer the lambda chromium build on Linux (serverless/prod)
-  try {
-    const p = await chromium.executablePath()
-    if (p && process.platform === 'linux' && exists(p)) return p
-  } catch {
-    /* ignore */
+  const exists = (p: string) => { try { return fs.existsSync(p) } catch { return false } }
+
+  if (process.platform === 'linux') {
+    // Serverless / Vercel path
+    const execPath = await chromium.executablePath()
+    if (execPath && exists(execPath)) return execPath
+
+    // (Very rare) fallback Linux paths if the above is empty
+    const fallback = ['/usr/bin/google-chrome', '/usr/bin/google-chrome-stable', '/usr/bin/chromium', '/usr/bin/chromium-browser'].find(exists)
+    if (fallback) return fallback
+
+    throw new Error('No Chromium executable on Linux')
   }
 
-  // Local fallbacks by OS
+  // Local dev (macOS / Windows): use installed Chrome
   if (process.platform === 'darwin') {
-    const macCandidates = [
+    const mac = [
       '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
       '/Applications/Chromium.app/Contents/MacOS/Chromium',
       path.join(process.env.HOME || '', 'Applications/Google Chrome.app/Contents/MacOS/Google Chrome'),
-    ]
-    const found = macCandidates.find(exists)
-    if (found) return found
+    ].find(exists)
+    if (mac) return mac
   }
 
   if (process.platform === 'win32') {
-    const winCandidates = [
+    const win = [
       'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
       'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
       path.join(process.env.LOCALAPPDATA || '', 'Google\\Chrome\\Application\\chrome.exe'),
-    ]
-    const found = winCandidates.find(exists)
-    if (found) return found
-  }
-
-  // Linux dev machine
-  if (process.platform === 'linux') {
-    const linuxCandidates = [
-      '/usr/bin/google-chrome',
-      '/usr/bin/google-chrome-stable',
-      '/usr/bin/chromium',
-      '/usr/bin/chromium-browser',
-    ]
-    const found = linuxCandidates.find(exists)
-    if (found) return found
+    ].find(exists)
+    if (win) return win
   }
 
   throw new Error('Could not find a Chrome/Chromium executable on this system')
@@ -88,19 +81,29 @@ let release: (() => void) | null = null
 
 async function getBrowser(): Promise<Browser> {
   if (browser) return browser
+
   const executablePath = await resolveExecutablePath()
+  const isLinux = process.platform === 'linux'
+
   browser = await puppeteer.launch({
-    headless: true,
     executablePath,
-    // Use chromium args on Linux (they’re safe elsewhere too)
-    args: [
-      ...chromium.args,
-      '--no-sandbox',
-      '--disable-setuid-sandbox',
-      '--disable-dev-shm-usage',
-      '--disable-gpu',
-    ],
+    headless: true,                    // works for both dev & prod
+    args: isLinux
+      ? [
+          ...chromium.args,            // tuned for serverless
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--disable-dev-shm-usage',
+          '--single-process',          // small memory lambda tip
+        ]
+      : [
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--disable-dev-shm-usage',
+        ],
+    // DO NOT set chromium.defaultViewport/headless props directly (not part of the API)
   })
+
   browser.on('disconnected', () => { browser = null })
   return browser
 }
@@ -372,7 +375,9 @@ export async function POST(req: Request) {
 
     await releasePage(keepAliveMs)
     return NextResponse.json({ ok: true, count: suggestions.length, suggestions }, { status: 200 })
-  } catch (err: any) {
+  } 
+  
+  catch (err: any) {
     console.error('Error occurred while processing request:', err)
     try { await warmPage?.close() } catch {}
     warmPage = null
