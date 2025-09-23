@@ -5,7 +5,8 @@ import {
   CircularProgress, FormControlLabel, RadioGroup, FormControl, Radio as MuiRadio,
   InputLabel, Select, MenuItem, Divider, TextField, Autocomplete,
   ListItem, ListItemAvatar, Avatar, ListItemText, InputAdornment, Box, Chip, Table, 
-  TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Typography
+  TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Typography,
+  Checkbox, FormHelperText
 } from '@mui/material'
 import { useForm, Controller } from 'react-hook-form'
 import { TransitionProps } from '@mui/material/transitions'
@@ -64,6 +65,7 @@ export default function AddNoteItemPopup (
   const [selectedPriorityColor, setSelectedPriorityColor] = useState('none')
   const [selectedCategory, setSelectedCategory] = useState('none')
 
+  const [comparePrices, setComparePrices] = useState(false)
   const [selectedProduct, setSelectedProduct] = useState<SelectedProduct | null>(null)
   const [pricesLoading, setPricesLoading] = useState(false)
   const [pricesError, setPricesError] = useState<string | null>(null)
@@ -122,6 +124,9 @@ export default function AddNoteItemPopup (
   }
 
   const fetchPrices = async (prod?: SelectedProduct | null) => {
+
+    if (!comparePrices) return
+
     const p = prod ?? selectedProduct
     if (!p) return
 
@@ -146,10 +151,14 @@ export default function AddNoteItemPopup (
         setPricesRows([])
         setPricesError(data.error || 'Failed to load prices')
       }
-    } catch (e: any) {
+    } 
+    
+    catch (e: any) {
       setPricesRows([])
       setPricesError(e?.message || 'Network error')
-    } finally {
+    } 
+    
+    finally {
       setPricesLoading(false)
     }
   }
@@ -166,6 +175,16 @@ export default function AddNoteItemPopup (
 
   useEffect(() => {
     const q = debouncedQuery.trim()
+
+    // block all scraping when comparePrices is off
+    if (!comparePrices) {
+      setOptions([])
+      setAcLoading(false)
+      setHadError(false)
+      setAcOpen(false)
+      abortRef.current?.abort()
+      return
+    }
 
     // only Hebrew + length >= 3 will trigger scraping/open
     if (q.length < 3 || !isHebrew(q)) {
@@ -210,7 +229,21 @@ export default function AddNoteItemPopup (
     }
 
     run()
-  }, [debouncedQuery, city])
+  }, [comparePrices, debouncedQuery, city])
+
+  // reset everything when closing popup or turning off comparePrices
+  useEffect(() => {
+    if (!comparePrices) {
+      abortRef.current?.abort()
+      setAcOpen(false)
+      setOptions([])
+      setAcLoading(false)
+      setHadError(false)
+      setSelectedProduct(null)
+      setPricesRows(null)
+      setPricesError(null)
+    }
+  }, [comparePrices])
 
   return (
     <div>
@@ -291,6 +324,21 @@ export default function AddNoteItemPopup (
                   }}
                   // typing / clearing ONLY trigger scraping
                   onInputChange={(_, val, reason) => {
+
+                    if (!comparePrices) {
+                      // typing without scraping
+                      field.onChange(val)
+                      setInputValue('')        // keep scraper input empty
+                      setOptions([])
+                      setAcLoading(false)
+                      setHadError(false)
+                      setAcOpen(false)
+                      setSelectedProduct(null)
+                      setPricesRows(null)
+                      setPricesError(null)
+                      return
+                    }
+
                     if (reason === 'input') {
                       // manual typing → forget previous selection & table
                       setSelectedProduct(null)
@@ -303,7 +351,9 @@ export default function AddNoteItemPopup (
                         setHadError(false)
                         field.onChange(val)
                         setAcOpen(val.trim().length >= 3)
-                      } else {
+                      } 
+                      
+                      else {
                         setInputValue('')
                         setOptions([])
                         setAcLoading(false)
@@ -311,11 +361,12 @@ export default function AddNoteItemPopup (
                         field.onChange(val)
                         setAcOpen(false)
                       }
-                    } else if (reason === 'clear') {
+                    } 
+                    
+                    else if (reason === 'clear') {
                       setSelectedProduct(null)
                       setPricesRows(null)
                       setPricesError(null)
-
                       setInputValue('')
                       setOptions([])
                       setAcLoading(false)
@@ -408,7 +459,7 @@ export default function AddNoteItemPopup (
                         ...params.InputProps,
                         onFocus: (e: React.FocusEvent<HTMLInputElement>) => {
                           params.inputProps?.onFocus?.(e)
-                          if (canOpen(itemNameLive) && (options.length > 0 || hadError || acLoading)) {
+                          if (comparePrices && canOpen(itemNameLive) && (options.length > 0 || hadError || acLoading)) {
                             setAcOpen(true)
                           }
                         },
@@ -436,9 +487,29 @@ export default function AddNoteItemPopup (
               )}
             />
 
-            <div style={{ display: 'flex', gap: 8 }}>
+            {/* check box to enable price comparison */}
+            <Box>
+              <FormControl component='fieldset' variant='standard'>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={comparePrices}
+                      onChange={(e) => setComparePrices(e.target.checked)}
+                      sx={{ color: 'var(--secondary-color)', '&.Mui-checked': { color: 'var(--secondary-color)' } }}
+                    />
+                  }
+                  label={
+                    <Typography sx={{ color: 'var(--primary-color)' }}>
+                      Compare prices
+                    </Typography>
+                  }
+                />
+              </FormControl>
+            </Box>
+
+            {selectedProduct && comparePrices && <div style={{ display: 'flex', gap: 8 }}>
               {/* Actions row under the input */}
-              {selectedProduct && (
+              {selectedProduct && comparePrices && (
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <Button
                     variant="text"
@@ -454,7 +525,7 @@ export default function AddNoteItemPopup (
               )}
 
               {/* close table button */}
-              {pricesRows && pricesRows.length > 0 && (
+              {comparePrices && pricesRows && pricesRows.length > 0 && (
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <Button
                     variant="text"
@@ -467,10 +538,10 @@ export default function AddNoteItemPopup (
                   </Button>
                 </Box>
               )}
-            </div>
+            </div>}
 
             {/* Prices table / states */}
-            {(pricesLoading || pricesError || pricesRows) && (
+            {comparePrices && (pricesLoading || pricesError || pricesRows) && (
               <Box sx={{ maxHeight: '350px', overflowY: 'auto', pr: 0.5 }}>
                 {pricesLoading && (
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, justifyContent: 'center', height: '2.5em' }}>
