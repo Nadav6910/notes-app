@@ -31,7 +31,18 @@
 }
 
 :root {
-  font-family: var(--font-inter), system-ui, -apple-system, Segoe UI, Roboto, Arial
+  --font-sans: system-ui, -apple-system, BlinkMacSystemFont,
+  "Segoe UI", Roboto, "Helvetica Neue", Arial,
+  "Noto Sans", "Liberation Sans", Ubuntu, Cantarell,
+  "DejaVu Sans", "Source Sans Pro", sans-serif
+}
+
+/* Make it stick across all controls */
+html, body, input, textarea, button, select {
+  font-family: var(--font-sans) !important;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 * {

@@ -29,7 +29,15 @@ export default function AppNavbar () {
         {/* Mobile */}
         <div className={styles.mobileNavContainer}>
           {isLoading ? (
-            <LinearProgress sx={{ width: 100, color: 'var(--secondary-color)' }} />
+            <LinearProgress 
+              sx={{
+                width: 100,
+                backgroundColor: 'color-mix(in srgb, var(--secondary-color) 20%, transparent)',
+                '& .MuiLinearProgress-bar': {
+                  backgroundColor: 'var(--secondary-color)'
+                }
+              }} 
+            />
           ) : (
             <MenuDrawer
               isSession={isSession}
