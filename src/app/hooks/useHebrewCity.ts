@@ -6,6 +6,8 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 type UseHebrewCityOptions = {
   preferGPS?: boolean
   geolocationTimeoutMs?: number
+  enabled?: boolean
+  fallback?: string
 }
 
 type CityState = {
@@ -17,15 +19,12 @@ type CityState = {
 
 /** common Israeli cities + spelling variations */
 const EN_TO_HE: Record<string, string> = {
-  // big 3 + variants
   'jerusalem': 'ירושלים',
   'tel aviv-yafo': 'תל אביב-יפו',
   'tel aviv yafo': 'תל אביב-יפו',
   'tel aviv': 'תל אביב',
   'yafo': 'יפו',
   'haifa': 'חיפה',
-
-  // center
   'rishon leziyyon': 'ראשון לציון',
   'rishon lezion': 'ראשון לציון',
   'holon': 'חולון',
@@ -50,8 +49,6 @@ const EN_TO_HE: Record<string, string> = {
   'ramla': 'רמלה',
   'lod': 'לוד',
   'beer yaakov': 'באר יעקב',
-
-  // sharon / coast
   'netanya': 'נתניה',
   'herzliya': 'הרצליה',
   'raanana': 'רעננה',
@@ -72,8 +69,6 @@ const EN_TO_HE: Record<string, string> = {
   'tirat karmel': 'טירת כרמל',
   'tirat-carmel': 'טירת כרמל',
   'tirat-karmel': 'טירת כרמל',
-
-  // north
   'nahariya': 'נהריה',
   'acre': 'עכו',
   'akko': 'עכו',
@@ -91,8 +86,6 @@ const EN_TO_HE: Record<string, string> = {
   'kiryat bialik': 'קריית ביאליק',
   'kiryat motzkin': 'קריית מוצקין',
   'kiryat yam': 'קריית ים',
-
-  // south
   'ashdod': 'אשדוד',
   'ashkelon': 'אשקלון',
   'sderot': 'שדרות',
@@ -106,34 +99,21 @@ const EN_TO_HE: Record<string, string> = {
   'kiryat gat': 'קריית גת',
   'kiryat malahki': 'קריית מלאכי',
   'kiryat malakhi': 'קריית מלאכי',
-
-  // mixed/arabic-majority cities (common outputs from IP DBs)
   'nazareth': 'נצרת',
   'nof hagalil': 'נוף הגליל',
   'umm al-fahm': 'אום אל-פחם',
   'sakhnin': 'סכנין',
-  'rahat': 'רהט',
+  'rahat': 'רהט'
 }
 
-/** normalize & translate to Hebrew if needed */
 function normalizeCityHe(s: string | null | undefined): string | null {
   if (!s) return null
-  const clean = s
-    .replace(/[0-9]/g, '')
-    .replace(/-/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-
-  // if it's already Hebrew, keep it
+  const clean = s.replace(/[0-9]/g, '').replace(/-/g, ' ').replace(/\s+/g, ' ').trim()
   if (/[\u0590-\u05FF]/.test(clean)) return clean
-
   const key = clean.toLowerCase()
   if (EN_TO_HE[key]) return EN_TO_HE[key]
-
-  // small heuristics for common “City, District” formats
   const firstPart = key.split(',')[0]?.trim()
   if (firstPart && EN_TO_HE[firstPart]) return EN_TO_HE[firstPart]
-
   return null
 }
 
@@ -146,12 +126,10 @@ async function reverseGeocodeHebrew(lat: number, lon: number, signal?: AbortSign
     j.city || j.locality ||
     j.localityInfo?.administrative?.[0]?.name ||
     j.principalSubdivision || null
-
   return normalizeCityHe(candidate)
 }
 
 async function cityFromIP(signal?: AbortSignal) {
-  // ipwho.is (Hebrew)
   try {
     const r = await fetch('https://ipwho.is/?lang=he', { signal })
     if (r.ok) {
@@ -162,8 +140,6 @@ async function cityFromIP(signal?: AbortSignal) {
       }
     }
   } catch {}
-
-  // ip-api (Hebrew)
   try {
     const r2 = await fetch('https://ip-api.com/json/?fields=status,message,city&lang=he', { signal })
     if (r2.ok) {
@@ -174,18 +150,17 @@ async function cityFromIP(signal?: AbortSignal) {
       }
     }
   } catch {}
-
   return null
 }
 
 export function useHebrewCity(
-  { preferGPS = true, geolocationTimeoutMs = 6000 }: UseHebrewCityOptions = {}
+  { preferGPS = true, geolocationTimeoutMs = 6000, enabled = true, fallback = 'תל אביב' }: UseHebrewCityOptions = {}
 ) {
   const [state, setState] = useState<CityState>({
-    city: null,
-    loading: true,
+    city: enabled ? null : fallback,
+    loading: enabled,            // when disabled, immediately not loading
     error: null,
-    source: null
+    source: enabled ? null : 'fallback'
   })
 
   const abortRef = useRef<AbortController | null>(null)
@@ -207,8 +182,8 @@ export function useHebrewCity(
       }, geolocationTimeoutMs)
 
       navigator.geolocation.getCurrentPosition(
-        (p) => { done = true; clearTimeout(timer); resolve(p) },
-        (err) => { done = true; clearTimeout(timer); reject(err) },
+        p => { done = true; clearTimeout(timer); resolve(p) },
+        err => { done = true; clearTimeout(timer); reject(err) },
         { enableHighAccuracy: false, timeout: geolocationTimeoutMs, maximumAge: 60_000 }
       )
     })
@@ -220,6 +195,13 @@ export function useHebrewCity(
   }, [geolocationTimeoutMs])
 
   const refresh = useCallback(async () => {
+    // if not enabled, just ensure fallback and bail
+    if (!enabled) {
+      abortRef.current?.abort()
+      setSafely(s => ({ ...s, city: fallback, loading: false, source: 'fallback', error: null }))
+      return
+    }
+
     abortRef.current?.abort()
     const ac = new AbortController()
     abortRef.current = ac
@@ -227,7 +209,6 @@ export function useHebrewCity(
     setSafely(s => ({ ...s, loading: true, error: null }))
 
     try {
-      // 1) GPS first (optional)
       if (preferGPS) {
         try {
           const city = await getViaGPS(ac.signal)
@@ -235,36 +216,33 @@ export function useHebrewCity(
             setSafely(s => ({ ...s, city, loading: false, source: 'gps', error: null }))
             return
           }
-        } catch {/* fall back */}
+        } catch {}
       }
 
-      // 2) IP fallback
       const city2 = await cityFromIP(ac.signal)
       if (city2) {
         setSafely(s => ({ ...s, city: city2, loading: false, source: 'ip', error: null }))
         return
       }
 
-      // 3) hard fallback – always give a value
       setSafely(s => ({
         ...s,
-        city: 'תל אביב',
+        city: fallback,
         loading: false,
         source: 'fallback',
-        error: 'לא נמצאה עיר — ברירת מחדל: תל אביב'
+        error: 'לא נמצאה עיר — ברירת מחדל: ' + fallback
       }))
     } catch (e: any) {
       if (e?.name === 'AbortError') return
-      // even on unexpected errors, ensure a city value
       setSafely(s => ({
         ...s,
-        city: 'תל אביב',
+        city: fallback,
         loading: false,
         source: 'fallback',
-        error: e?.message ?? 'שגיאה — ברירת מחדל: תל אביב'
+        error: e?.message ?? 'שגיאה — ברירת מחדל: ' + fallback
       }))
     }
-  }, [preferGPS, getViaGPS])
+  }, [enabled, preferGPS, getViaGPS, fallback])
 
   useEffect(() => {
     mountedRef.current = true
@@ -274,6 +252,18 @@ export function useHebrewCity(
       abortRef.current?.abort()
     }
   }, [refresh])
+
+  // when toggling from enabled -> disabled, immediately cancel and set fallback
+  useEffect(() => {
+    if (!enabled) {
+      abortRef.current?.abort()
+      setSafely(s => ({ ...s, city: fallback, loading: false, source: 'fallback', error: null }))
+    } else {
+      // when toggling back on, kick off a fresh resolve
+      refresh()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enabled])
 
   return { ...state, refresh }
 }

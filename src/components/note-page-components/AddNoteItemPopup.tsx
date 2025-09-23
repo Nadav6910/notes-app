@@ -1,12 +1,12 @@
 import styles from '../../app/my-notes/styles/myNotes.module.css'
-import { useState, useEffect, useRef, forwardRef } from 'react'
+import { useState, useEffect, useRef, forwardRef, useMemo } from 'react'
 import {
   Button, Dialog, DialogActions, DialogContent, DialogTitle, Slide,
   CircularProgress, FormControlLabel, RadioGroup, FormControl, Radio as MuiRadio,
   InputLabel, Select, MenuItem, Divider, TextField, Autocomplete,
   ListItem, ListItemAvatar, Avatar, ListItemText, InputAdornment, Box, Chip, Table, 
   TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Typography,
-  Checkbox, FormHelperText
+  Checkbox
 } from '@mui/material'
 import { useForm, Controller } from 'react-hook-form'
 import { TransitionProps } from '@mui/material/transitions'
@@ -77,7 +77,11 @@ export default function AddNoteItemPopup (
   const [inputValue, setInputValue] = useState('')      // updated by typing/clear only
   const [hadError, setHadError] = useState(false)       // used to drive empty-state visibility
 
-  const { city } = useHebrewCity({ preferGPS: true })
+  const { city } = useHebrewCity({
+    preferGPS: true,
+    enabled: comparePrices,       // 🚦 only active when checkbox is on
+    fallback: 'תל אביב'
+  })
   
   const abortRef = useRef<AbortController | null>(null)
   const controls = useAnimationControls()
