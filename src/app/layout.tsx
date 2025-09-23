@@ -22,7 +22,6 @@ export default function RootLayout({children}: BasicChildrenProps) {
         <SessionProv>
           <ThemeProv>
             <NextTopLoader />
-            {/* @ts-expect-error Server Component */}
             <AppNavbar />
             {children}
             {/* <AppFooter />    */}
