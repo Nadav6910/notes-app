@@ -35,7 +35,6 @@ function exists(p: string) {
 
 // Prefer Sparticuz chromium ONLY on Linux (e.g. Vercel). Use local Chrome on mac/win.
 async function resolveExecutablePath(): Promise<string> {
-  const exists = (p: string) => { try { return fs.existsSync(p) } catch { return false } }
 
   if (process.platform === 'linux') {
     // Serverless / Vercel path
@@ -156,7 +155,14 @@ async function acquirePage(): Promise<Page> {
   if (!warmPage || warmPage.isClosed()) {
     warmPage = await b.newPage()
     await hardenPage(warmPage)
-    await warmPage.goto(HOME, { waitUntil: 'domcontentloaded' })
+    try {
+      await warmPage.goto(HOME, { waitUntil: 'domcontentloaded' })
+    } catch (gotoErr) {
+      // If initial navigation fails, close and throw
+      try { await warmPage.close() } catch {}
+      warmPage = null
+      throw gotoErr
+    }
   } else {
     try {
       if (!warmPage.url().startsWith(HOME)) {
@@ -166,7 +172,14 @@ async function acquirePage(): Promise<Page> {
       try { await warmPage.close() } catch {}
       warmPage = await b.newPage()
       await hardenPage(warmPage)
-      await warmPage.goto(HOME, { waitUntil: 'domcontentloaded' })
+      try {
+        await warmPage.goto(HOME, { waitUntil: 'domcontentloaded' })
+      } catch (gotoErr) {
+        // If retry navigation fails, close and throw
+        try { await warmPage.close() } catch {}
+        warmPage = null
+        throw gotoErr
+      }
     }
   }
   return warmPage
@@ -348,11 +361,21 @@ function buildScrapeFn() {
 
 // ---------- route ----------
 export async function POST(req: Request) {
-  const { itemName, maxResults = 15, locationName = 'תל אביב', keepAliveMs = 30_000 } =
-    await req.json() as RequestBody
+  let body: RequestBody
+  try {
+    body = await req.json() as RequestBody
+  } catch (parseErr) {
+    return NextResponse.json({ ok: false, error: 'Invalid JSON in request body' }, { status: 400 })
+  }
+
+  const { itemName, maxResults = 15, locationName = 'תל אביב', keepAliveMs = 30_000 } = body
 
   if (!itemName || itemName.trim().length < 2) {
     return NextResponse.json({ ok: false, error: 'itemName too short' }, { status: 400 })
+  }
+
+  if (maxResults < 1 || maxResults > 100) {
+    return NextResponse.json({ ok: false, error: 'maxResults must be between 1 and 100' }, { status: 400 })
   }
 
   let page: Page | null = null
@@ -379,8 +402,26 @@ export async function POST(req: Request) {
   
   catch (err: any) {
     console.error('Error occurred while processing request:', err)
-    try { await warmPage?.close() } catch {}
-    warmPage = null
+    // Clean up page state on error
+    try {
+      await warmPage?.evaluate(() => {
+        const addr = document.querySelector<HTMLInputElement>('#shopping_address')
+        const prod = document.querySelector<HTMLInputElement>('#product_name_or_barcode')
+        if (addr) addr.value = ''
+        if (prod) prod.value = ''
+        const menus = document.querySelectorAll<HTMLElement>('ul.ui-autocomplete')
+        menus.forEach(ul => {
+          ul.innerHTML = ''
+          ul.style.display = 'none'
+          ul.removeAttribute('data-stamp')
+        })
+      })
+    } catch (cleanupErr) {
+      // If cleanup fails, close the page entirely
+      try { await warmPage?.close() } catch {}
+      warmPage = null
+    }
+    // Release lock and keep browser alive
     if (release) release()
     lock = null
     keepAlive(30_000)

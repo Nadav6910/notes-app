@@ -47,7 +47,7 @@ export default function RegisterForm() {
     
             const response = await res.json()
     
-            if (response.massage === "user created") {        
+            if (response.message === "user created") {        
                 setOpenSuccess(true)
             } 
     

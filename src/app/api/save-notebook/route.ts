@@ -20,7 +20,7 @@ export async function POST(request: Request) {
                 }
             })
 
-            return NextResponse.json({massage: "success", updatedEntry: updatedEntry})
+            return NextResponse.json({message: "success", updatedEntry: updatedEntry})
         }
 
         // create new entry if there is no entryId
@@ -32,7 +32,7 @@ export async function POST(request: Request) {
             }
         })
 
-        return NextResponse.json({massage: "success", createdEntry: createdEntry})
+        return NextResponse.json({message: "success", createdEntry: createdEntry})
     } 
     
     catch (error: any) {

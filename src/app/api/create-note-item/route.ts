@@ -25,7 +25,7 @@ export async function POST(request: Request) {
         const channel = ably.channels.get(`note-${noteId}`)
         await channel.publish('note-created', { createdEntry, sender: clientId })
 
-        return NextResponse.json({massage: "success", createdEntry: createdEntry})
+        return NextResponse.json({message: "success", createdEntry: createdEntry})
     } 
     
     catch (error: any) {

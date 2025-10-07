@@ -15,7 +15,7 @@ export async function POST(request: Request) {
             }
         })
 
-        return NextResponse.json({massage: "deleted note"})
+        return NextResponse.json({message: "deleted note"})
     } 
     
     catch (error: any) {

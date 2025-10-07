@@ -20,7 +20,7 @@ export async function POST(request: Request) {
             }
         })
 
-        return NextResponse.json({massage: "updated profile image"})
+        return NextResponse.json({message: "updated profile image"})
     } 
     
     catch (error: any) {

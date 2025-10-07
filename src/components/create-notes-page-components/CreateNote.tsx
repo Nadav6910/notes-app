@@ -44,7 +44,7 @@ export default function CreateNote() {
   
       const response = await res.json()
       
-      if (response.massage === "created note") {
+      if (response.message === "created note") {
   
         setOpenSuccess(true)
         setTimeout(() => {

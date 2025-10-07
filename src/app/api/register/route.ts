@@ -33,7 +33,7 @@ export async function POST(request: Request) {
             }
         })
 
-        return NextResponse.json({massage: "user created"})
+        return NextResponse.json({message: "user created"})
     } 
     
     catch (error: any) {

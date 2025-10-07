@@ -63,7 +63,7 @@ export default function RenameNotePopup(
 
       const data = await response.json()
   
-      if (data.massage === "renamed note") {
+      if (data.message === "renamed note") {
           setLoading(false)
           OnRename(true)
           setIsOpen(false)

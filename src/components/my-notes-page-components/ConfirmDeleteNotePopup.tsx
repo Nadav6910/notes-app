@@ -50,7 +50,7 @@ export default function ConfirmDeleteNotePopup(
 
       const data = await response.json()
   
-      if (data.massage === "deleted note") {
+      if (data.message === "deleted note") {
         setLoading(false)
         OnDelete(true)
         setIsOpen(false)

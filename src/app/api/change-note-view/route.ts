@@ -18,7 +18,7 @@ export async function POST(request: Request, response: NextResponse) {
             }
         })
 
-        return NextResponse.json({massage: "note view changed"})
+        return NextResponse.json({message: "note view changed"})
     } 
     
     catch (error: any) {
