@@ -7,7 +7,19 @@ const ably = new Ably.Rest({ key: process.env.ABLY_API_KEY })
 export async function POST(request: Request) {
 
     // get body data
-    const { clientId, noteId, entryId } = await request.json()
+    let body
+    try {
+        body = await request.json()
+    } catch {
+        return NextResponse.json({error: "Invalid JSON"}, { status: 400 })
+    }
+
+    const { clientId, noteId, entryId } = body
+
+    // Validate required fields
+    if (!entryId || !noteId) {
+        return NextResponse.json({error: "entryId and noteId are required"}, { status: 400 })
+    }
     
     try {
         
@@ -26,7 +38,7 @@ export async function POST(request: Request) {
     } 
     
     catch (error: any) {
-        console.log(error)
-        return NextResponse.json({error: error.message})
+        console.error('[delete-note-item] Error:', error)
+        return NextResponse.json({error: error.message}, { status: 500 })
     }
 }
