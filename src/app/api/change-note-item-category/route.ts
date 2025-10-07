@@ -18,11 +18,11 @@ export async function POST(request: Request) {
             }
         })
 
-        return NextResponse.json({massage: "changed note item category", newCategory: selectedCategory})
+        return NextResponse.json({message: "changed note item category", newCategory: selectedCategory})
     } 
     
     catch (error: any) {
-        console.log(error)
+        console.error(error)
         return NextResponse.json({error: error.message})
     }
 }

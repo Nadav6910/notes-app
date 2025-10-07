@@ -157,7 +157,14 @@ async function acquirePage(): Promise<Page> {
   if (!warmPage || warmPage.isClosed()) {
     warmPage = await b.newPage()
     await hardenPage(warmPage)
-    await warmPage.goto(HOME, { waitUntil: 'domcontentloaded' })
+    try {
+      await warmPage.goto(HOME, { waitUntil: 'domcontentloaded' })
+    } catch (gotoErr) {
+      // If initial navigation fails, close and throw
+      try { await warmPage.close() } catch {}
+      warmPage = null
+      throw gotoErr
+    }
   } else {
     try {
       const url = warmPage.url()
@@ -168,7 +175,14 @@ async function acquirePage(): Promise<Page> {
       try { await warmPage.close() } catch {}
       warmPage = await b.newPage()
       await hardenPage(warmPage)
-      await warmPage.goto(HOME, { waitUntil: 'domcontentloaded' })
+      try {
+        await warmPage.goto(HOME, { waitUntil: 'domcontentloaded' })
+      } catch (gotoErr) {
+        // If retry navigation fails, close and throw
+        try { await warmPage.close() } catch {}
+        warmPage = null
+        throw gotoErr
+      }
     }
   }
   return warmPage
@@ -413,16 +427,27 @@ function buildScrapeTableFn() {
 
 // ---------- route ----------
 export async function POST(req: Request) {
+  let body: RequestBody
+  try {
+    body = await req.json() as RequestBody
+  } catch (parseErr) {
+    return NextResponse.json({ ok: false, error: 'Invalid JSON in request body' }, { status: 400 })
+  }
+
   const {
     productName,
-    barcode,                               // optional
+    barcode,
     locationName = 'תל אביב',
     maxRows = 200,
     keepAliveMs = 20_000
-  } = await req.json() as RequestBody
+  } = body
 
   if (!productName || productName.trim().length < 2) {
     return NextResponse.json({ ok: false, error: 'productName is required' }, { status: 400 })
+  }
+
+  if (maxRows < 1 || maxRows > 1000) {
+    return NextResponse.json({ ok: false, error: 'maxRows must be between 1 and 1000' }, { status: 400 })
   }
 
   let page: Page | null = null
@@ -467,8 +492,24 @@ export async function POST(req: Request) {
   
   catch (err: any) {
     console.error('Error occurred while fetching product prices:', err)
-    try { await warmPage?.close() } catch {}
-    warmPage = null
+    // Clean up page state on error
+    try {
+      await warmPage?.evaluate(() => {
+        const addr = document.querySelector<HTMLInputElement>('#shopping_address')
+        const prod = document.querySelector<HTMLInputElement>('#product_name_or_barcode')
+        if (addr) addr.value = ''
+        if (prod) prod.value = ''
+        const menus = document.querySelectorAll<HTMLElement>('ul.ui-autocomplete')
+        menus.forEach(ul => { ul.style.display = 'none'; ul.innerHTML = '' })
+        const results = document.querySelector<HTMLElement>('#compare_results')
+        if (results) results.innerHTML = ''
+      })
+    } catch (cleanupErr) {
+      // If cleanup fails, close the page entirely
+      try { await warmPage?.close() } catch {}
+      warmPage = null
+    }
+    // Release lock and keep browser alive
     if (release) release()
     lock = null
     keepAlive(keepAliveMs || 20_000)

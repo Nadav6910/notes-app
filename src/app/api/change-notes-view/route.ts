@@ -18,11 +18,11 @@ export async function POST(request: Request, response: NextResponse) {
             }
         })
 
-        return NextResponse.json({massage: "notes view changed"})
+        return NextResponse.json({message: "notes view changed"})
     } 
     
     catch (error: any) {
-        console.log(error)
+        console.error(error)
         return NextResponse.json({error: error.message})
     }
 }

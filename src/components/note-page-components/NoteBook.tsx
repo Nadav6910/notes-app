@@ -79,7 +79,7 @@ export default function NoteBook({noteEntries, noteId}: {noteEntries: Entry[] | 
     
           const data = await response.json()
           
-          if (data.massage === "success") {
+          if (data.message === "success") {
             setLoading(false)
             setOpenSuccess(true)
           }

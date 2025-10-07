@@ -25,11 +25,11 @@ export async function POST(request: Request) {
         const channel = ably.channels.get(`note-${noteId}`)
         await channel.publish('note-item-toggle-checked', { entryId, sender: clientId })
 
-        return NextResponse.json({massage: "success"})
+        return NextResponse.json({message: "success"})
     } 
     
     catch (error: any) {
-        console.log(error)
+        console.error(error)
         return NextResponse.json({error: error.message})
     }
 }
