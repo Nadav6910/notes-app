@@ -515,14 +515,14 @@ export default function AddNoteItemPopup (
               {/* Location display */}
               {comparePrices && (
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5, ml: 4 }}>
-                  {locationLoading ? (
+                  {(locationLoading || !city) ? (
                     <Typography sx={{ fontSize: '0.85rem', color: 'var(--primary-color)', opacity: 0.7 }}>
                       🔍 Detecting location...
                     </Typography>
                   ) : (
                     <>
                       <Typography sx={{ fontSize: '0.85rem', color: 'var(--primary-color)', opacity: 0.8 }}>
-                        📍 {city || SCRAPER_CONFIG.DEFAULT_CITY}
+                        📍 {city}
                         {source === 'fallback' && ' (default)'}
                         {source === 'gps' && ' (GPS)'}
                         {source === 'ip' && ' (IP)'}
@@ -547,7 +547,7 @@ export default function AddNoteItemPopup (
                       </button>
                     </>
                   )}
-                  {locationError && (
+                  {!locationLoading && locationError && (
                     <Typography sx={{ fontSize: '0.75rem', color: 'var(--error-color)', ml: 1 }}>
                       {locationError}
                     </Typography>

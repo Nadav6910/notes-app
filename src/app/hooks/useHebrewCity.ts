@@ -232,7 +232,8 @@ export function useHebrewCity(
     const ac = new AbortController()
     abortRef.current = ac
 
-    setSafely(s => ({ ...s, loading: true, error: null }))
+    // Immediately clear city to avoid UI flicker to fallback while resolving
+    setSafely(s => ({ ...s, city: null, source: null, loading: true, error: null }))
 
     try {
       if (preferGPS) {
@@ -290,7 +291,8 @@ export function useHebrewCity(
       abortRef.current?.abort()
       setSafely(s => ({ ...s, city: fallback, loading: false, source: 'fallback', error: null }))
     } else {
-      // when toggling back on, kick off a fresh resolve
+      // when toggling back on, clear city immediately and kick off a fresh resolve
+      setSafely(s => ({ ...s, city: null, source: null, loading: true, error: null }))
       refresh()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
