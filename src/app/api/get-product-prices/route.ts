@@ -4,6 +4,7 @@ import puppeteer, { Browser, Page } from 'puppeteer-core'
 import chromium from '@sparticuz/chromium'
 import fs from 'node:fs'
 import path from 'node:path'
+import { SCRAPER_CONFIG, SCRAPER_URLS } from '@/lib/scraper-config'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -26,11 +27,26 @@ type StorePriceRow = {
   price: string | null
 }
 
-const HOME = 'https://chp.co.il/'
-const ADDRESS_SEL = '#shopping_address'
-const PRODUCT_SEL = '#product_name_or_barcode'
-const SUBMIT_BTN = '#get_compare_results_button'
-const RESULTS_SEL = '#results-table'
+const { HOME, ADDRESS_SEL, PRODUCT_SEL, SUBMIT_BTN, RESULTS_SEL } = SCRAPER_URLS
+
+// Cache implementation
+const cache = new Map<string, { data: any, expiry: number }>()
+
+function getCached(key: string) {
+  const entry = cache.get(key)
+  if (entry && Date.now() < entry.expiry) return entry.data
+  cache.delete(key)
+  return null
+}
+
+function setCache(key: string, data: any, ttlMs = SCRAPER_CONFIG.CACHE_TTL_MS) {
+  // Implement simple LRU: if cache is full, delete oldest
+  if (cache.size >= SCRAPER_CONFIG.CACHE_MAX_ENTRIES) {
+    const firstKey = cache.keys().next().value
+    if (firstKey) cache.delete(firstKey)
+  }
+  cache.set(key, { data, expiry: Date.now() + ttlMs })
+}
 
 // ---------- resolve Chrome executable (dev vs prod) ----------
 const exists = (p: string) => { try { return fs.existsSync(p) } catch { return false } }
@@ -75,6 +91,7 @@ let browser: Browser | null = null
 let warmPage: Page | null = null
 let browserTimer: NodeJS.Timeout | null = null
 let pageTimer: NodeJS.Timeout | null = null
+let activeRequests = 0
 
 let lock: Promise<void> | null = null
 let release: (() => void) | null = null
@@ -145,11 +162,12 @@ async function hardenPage(page: Page) {
     req.continue()
   })
 
-  page.setDefaultNavigationTimeout(35_000)
-  page.setDefaultTimeout(12_000)
+  page.setDefaultNavigationTimeout(SCRAPER_CONFIG.PAGE_NAVIGATION_TIMEOUT)
+  page.setDefaultTimeout(SCRAPER_CONFIG.PAGE_DEFAULT_TIMEOUT)
 }
 
 async function acquirePage(): Promise<Page> {
+  activeRequests++
   if (lock) await lock
   lock = new Promise(res => { release = res })
 
@@ -175,6 +193,7 @@ async function acquirePage(): Promise<Page> {
 }
 
 async function releasePage(keepAliveMs: number) {
+  activeRequests--
   try {
     await warmPage?.evaluate(() => {
       const addr = document.querySelector<HTMLInputElement>('#shopping_address')
@@ -187,7 +206,12 @@ async function releasePage(keepAliveMs: number) {
       if (results) results.innerHTML = ''
     })
   } catch {}
-  keepAlive(keepAliveMs)
+  
+  // Only start keep-alive timer if no active requests
+  if (activeRequests === 0) {
+    keepAlive(keepAliveMs)
+  }
+  
   if (release) release()
   lock = null
 }
@@ -195,7 +219,6 @@ async function releasePage(keepAliveMs: number) {
 // ---------- jQuery UI helpers (with "stamp" to avoid stale results) ----------
 async function ensureJQueryUI(page: Page) {
   await page.waitForFunction(() => {
-    // @ts-ignore
     const $ = (window as any).jQuery
     return !!$ && !!$.fn && typeof $.fn.autocomplete === 'function'
   })
@@ -317,11 +340,14 @@ async function selectProductByBarcodeOrName(page: Page, listId: string, desiredN
 // ---------- scrape table (with normalization) ----------
 function buildScrapeTableFn() {
   return (tableSel: string, limit: number) => {
+    // Optimized string cleaning
     const stripBidi = (s: string) =>
       s.replace(/[\u200B-\u200F\u202A-\u202E\u2066-\u2069]/g, '')
 
-    const compact = (s: string | null | undefined) =>
-      stripBidi((s || '')).normalize('NFC').replace(/\s+/g, ' ').trim()
+    const compact = (s: string | null | undefined) => {
+      if (!s) return ''
+      return stripBidi(s).normalize('NFC').replace(/\s+/g, ' ').trim()
+    }
 
     const dropASCII = (s: string) => compact(s).replace(/[A-Za-z]/g, '').trim()
 
@@ -376,15 +402,21 @@ function buildScrapeTableFn() {
       const vis = compact((td as HTMLElement).innerText || '')
       const matches = Array.from(vis.matchAll(/\d{1,3}(?:[.,]\d{1,2})/g)).map(m => parseFloat(m[0].replace(',', '.')))
       const nums = matches.filter(n => Number.isFinite(n) && n > 0)
+      
+      // Validate we have numbers
       if (!nums.length) return null
 
       const sale = saleStr ? parseFloat(saleStr) : NaN
       if (Number.isFinite(sale)) {
         const geSale = nums.filter(n => n >= sale + 0.01)
-        if (geSale.length) return Math.min(...geSale).toFixed(2)
+        if (geSale.length) {
+          const finalPrice = Math.min(...geSale)
+          return Number.isFinite(finalPrice) ? finalPrice.toFixed(2) : null
+        }
       }
 
-      return nums[nums.length - 1].toFixed(2)
+      const lastPrice = nums[nums.length - 1]
+      return Number.isFinite(lastPrice) ? lastPrice.toFixed(2) : null
     }
 
     const table = document.querySelector<HTMLTableElement>(tableSel)
@@ -416,13 +448,20 @@ export async function POST(req: Request) {
   const {
     productName,
     barcode,                               // optional
-    locationName = 'תל אביב',
-    maxRows = 200,
-    keepAliveMs = 20_000
+    locationName = SCRAPER_CONFIG.DEFAULT_CITY,
+    maxRows = SCRAPER_CONFIG.PRICES_MAX_ROWS,
+    keepAliveMs = SCRAPER_CONFIG.BROWSER_KEEP_ALIVE_MS
   } = await req.json() as RequestBody
 
   if (!productName || productName.trim().length < 2) {
     return NextResponse.json({ ok: false, error: 'productName is required' }, { status: 400 })
+  }
+
+  // Check cache first
+  const cacheKey = `prices:${productName.trim()}:${barcode || ''}:${locationName}`
+  const cached = getCached(cacheKey)
+  if (cached) {
+    return NextResponse.json(cached, { status: 200 })
   }
 
   let page: Page | null = null
@@ -462,16 +501,43 @@ export async function POST(req: Request) {
 
     await releasePage(keepAliveMs)
 
-    return NextResponse.json({ ok: true, count: rows.length, rows }, { status: 200 })
+    const result = { ok: true, count: rows.length, rows }
+    setCache(cacheKey, result)
+
+    return NextResponse.json(result, { status: 200 })
   } 
   
   catch (err: any) {
-    console.error('Error occurred while fetching product prices:', err)
+    activeRequests--
+    console.error('[get-product-prices] Error:', err)
+    
+    // Categorize errors for better user feedback
+    const isTimeout = err?.message?.includes('timeout') || err?.name === 'TimeoutError'
+    const isNetwork = err?.message?.includes('net::') || err?.code === 'ENOTFOUND'
+    
+    const message = isTimeout 
+      ? 'Request timed out. Please try again.'
+      : isNetwork
+      ? 'Network error. Check your connection.'
+      : 'Failed to fetch prices. Please try again.'
+    
+    // Force cleanup on error
     try { await warmPage?.close() } catch {}
     warmPage = null
+    
+    try { 
+      await browser?.close()
+    } catch {}
+    browser = null
+    
     if (release) release()
     lock = null
-    keepAlive(keepAliveMs || 20_000)
-    return NextResponse.json({ ok: false, error: err?.message || 'Unknown error' }, { status: 500 })
+    
+    // Only keep alive if there are other active requests
+    if (activeRequests === 0) {
+      keepAlive(keepAliveMs || SCRAPER_CONFIG.BROWSER_KEEP_ALIVE_MS)
+    }
+    
+    return NextResponse.json({ ok: false, error: message }, { status: 500 })
   }
 }

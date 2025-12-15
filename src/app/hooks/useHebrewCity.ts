@@ -130,26 +130,40 @@ async function reverseGeocodeHebrew(lat: number, lon: number, signal?: AbortSign
 }
 
 async function cityFromIP(signal?: AbortSignal) {
-  try {
-    const r = await fetch('https://ipwho.is/?lang=he', { signal })
-    if (r.ok) {
-      const j = await r.json()
-      if (j?.success) {
-        const c = normalizeCityHe(j.city)
-        if (c) return c
-      }
+  const sources = [
+    { 
+      url: 'https://ipwho.is/?lang=he', 
+      parser: (j: any) => j?.success ? j.city : null 
+    },
+    { 
+      url: 'https://ip-api.com/json/?fields=status,city&lang=he', 
+      parser: (j: any) => j?.status === 'success' ? j.city : null 
+    },
+    { 
+      url: 'https://ipapi.co/json/', 
+      parser: (j: any) => j?.city 
     }
-  } catch {}
-  try {
-    const r2 = await fetch('https://ip-api.com/json/?fields=status,message,city&lang=he', { signal })
-    if (r2.ok) {
-      const j2 = await r2.json()
-      if (j2?.status === 'success') {
-        const c = normalizeCityHe(j2.city)
-        if (c) return c
+  ]
+  
+  for (const { url, parser } of sources) {
+    try {
+      const r = await fetch(url, { signal, cache: 'no-cache' })
+      if (r.ok) {
+        const j = await r.json()
+        const city = normalizeCityHe(parser(j))
+        if (city) {
+          // Validate it's an Israeli city (in Hebrew)
+          const isIsraeliCity = Object.values(EN_TO_HE).includes(city)
+          const hasHebrew = /[\u0590-\u05FF]/.test(city)
+          if (isIsraeliCity || hasHebrew) {
+            return city
+          }
+        }
       }
+    } catch {
+      // Continue to next source
     }
-  } catch {}
+  }
   return null
 }
 
@@ -173,6 +187,18 @@ export function useHebrewCity(
   const getViaGPS = useCallback(async (signal?: AbortSignal) => {
     if (typeof window === 'undefined' || !('geolocation' in navigator)) {
       throw new Error('geolocation not available')
+    }
+
+    // Check permission first (if supported)
+    if ('permissions' in navigator) {
+      try {
+        const result = await (navigator.permissions as any).query({ name: 'geolocation' })
+        if (result.state === 'denied') {
+          throw new Error('geolocation permission denied')
+        }
+      } catch {
+        // Some browsers don't support permissions API, continue anyway
+      }
     }
 
     const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
@@ -216,7 +242,12 @@ export function useHebrewCity(
             setSafely(s => ({ ...s, city, loading: false, source: 'gps', error: null }))
             return
           }
-        } catch {}
+        } catch (e: any) {
+          if (process.env.NODE_ENV === 'development') {
+            console.warn('[useHebrewCity] GPS failed:', e?.message)
+          }
+          // Fall through to IP lookup
+        }
       }
 
       const city2 = await cityFromIP(ac.signal)

@@ -4,6 +4,7 @@ import puppeteer, { Browser, Page } from 'puppeteer-core'
 import chromium from '@sparticuz/chromium'
 import fs from 'node:fs'
 import path from 'node:path'
+import { SCRAPER_CONFIG, SCRAPER_URLS } from '@/lib/scraper-config'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -24,9 +25,26 @@ export type AutocompleteSuggestion = {
   priceRange: string | null
 }
 
-const HOME = 'https://chp.co.il/'
-const ADDRESS_SEL = '#shopping_address'
-const PRODUCT_SEL = '#product_name_or_barcode'
+const { HOME, ADDRESS_SEL, PRODUCT_SEL } = SCRAPER_URLS
+
+// Cache implementation
+const cache = new Map<string, { data: any, expiry: number }>()
+
+function getCached(key: string) {
+  const entry = cache.get(key)
+  if (entry && Date.now() < entry.expiry) return entry.data
+  cache.delete(key)
+  return null
+}
+
+function setCache(key: string, data: any, ttlMs = SCRAPER_CONFIG.CACHE_TTL_MS) {
+  // Implement simple LRU: if cache is full, delete oldest
+  if (cache.size >= SCRAPER_CONFIG.CACHE_MAX_ENTRIES) {
+    const firstKey = cache.keys().next().value
+    if (firstKey) cache.delete(firstKey)
+  }
+  cache.set(key, { data, expiry: Date.now() + ttlMs })
+}
 
 // ---------- resolve a Chrome/Chromium executable path cross-platform ----------
 function exists(p: string) {
@@ -78,6 +96,7 @@ let browserTimer: ReturnType<typeof setTimeout> | null = null
 let pageTimer: ReturnType<typeof setTimeout> | null = null
 let lock: Promise<void> | null = null
 let release: (() => void) | null = null
+let activeRequests = 0
 
 async function getBrowser(): Promise<Browser> {
   if (browser) return browser
@@ -144,11 +163,12 @@ async function hardenPage(page: Page) {
     req.continue()
   })
 
-  page.setDefaultNavigationTimeout(35_000)
-  page.setDefaultTimeout(10_000)
+  page.setDefaultNavigationTimeout(SCRAPER_CONFIG.PAGE_NAVIGATION_TIMEOUT)
+  page.setDefaultTimeout(SCRAPER_CONFIG.PAGE_DEFAULT_TIMEOUT)
 }
 
 async function acquirePage(): Promise<Page> {
+  activeRequests++
   if (lock) await lock
   lock = new Promise(res => { release = res })
 
@@ -173,6 +193,7 @@ async function acquirePage(): Promise<Page> {
 }
 
 async function releasePage(keepAliveMs: number) {
+  activeRequests--
   try {
     await warmPage?.evaluate(() => {
       const addr = document.querySelector<HTMLInputElement>('#shopping_address')
@@ -187,7 +208,12 @@ async function releasePage(keepAliveMs: number) {
       })
     })
   } catch {}
-  keepAlive(keepAliveMs)
+  
+  // Only start keep-alive timer if no active requests
+  if (activeRequests === 0) {
+    keepAlive(keepAliveMs)
+  }
+  
   if (release) release()
   lock = null
 }
@@ -195,7 +221,6 @@ async function releasePage(keepAliveMs: number) {
 // ---------- UI helpers ----------
 async function ensureJQueryUI(page: Page) {
   await page.waitForFunction(() => {
-    // @ts-ignore
     const $ = (window as any).jQuery
     return !!$ && !!$.fn && typeof $.fn.autocomplete === 'function'
   })
@@ -272,7 +297,15 @@ async function clickFirstByListId(page: Page, listId: string) {
 // ---------- scraping logic ----------
 function buildScrapeFn() {
   return (listId: string, limit: number) => {
-    const compact = (s: string | null | undefined) => (s || '').replace(/\s+/g, ' ').trim()
+    // Optimized string cleaning
+    const compact = (s: string | null | undefined) => {
+      if (!s) return ''
+      return s
+        .replace(/[\u200B-\u200F\u202A-\u202E\u2066-\u2069]/g, '') // bidi marks
+        .normalize('NFC')
+        .replace(/\s+/g, ' ')
+        .trim()
+    }
 
     const ul = document.getElementById(listId) as HTMLElement | null
     if (!ul) return []
@@ -348,11 +381,22 @@ function buildScrapeFn() {
 
 // ---------- route ----------
 export async function POST(req: Request) {
-  const { itemName, maxResults = 15, locationName = 'תל אביב', keepAliveMs = 30_000 } =
-    await req.json() as RequestBody
+  const { 
+    itemName, 
+    maxResults = SCRAPER_CONFIG.AUTOCOMPLETE_MAX_RESULTS, 
+    locationName = SCRAPER_CONFIG.DEFAULT_CITY, 
+    keepAliveMs = SCRAPER_CONFIG.BROWSER_KEEP_ALIVE_MS 
+  } = await req.json() as RequestBody
 
   if (!itemName || itemName.trim().length < 2) {
     return NextResponse.json({ ok: false, error: 'itemName too short' }, { status: 400 })
+  }
+
+  // Check cache first
+  const cacheKey = `autocomplete:${itemName.trim()}:${locationName}`
+  const cached = getCached(cacheKey)
+  if (cached) {
+    return NextResponse.json(cached, { status: 200 })
   }
 
   let page: Page | null = null
@@ -374,16 +418,44 @@ export async function POST(req: Request) {
     const suggestions = await page.evaluate(buildScrapeFn(), productListId, maxResults)
 
     await releasePage(keepAliveMs)
-    return NextResponse.json({ ok: true, count: suggestions.length, suggestions }, { status: 200 })
+    
+    const result = { ok: true, count: suggestions.length, suggestions }
+    setCache(cacheKey, result)
+    
+    return NextResponse.json(result, { status: 200 })
   } 
   
   catch (err: any) {
-    console.error('Error occurred while processing request:', err)
+    activeRequests--
+    console.error('[auto-complete-products-search] Error:', err)
+    
+    // Categorize errors for better user feedback
+    const isTimeout = err?.message?.includes('timeout') || err?.name === 'TimeoutError'
+    const isNetwork = err?.message?.includes('net::') || err?.code === 'ENOTFOUND'
+    
+    const message = isTimeout 
+      ? 'Request timed out. Please try again.'
+      : isNetwork
+      ? 'Network error. Check your connection.'
+      : 'Failed to fetch suggestions. Please try again.'
+    
+    // Force cleanup on error
     try { await warmPage?.close() } catch {}
     warmPage = null
+    
+    try { 
+      await browser?.close()
+    } catch {}
+    browser = null
+    
     if (release) release()
     lock = null
-    keepAlive(30_000)
-    return NextResponse.json({ ok: false, error: err?.message || 'Unknown error' }, { status: 500 })
+    
+    // Only keep alive if there are other active requests
+    if (activeRequests === 0) {
+      keepAlive(keepAliveMs || SCRAPER_CONFIG.BROWSER_KEEP_ALIVE_MS)
+    }
+    
+    return NextResponse.json({ ok: false, error: message }, { status: 500 })
   }
 }

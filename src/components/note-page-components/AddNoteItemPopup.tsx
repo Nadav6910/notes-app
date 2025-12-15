@@ -11,13 +11,14 @@ import {
 import { useForm, Controller } from 'react-hook-form'
 import { TransitionProps } from '@mui/material/transitions'
 import { MdOutlineDriveFileRenameOutline } from 'react-icons/md'
-import { IoMdArrowDropdown } from 'react-icons/io'
+import { IoMdArrowDropdown, IoMdRefresh } from 'react-icons/io'
 import { AddNoteItemFormValues, AddNoteItemPopupProps } from '../../../types'
 import MotionWrap from '@/wrappers/MotionWrap'
 import { AnimatePresence, useAnimationControls } from 'framer-motion'
 import { generalCategories, foodCategories } from '@/text/noteCategories'
 import { useDebouncedValue } from '../../app/hooks/useDebouncedValue'
 import { useHebrewCity } from '@/app/hooks/useHebrewCity'
+import { SCRAPER_CONFIG } from '@/lib/scraper-config'
 
 const Transition = forwardRef(function Transition (
   props: TransitionProps & { children: React.ReactElement<any, any> },
@@ -55,7 +56,7 @@ type GetPricesResponse =
   | { ok: true, count: number, rows: StorePriceRow[] }
   | { ok: false, error: string }
 
-const DEBOUNCE_MS = 500
+const DEBOUNCE_MS = SCRAPER_CONFIG.DEBOUNCE_MS
 
 export default function AddNoteItemPopup (
   { isOpen, setIsOpen, clientId, noteId, onAdd, onError }: AddNoteItemPopupProps
@@ -77,10 +78,10 @@ export default function AddNoteItemPopup (
   const [inputValue, setInputValue] = useState('')      // updated by typing/clear only
   const [hadError, setHadError] = useState(false)       // used to drive empty-state visibility
 
-  const { city } = useHebrewCity({
+  const { city, loading: locationLoading, error: locationError, source, refresh } = useHebrewCity({
     preferGPS: true,
     enabled: comparePrices,       // 🚦 only active when checkbox is on
-    fallback: 'תל אביב'
+    fallback: SCRAPER_CONFIG.DEFAULT_CITY
   })
   
   const abortRef = useRef<AbortController | null>(null)
@@ -174,7 +175,7 @@ export default function AddNoteItemPopup (
   const debouncedQuery = useDebouncedValue(inputValue, DEBOUNCE_MS)
 
   const isHebrew = (s: string) => /[\u0590-\u05FF]/.test(s)
-  const cropName = (s: string) => s.split(/[,،‚，]/)[0].trim()
+  const cropName = (s: string | undefined) => s ? s.split(/[,،‚，]/)[0].trim() : ''
   const canOpen = (s: string) => /[\u0590-\u05FF]/.test(s) && s.trim().length >= 3
 
   useEffect(() => {
@@ -344,10 +345,14 @@ export default function AddNoteItemPopup (
                     }
 
                     if (reason === 'input') {
-                      // manual typing → forget previous selection & table
-                      setSelectedProduct(null)
-                      setPricesRows(null)
-                      setPricesError(null)
+                      // Only clear selection if value changed meaningfully
+                      const prev = field.value
+                      const curr = val
+                      if (curr !== prev && cropName(curr) !== cropName(prev)) {
+                        setSelectedProduct(null)
+                        setPricesRows(null)
+                        setPricesError(null)
+                      }
 
                       if (isHebrew(val)) {
                         setInputValue(val)
@@ -402,9 +407,6 @@ export default function AddNoteItemPopup (
                       }
                       setSelectedProduct(chosen)
                       setAcOpen(false)
-
-                      // scrape right away on selection
-                      // fetchPrices(chosen)
                     }
                   }}
                   // fix <li> nesting by rendering ListItem as 'div'
@@ -509,6 +511,49 @@ export default function AddNoteItemPopup (
                   }
                 />
               </FormControl>
+              
+              {/* Location display */}
+              {comparePrices && (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5, ml: 4 }}>
+                  {locationLoading ? (
+                    <Typography sx={{ fontSize: '0.85rem', color: 'var(--primary-color)', opacity: 0.7 }}>
+                      🔍 Detecting location...
+                    </Typography>
+                  ) : (
+                    <>
+                      <Typography sx={{ fontSize: '0.85rem', color: 'var(--primary-color)', opacity: 0.8 }}>
+                        📍 {city || SCRAPER_CONFIG.DEFAULT_CITY}
+                        {source === 'fallback' && ' (default)'}
+                        {source === 'gps' && ' (GPS)'}
+                        {source === 'ip' && ' (IP)'}
+                      </Typography>
+                      <button
+                        type="button"
+                        onClick={() => refresh?.()} 
+                        disabled={locationLoading}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          cursor: locationLoading ? 'not-allowed' : 'pointer',
+                          color: 'var(--secondary-color)',
+                          padding: '2px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          opacity: locationLoading ? 0.5 : 1
+                        }}
+                        title="Refresh location"
+                      >
+                        <IoMdRefresh size={16} />
+                      </button>
+                    </>
+                  )}
+                  {locationError && (
+                    <Typography sx={{ fontSize: '0.75rem', color: 'var(--error-color)', ml: 1 }}>
+                      {locationError}
+                    </Typography>
+                  )}
+                </Box>
+              )}
             </Box>
 
             {selectedProduct && comparePrices && <div style={{ display: 'flex', gap: 8 }}>
@@ -520,7 +565,7 @@ export default function AddNoteItemPopup (
                     onClick={() => fetchPrices()}
                     disabled={!selectedProduct || pricesLoading}
                     sx={{
-                      color: 'var(--secondary-color)'
+                      color: 'var(--primary-color)'
                     }}
                   >
                     {pricesLoading ? 'Loading…' : 'View prices'}
@@ -606,7 +651,7 @@ export default function AddNoteItemPopup (
 
                               {/* Price */}
                               <TableCell align="right" sx={{ color: 'var(--primary-color)', borderColor: 'var(--borders-color)' }}>
-                                {row.price ?? '—'}
+                                {row.price ? `${row.price}₪` : '—'}
                               </TableCell>
                             </TableRow>
                           ))}
