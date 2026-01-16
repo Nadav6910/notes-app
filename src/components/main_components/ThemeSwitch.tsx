@@ -3,7 +3,7 @@
 import styles from "../../app/styles/mainlayoutstyles.module.css"
 import { styled } from '@mui/material/styles'
 import Switch from '@mui/material/Switch'
-import { NoSsr } from '@mui/base/NoSsr'
+import NoSsr from '@mui/material/NoSsr'
 import { useTheme } from 'next-themes'
 
 const MaterialUISwitch = styled(Switch)(({thememode}: {thememode: string | undefined}) => ({
