@@ -1,12 +1,11 @@
 import styles from '../../app/my-notes/styles/myNotes.module.css'
-import { useState, useEffect, useRef, forwardRef, useMemo } from 'react'
+import { useState, useEffect, useRef, forwardRef } from 'react'
 import {
   Button, Dialog, DialogActions, DialogContent, DialogTitle, Slide,
   CircularProgress, FormControlLabel, RadioGroup, FormControl, Radio as MuiRadio,
   InputLabel, Select, MenuItem, Divider, TextField, Autocomplete,
-  ListItem, ListItemAvatar, Avatar, ListItemText, InputAdornment, Box, Chip, Table, 
-  TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Typography,
-  Checkbox
+  ListItem, ListItemAvatar, Avatar, ListItemText, InputAdornment, Box,
+  Checkbox, Typography
 } from '@mui/material'
 import { useForm, Controller } from 'react-hook-form'
 import { TransitionProps } from '@mui/material/transitions'
@@ -18,6 +17,11 @@ import { AnimatePresence, useAnimationControls } from 'framer-motion'
 import { generalCategories, foodCategories } from '@/text/noteCategories'
 import { useDebouncedValue } from '../../app/hooks/useDebouncedValue'
 import { useHebrewCity } from '@/app/hooks/useHebrewCity'
+import { classifyError, type PriceError } from '@/lib/error-types'
+import PriceLoadingIndicator, { type LoadingStage } from './PriceLoadingIndicator'
+import PriceComparisonTable from './PriceComparisonTable'
+import PriceEmptyState from './PriceEmptyState'
+import PriceErrorDisplay from './PriceErrorDisplay'
 
 const Transition = forwardRef(function Transition (
   props: TransitionProps & { children: React.ReactElement<any, any> },
@@ -27,9 +31,9 @@ const Transition = forwardRef(function Transition (
 })
 
 type SelectedProduct = {
-  name: string;        // original primary from autocomplete (uncropped)
-  barcode: string | null;
-  href: string | null;
+  name: string
+  barcode: string | null
+  href: string | null
 }
 
 type AutocompleteSuggestion = {
@@ -41,7 +45,7 @@ type AutocompleteSuggestion = {
   priceRange: string | null
 }
 
-  type StorePriceRow = {
+type StorePriceRow = {
   chain: string
   branch: string
   address: string | null
@@ -52,8 +56,8 @@ type AutocompleteSuggestion = {
 }
 
 type GetPricesResponse =
-  | { ok: true, count: number, rows: StorePriceRow[] }
-  | { ok: false, error: string }
+  | { ok: true, count: number, rows: StorePriceRow[], cached?: boolean }
+  | { ok: false, error: string, errorType?: string, retryAfterMs?: number }
 
 const DEBOUNCE_MS = 500
 
@@ -68,23 +72,32 @@ export default function AddNoteItemPopup (
   const [comparePrices, setComparePrices] = useState(false)
   const [selectedProduct, setSelectedProduct] = useState<SelectedProduct | null>(null)
   const [pricesLoading, setPricesLoading] = useState(false)
-  const [pricesError, setPricesError] = useState<string | null>(null)
+  const [loadingStage, setLoadingStage] = useState<LoadingStage>('connecting')
+  const [pricesError, setPricesError] = useState<PriceError | null>(null)
   const [pricesRows, setPricesRows] = useState<StorePriceRow[] | null>(null)
 
   const [acOpen, setAcOpen] = useState(false)
   const [acLoading, setAcLoading] = useState(false)
   const [options, setOptions] = useState<AutocompleteSuggestion[]>([])
-  const [inputValue, setInputValue] = useState('')      // updated by typing/clear only
-  const [hadError, setHadError] = useState(false)       // used to drive empty-state visibility
+  const [inputValue, setInputValue] = useState('')
+  const [hadError, setHadError] = useState(false)
 
   const { city } = useHebrewCity({
     preferGPS: true,
-    enabled: comparePrices,       // 🚦 only active when checkbox is on
+    enabled: comparePrices,
     fallback: 'תל אביב'
   })
-  
+
   const abortRef = useRef<AbortController | null>(null)
+  const pricesAbortRef = useRef<AbortController | null>(null)
   const controls = useAnimationControls()
+
+  // Pre-warm browser when compare prices is enabled
+  useEffect(() => {
+    if (comparePrices) {
+      fetch('/api/price-service-warmup', { method: 'POST' }).catch(() => {})
+    }
+  }, [comparePrices])
 
   useEffect(() => {
     controls.start({ transform: openAddNoteItemOptionsTab ? 'rotateX(180deg)' : 'rotateX(0deg)' })
@@ -98,6 +111,9 @@ export default function AddNoteItemPopup (
   } = useForm<AddNoteItemFormValues>()
 
   const handleClose = () => {
+    // Cancel any in-flight requests
+    abortRef.current?.abort()
+    pricesAbortRef.current?.abort()
     setSelectedPriorityColor('none')
     setIsOpen(false)
   }
@@ -128,49 +144,77 @@ export default function AddNoteItemPopup (
   }
 
   const fetchPrices = async (prod?: SelectedProduct | null) => {
-
     if (!comparePrices) return
 
     const p = prod ?? selectedProduct
     if (!p) return
 
+    // Cancel any previous request
+    pricesAbortRef.current?.abort()
+    const controller = new AbortController()
+    pricesAbortRef.current = controller
+
     setPricesLoading(true)
     setPricesError(null)
+    setLoadingStage('connecting')
+
+    // Update loading stages based on time
+    const stageTimers = [
+      setTimeout(() => setLoadingStage('searching'), 2000),
+      setTimeout(() => setLoadingStage('fetching'), 6000),
+      setTimeout(() => setLoadingStage('processing'), 12000)
+    ]
 
     try {
       const res = await fetch('/api/get-product-prices', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          productName: p.name,           // original (uncropped) name
+          productName: p.name,
           barcode: p.barcode,
-          locationName: city,       // optional: pass if you want to pin the city
-        })
+          locationName: city,
+        }),
+        signal: controller.signal
       })
 
+      // Clear stage timers
+      stageTimers.forEach(t => clearTimeout(t))
+
       const data: GetPricesResponse = await res.json()
+
       if (data.ok) {
         setPricesRows(data.rows)
       } else {
         setPricesRows([])
-        setPricesError(data.error || 'Failed to load prices')
+        const classified = classifyError(data.error || 'Unknown error', data.retryAfterMs)
+        setPricesError(classified)
       }
-    } 
-    
-    catch (e: any) {
+    } catch (e: any) {
+      // Clear stage timers
+      stageTimers.forEach(t => clearTimeout(t))
+
+      if (e.name === 'AbortError') {
+        // User cancelled - don't show error
+        return
+      }
       setPricesRows([])
-      setPricesError(e?.message || 'Network error')
-    } 
-    
-    finally {
+      const classified = classifyError(e?.message || 'Network error')
+      setPricesError(classified)
+    } finally {
       setPricesLoading(false)
+      pricesAbortRef.current = null
     }
   }
 
-  // value the user sees in the input
+  const handleCancelPricesFetch = () => {
+    pricesAbortRef.current?.abort()
+    setPricesLoading(false)
+  }
+
+  // Value the user sees in the input
   const itemNameLive = watch('itemName', '')
 
-  // only scrape on Hebrew input, after debounce
+  // Only scrape on Hebrew input, after debounce
   const debouncedQuery = useDebouncedValue(inputValue, DEBOUNCE_MS)
 
   const isHebrew = (s: string) => /[\u0590-\u05FF]/.test(s)
@@ -180,7 +224,7 @@ export default function AddNoteItemPopup (
   useEffect(() => {
     const q = debouncedQuery.trim()
 
-    // block all scraping when comparePrices is off
+    // Block all scraping when comparePrices is off
     if (!comparePrices) {
       setOptions([])
       setAcLoading(false)
@@ -190,7 +234,7 @@ export default function AddNoteItemPopup (
       return
     }
 
-    // only Hebrew + length >= 3 will trigger scraping/open
+    // Only Hebrew + length >= 3 will trigger scraping/open
     if (q.length < 3 || !isHebrew(q)) {
       setOptions([])
       setAcLoading(false)
@@ -216,16 +260,16 @@ export default function AddNoteItemPopup (
         })
 
         const data = await res.json()
-        
+
         const raw: AutocompleteSuggestion[] = data?.ok ? data.suggestions ?? [] : []
-        const trimmed = raw.length > 1 ? raw.slice(0, -1) : raw   // drop "view more"
+        const trimmed = raw.length > 1 ? raw.slice(0, -1) : raw
         setOptions(trimmed)
-        setAcOpen(true)                     // open when results arrive
+        setAcOpen(true)
       } catch {
         if (!ac.signal.aborted) {
           setHadError(true)
-          setOptions([])                    // empty triggers noOptionsText
-          setAcOpen(true)                   // force open to show empty-state text
+          setOptions([])
+          setAcOpen(true)
         }
       } finally {
         setAcLoading(false)
@@ -235,10 +279,11 @@ export default function AddNoteItemPopup (
     run()
   }, [comparePrices, debouncedQuery, city])
 
-  // reset everything when closing popup or turning off comparePrices
+  // Reset everything when closing popup or turning off comparePrices
   useEffect(() => {
     if (!comparePrices) {
       abortRef.current?.abort()
+      pricesAbortRef.current?.abort()
       setAcOpen(false)
       setOptions([])
       setAcLoading(false)
@@ -246,8 +291,17 @@ export default function AddNoteItemPopup (
       setSelectedProduct(null)
       setPricesRows(null)
       setPricesError(null)
+      setPricesLoading(false)
     }
   }, [comparePrices])
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      abortRef.current?.abort()
+      pricesAbortRef.current?.abort()
+    }
+  }, [])
 
   return (
     <div>
@@ -257,7 +311,7 @@ export default function AddNoteItemPopup (
         keepMounted
         onClose={handleClose}
         aria-describedby='alert-dialog-slide-description'
-        maxWidth={pricesRows && pricesRows.length > 0 ? 'lg' : 'sm'}   // ← widen when table exists
+        maxWidth={pricesRows && pricesRows.length > 0 ? 'lg' : 'sm'}
         PaperProps={{ className: styles.renamePopupContainer, }}
       >
         <DialogTitle className={styles.renamePopupTitle}>Add note item</DialogTitle>
@@ -275,15 +329,12 @@ export default function AddNoteItemPopup (
               render={({ field }) => (
                 <Autocomplete<AutocompleteSuggestion, false, false, true>
                   freeSolo
-                  // bind displayed text to form value
                   inputValue={itemNameLive}
                   onClose={(_, reason) => {
                     if (reason === 'blur' || reason === 'toggleInput' || reason === 'escape') {
                       setAcOpen(false)
                     }
                   }}
-                  // open only if: we explicitly opened it AND user typed 3+ AND it's Hebrew,
-                  // OR we had an error (to show "No items found" for Hebrew queries)
                   open={
                     acOpen &&
                     canOpen(itemNameLive) &&
@@ -291,8 +342,8 @@ export default function AddNoteItemPopup (
                   }
                   options={options}
                   loading={acLoading}
-                  loadingText='Loading...'
-                  noOptionsText={hadError ? 'No items found' : 'No items found'}
+                  loadingText='מחפש מוצרים...'
+                  noOptionsText={hadError ? 'לא נמצאו מוצרים' : 'לא נמצאו מוצרים'}
                   filterOptions={(x) => x}
                   getOptionLabel={(o) => typeof o === 'string' ? o : o.primary}
                   disablePortal={false}
@@ -312,7 +363,6 @@ export default function AddNoteItemPopup (
                           '& li': { borderBottom: '1px solid var(--borders-color)' },
                           '& li:last-of-type': { borderBottom: 'none' }
                         },
-                        // ensure both loading and empty rows use your vars
                         '& .MuiAutocomplete-noOptions, & .MuiAutocomplete-loading': {
                           color: 'var(--primary-color)',
                           opacity: .9
@@ -326,13 +376,10 @@ export default function AddNoteItemPopup (
                     clearIndicator: { sx: { color: 'var(--primary-color)', '&:hover': { color: 'var(--secondary-color)' } } },
                     popupIndicator: { sx: { color: 'var(--primary-color)' } }
                   }}
-                  // typing / clearing ONLY trigger scraping
                   onInputChange={(_, val, reason) => {
-
                     if (!comparePrices) {
-                      // typing without scraping
                       field.onChange(val)
-                      setInputValue('')        // keep scraper input empty
+                      setInputValue('')
                       setOptions([])
                       setAcLoading(false)
                       setHadError(false)
@@ -344,7 +391,6 @@ export default function AddNoteItemPopup (
                     }
 
                     if (reason === 'input') {
-                      // manual typing → forget previous selection & table
                       setSelectedProduct(null)
                       setPricesRows(null)
                       setPricesError(null)
@@ -355,9 +401,7 @@ export default function AddNoteItemPopup (
                         setHadError(false)
                         field.onChange(val)
                         setAcOpen(val.trim().length >= 3)
-                      } 
-                      
-                      else {
+                      } else {
                         setInputValue('')
                         setOptions([])
                         setAcLoading(false)
@@ -365,9 +409,7 @@ export default function AddNoteItemPopup (
                         field.onChange(val)
                         setAcOpen(false)
                       }
-                    } 
-                    
-                    else if (reason === 'clear') {
+                    } else if (reason === 'clear') {
                       setSelectedProduct(null)
                       setPricesRows(null)
                       setPricesError(null)
@@ -378,36 +420,27 @@ export default function AddNoteItemPopup (
                       field.onChange('')
                       setAcOpen(false)
                     }
-                    // ignore 'reset'
                   }}
-                  // selecting -> crop visible text and close (no scrape)
                   onChange={(_, val) => {
                     if (typeof val === 'string') {
-                      // free-solo strings are not a “real selection” → keep button disabled
                       const cropped = cropName(val)
                       field.onChange(cropped)
                       setSelectedProduct(null)
                       setPricesRows(null)
                       setPricesError(null)
-                    } 
-                    
-                    else if (val) {
-                      const cropped = cropName(val.primary)       // what the user sees
+                    } else if (val) {
+                      const cropped = cropName(val.primary)
                       field.onChange(cropped)
 
                       const chosen: SelectedProduct = {
-                        name: val.primary,                        // original (uncropped)
+                        name: val.primary,
                         barcode: val.barcode ?? null,
                         href: val.href ?? null
                       }
                       setSelectedProduct(chosen)
                       setAcOpen(false)
-
-                      // scrape right away on selection
-                      // fetchPrices(chosen)
                     }
                   }}
-                  // fix <li> nesting by rendering ListItem as 'div'
                   renderOption={(props, option) => (
                     <li {...props} key={option.barcode ?? option.href ?? option.primary}>
                       <ListItem disableGutters dense component='div'>
@@ -433,7 +466,7 @@ export default function AddNoteItemPopup (
                       {...params}
                       variant='outlined'
                       fullWidth
-                      placeholder='Item name..'
+                      placeholder='שם פריט..'
                       error={!!errors.itemName}
                       helperText={errors.itemName?.message}
                       sx={{
@@ -491,7 +524,7 @@ export default function AddNoteItemPopup (
               )}
             />
 
-            {/* check box to enable price comparison */}
+            {/* Compare prices checkbox */}
             <Box>
               <FormControl component='fieldset' variant='standard'>
                 <FormControlLabel
@@ -504,115 +537,86 @@ export default function AddNoteItemPopup (
                   }
                   label={
                     <Typography sx={{ color: 'var(--primary-color)' }}>
-                      Compare prices
+                      השווה מחירים
                     </Typography>
                   }
                 />
               </FormControl>
             </Box>
 
-            {selectedProduct && comparePrices && <div style={{ display: 'flex', gap: 8 }}>
-              {/* Actions row under the input */}
-              {selectedProduct && comparePrices && (
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Button
-                    variant="text"
-                    onClick={() => fetchPrices()}
-                    disabled={!selectedProduct || pricesLoading}
-                    sx={{
-                      color: 'var(--secondary-color)'
-                    }}
-                  >
-                    {pricesLoading ? 'Loading…' : 'View prices'}
-                  </Button>
-                </Box>
-              )}
+            {/* Actions row */}
+            {selectedProduct && comparePrices && (
+              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  onClick={() => fetchPrices()}
+                  disabled={!selectedProduct || pricesLoading}
+                  sx={{
+                    color: 'var(--secondary-color)',
+                    borderColor: 'var(--secondary-color)',
+                    textTransform: 'none',
+                    '&:hover': {
+                      borderColor: 'var(--secondary-color)',
+                      bgcolor: 'var(--secondary-color-faded)'
+                    }
+                  }}
+                >
+                  {pricesLoading ? 'טוען...' : 'הצג מחירים'}
+                </Button>
 
-              {/* close table button */}
-              {comparePrices && pricesRows && pricesRows.length > 0 && (
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                {pricesRows && pricesRows.length > 0 && (
                   <Button
                     variant="text"
+                    size="small"
                     onClick={() => setPricesRows(null)}
                     sx={{
-                      color: 'var(--primary-color)'
+                      color: 'var(--primary-color)',
+                      textTransform: 'none'
                     }}
                   >
-                    Close prices
+                    סגור מחירים
                   </Button>
-                </Box>
-              )}
-            </div>}
+                )}
+              </Box>
+            )}
 
-            {/* Prices table / states */}
+            {/* Prices display area */}
             {comparePrices && (pricesLoading || pricesError || pricesRows) && (
-              <Box sx={{ maxHeight: '350px', overflowY: 'auto', pr: 0.5 }}>
+              <Box sx={{ mt: 1 }}>
+                {/* Loading state with progress */}
                 {pricesLoading && (
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, justifyContent: 'center', height: '2.5em' }}>
-                    <CircularProgress size={18} sx={{ color: 'var(--primary-color)' }} />
-                    <Typography sx={{ color: 'var(--primary-color)', textAlign: 'center' }}>Loading prices…</Typography>
-                  </Box>
+                  <PriceLoadingIndicator
+                    stage={loadingStage}
+                    estimatedTimeMs={20000}
+                    onCancel={handleCancelPricesFetch}
+                    locale="he"
+                  />
                 )}
 
+                {/* Error state */}
                 {!pricesLoading && pricesError && (
-                  <Typography sx={{ color: 'var(--primary-color)', textAlign: 'center' }}>
-                    Error loading prices!
-                  </Typography>
+                  <PriceErrorDisplay
+                    error={pricesError}
+                    onRetry={() => fetchPrices()}
+                    locale="he"
+                  />
                 )}
 
+                {/* Results */}
                 {!pricesLoading && !pricesError && pricesRows && (
                   pricesRows.length === 0 ? (
-                    <Typography sx={{ color: 'var(--primary-color)' }}>
-                      No prices found for this product in the selected area.
-                    </Typography>
+                    <PriceEmptyState
+                      productName={selectedProduct?.name ?? undefined}
+                      location={city ?? undefined}
+                      onRetry={() => fetchPrices()}
+                      locale="he"
+                    />
                   ) : (
-                    <TableContainer
-                      component={Paper}
-                      sx={{
-                        mt: 1,
-                        bgcolor: 'var(--note-card-background-card-item)',
-                        border: '1px solid var(--borders-color)'
-                      }}
-                    >
-                      <Table size="small">
-                        <TableHead>
-                          <TableRow>
-                            <TableCell sx={{ color: 'var(--primary-color)', borderColor: 'var(--borders-color)', fontWeight: 'bold' }}>רשת</TableCell>
-                            <TableCell align="right" sx={{ color: 'var(--primary-color)', borderColor: 'var(--borders-color)', fontWeight: 'bold' }}>מחיר</TableCell>
-                          </TableRow>
-                        </TableHead>
-                        <TableBody>
-                          {pricesRows.map((row, idx) => (
-                            <TableRow key={`${row.chain}-${row.branch}-${idx}`}>
-                              {/* Chain (+ branch on mobile) */}
-                              <TableCell sx={{ color: 'var(--primary-color)', borderColor: 'var(--borders-color)' }}>
-                                {row.chain}
-                                {/* show branch beneath on mobile */}
-                                {row.branch && (
-                                  <Typography variant="body2" sx={{ display: 'block', opacity: .8 }}>
-                                    {row.branch}
-                                  </Typography>
-                                )}
-                                {/* optional: show short sale chip on mobile */}
-                                {row.salePrice && (
-                                  <Chip
-                                    size="small"
-                                    label={`מבצע: ${row.salePrice}`}
-                                    sx={{ display: 'inline-flex', ml: 0.5, mt: 0.5,
-                                    bgcolor: 'var(--secondary-color-faded)', color: 'var(--primary-color)', border: '1px solid var(--borders-color)' }}
-                                  />
-                                )}
-                              </TableCell>
-
-                              {/* Price */}
-                              <TableCell align="right" sx={{ color: 'var(--primary-color)', borderColor: 'var(--borders-color)' }}>
-                                {row.price ?? '—'}
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </TableContainer>
+                    <PriceComparisonTable
+                      rows={pricesRows}
+                      locale="he"
+                    />
                   )
                 )}
               </Box>
@@ -633,13 +637,13 @@ export default function AddNoteItemPopup (
                   </MotionWrap>
                 }
               >
-                Options
+                אפשרויות
               </Button>
 
               <Button className={styles.renamePopupBtn} type='submit'>
-                {loading ? <CircularProgress color='inherit' size={22} /> : 'Add'}
+                {loading ? <CircularProgress color='inherit' size={22} /> : 'הוסף'}
               </Button>
-              <Button className={styles.renamePopupBtn} onClick={handleClose}>Cancel</Button>
+              <Button className={styles.renamePopupBtn} onClick={handleClose}>ביטול</Button>
             </DialogActions>
           </form>
         </DialogContent>
@@ -654,44 +658,44 @@ export default function AddNoteItemPopup (
             >
               <div className={styles.addNoteItemOptionsSectionContainer}>
                 <p className={styles.addNoteItemOptionsSelectPriorityTitle}>
-                  Select item priority color
+                  בחר צבע עדיפות
                 </p>
                 <RadioGroup
                   value={selectedPriorityColor}
                   className={styles.addNoteItemOptionsSelectPriorityContainer}
                   onChange={(e) => setSelectedPriorityColor(e.target.value)}
                 >
-                  <FormControlLabel className={styles.noneCheckboxLabel} value='none' control={<MuiRadio className={styles.noneCheckBox} />} label='None' labelPlacement='end' />
-                  <FormControlLabel className={styles.greenCheckboxLabel} value='green' control={<MuiRadio className={styles.greenCheckBox} />} label='Not urgent' labelPlacement='end' />
-                  <FormControlLabel className={styles.yellowCheckboxLabel} value='yellow' control={<MuiRadio className={styles.yellowCheckBox} />} label='Mildly urgent' labelPlacement='end' />
-                  <FormControlLabel className={styles.redCheckboxLabel} value='red' control={<MuiRadio className={styles.redCheckBox} />} label='Urgent' labelPlacement='end' />
+                  <FormControlLabel className={styles.noneCheckboxLabel} value='none' control={<MuiRadio className={styles.noneCheckBox} />} label='ללא' labelPlacement='end' />
+                  <FormControlLabel className={styles.greenCheckboxLabel} value='green' control={<MuiRadio className={styles.greenCheckBox} />} label='לא דחוף' labelPlacement='end' />
+                  <FormControlLabel className={styles.yellowCheckboxLabel} value='yellow' control={<MuiRadio className={styles.yellowCheckBox} />} label='דחיפות בינונית' labelPlacement='end' />
+                  <FormControlLabel className={styles.redCheckboxLabel} value='red' control={<MuiRadio className={styles.redCheckBox} />} label='דחוף' labelPlacement='end' />
                 </RadioGroup>
               </div>
 
               <div className={styles.addNoteItemOptionsAddCategoryContainer}>
                 <p className={styles.addNoteItemOptionsAddCategoryTitle}>
-                  Add category
+                  הוסף קטגוריה
                 </p>
                 <FormControl fullWidth>
-                  <InputLabel className={styles.selectLabel} id='select-item-category'>Category</InputLabel>
+                  <InputLabel className={styles.selectLabel} id='select-item-category'>קטגוריה</InputLabel>
                   <Select
                     labelId='select-item-category-label'
                     id='select-item-category'
                     MenuProps={{ classes: { paper: styles.selectMenuPaper } }}
                     inputProps={{ classes: { icon: styles.selectIcon } }}
                     value={selectedCategory}
-                    label='Category'
+                    label='קטגוריה'
                     onChange={(e) => setSelectedCategory(e.target.value)}
                   >
-                    <MenuItem className={styles.selectMenuItem} value='none'>None</MenuItem>
+                    <MenuItem className={styles.selectMenuItem} value='none'>ללא</MenuItem>
                     <Divider sx={{ boxShadow: '0px 0px 15px 0px #39393933' }} />
-                    <MenuItem disabled className={styles.selectMenuItem} value='general'>Groceries</MenuItem>
+                    <MenuItem disabled className={styles.selectMenuItem} value='general'>מצרכים</MenuItem>
                     <Divider sx={{ boxShadow: '0px 0px 15px 0px #39393933' }} />
                     {foodCategories.map((category, index) => (
                       <MenuItem key={index} className={styles.selectMenuItem} value={category}>{category}</MenuItem>
                     ))}
                     <Divider sx={{ boxShadow: '0px 0px 15px 0px #39393933' }} />
-                    <MenuItem disabled className={styles.selectMenuItem} value='general'>General</MenuItem>
+                    <MenuItem disabled className={styles.selectMenuItem} value='general'>כללי</MenuItem>
                     <Divider sx={{ boxShadow: '0px 0px 15px 0px #39393933' }} />
                     {generalCategories.map((category, index) => (
                       <MenuItem key={index} className={styles.selectMenuItem} value={category}>{category}</MenuItem>

@@ -1,19 +1,29 @@
 // app/api/get-product-prices/route.ts
 import { NextResponse } from 'next/server'
-import puppeteer, { Browser, Page } from 'puppeteer-core'
-import chromium from '@sparticuz/chromium'
-import fs from 'node:fs'
-import path from 'node:path'
+import { Page } from 'puppeteer-core'
+import {
+  browserPool,
+  pricesCache,
+  generateCacheKey,
+  withRetry,
+  withTimeout,
+  scraperCircuitBreaker,
+  CircuitBreakerError,
+  deduplicatedRequest
+} from '@/lib/scraper'
+import { createErrorResponse, type PriceErrorResponse } from '@/lib/error-types'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
+// Operation timeout - max time for entire scraping operation
+const OPERATION_TIMEOUT_MS = 25_000
+
 type RequestBody = {
   productName: string
-  barcode?: string                // ← now optional
+  barcode?: string
   locationName?: string
   maxRows?: number
-  keepAliveMs?: number
 }
 
 type StorePriceRow = {
@@ -26,197 +36,31 @@ type StorePriceRow = {
   price: string | null
 }
 
+type SuccessResponse = {
+  ok: true
+  count: number
+  rows: StorePriceRow[]
+  cached: boolean
+  meta: {
+    responseTimeMs: number
+    circuitState: string
+  }
+}
+
 const HOME = 'https://chp.co.il/'
 const ADDRESS_SEL = '#shopping_address'
 const PRODUCT_SEL = '#product_name_or_barcode'
 const SUBMIT_BTN = '#get_compare_results_button'
 const RESULTS_SEL = '#results-table'
 
-// ---------- resolve Chrome executable (dev vs prod) ----------
-const exists = (p: string) => { try { return fs.existsSync(p) } catch { return false } }
-
-async function resolveExecutablePath(): Promise<string> {
-  if (process.platform === 'linux') {
-    const execPath = await chromium.executablePath()
-    if (execPath && exists(execPath)) return execPath
-    const fallback = [
-      '/usr/bin/google-chrome-stable',
-      '/usr/bin/google-chrome',
-      '/usr/bin/chromium',
-      '/usr/bin/chromium-browser'
-    ].find(exists)
-    if (fallback) return fallback
-    throw new Error('No Chromium executable on Linux')
-  }
-
-  if (process.platform === 'darwin') {
-    const mac = [
-      '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-      '/Applications/Chromium.app/Contents/MacOS/Chromium',
-      path.join(process.env.HOME || '', 'Applications/Google Chrome.app/Contents/MacOS/Google Chrome'),
-    ].find(exists)
-    if (mac) return mac
-  }
-
-  if (process.platform === 'win32') {
-    const win = [
-      'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
-      'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
-      path.join(process.env.LOCALAPPDATA || '', 'Google\\Chrome\\Application\\chrome.exe'),
-    ].find(exists)
-    if (win) return win
-  }
-
-  throw new Error('Could not find a Chrome/Chromium executable on this system')
-}
-
-// ---------- shared browser + warm page ----------
-let browser: Browser | null = null
-let warmPage: Page | null = null
-let browserTimer: NodeJS.Timeout | null = null
-let pageTimer: NodeJS.Timeout | null = null
-
-let lock: Promise<void> | null = null
-let release: (() => void) | null = null
-
-async function getBrowser(): Promise<Browser> {
-  if (browser) return browser
-
-  const executablePath = await resolveExecutablePath()
-  const isLinux = process.platform === 'linux'
-
-  browser = await puppeteer.launch({
-    executablePath,
-    headless: true,
-    args: isLinux
-      ? [
-          ...chromium.args,
-          '--no-sandbox',
-          '--disable-setuid-sandbox',
-          '--disable-dev-shm-usage',
-          '--single-process',
-        ]
-      : [
-          '--no-sandbox',
-          '--disable-setuid-sandbox',
-          '--disable-dev-shm-usage',
-        ],
-  })
-
-  browser.on('disconnected', () => { browser = null })
-  return browser
-}
-
-function keepAlive(ms: number) {
-  if (browserTimer) clearTimeout(browserTimer)
-  if (pageTimer) clearTimeout(pageTimer)
-
-  pageTimer = setTimeout(async () => {
-    try { await warmPage?.close() } catch {}
-    warmPage = null
-  }, ms)
-
-  browserTimer = setTimeout(async () => {
-    try { await browser?.close() } catch {}
-    browser = null
-  }, ms + 5_000)
-}
-
-async function hardenPage(page: Page) {
-  await page.setUserAgent(
-    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 ' +
-    '(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
-  )
-  await page.setExtraHTTPHeaders({ 'accept-language': 'he-IL,he;q=0.9,en;q=0.8' })
-  await page.setViewport({ width: 1280, height: 900 })
-
-  await page.setRequestInterception(true)
-  const blockedHosts = [
-    'facebook.com', 'staticxx.facebook.com', 'connect.facebook.net',
-    'google-analytics.com', 'googletagmanager.com', 'g.doubleclick.net',
-    'hotjar.com', 'fullstory.com'
-  ]
-  page.on('request', req => {
-    const t = req.resourceType()
-    const url = req.url()
-    // DO NOT block fonts (digit glyphs can be font-mapped)
-    if (t === 'image' || t === 'media') return req.abort()
-    if (blockedHosts.some(h => url.includes(h))) return req.abort()
-    req.continue()
-  })
-
-  page.setDefaultNavigationTimeout(35_000)
-  page.setDefaultTimeout(12_000)
-}
-
-async function acquirePage(): Promise<Page> {
-  if (lock) await lock
-  lock = new Promise(res => { release = res })
-
-  const b = await getBrowser()
-  if (!warmPage || warmPage.isClosed()) {
-    warmPage = await b.newPage()
-    await hardenPage(warmPage)
-    try {
-      await warmPage.goto(HOME, { waitUntil: 'domcontentloaded' })
-    } catch (gotoErr) {
-      // If initial navigation fails, close and throw
-      try { await warmPage.close() } catch {}
-      warmPage = null
-      throw gotoErr
-    }
-  } else {
-    try {
-      const url = warmPage.url()
-      if (!url.startsWith(HOME)) {
-        await warmPage.goto(HOME, { waitUntil: 'domcontentloaded' })
-      }
-    } catch {
-      try { await warmPage.close() } catch {}
-      warmPage = await b.newPage()
-      await hardenPage(warmPage)
-      try {
-        await warmPage.goto(HOME, { waitUntil: 'domcontentloaded' })
-      } catch (gotoErr) {
-        // If retry navigation fails, close and throw
-        try { await warmPage.close() } catch {}
-        warmPage = null
-        throw gotoErr
-      }
-    }
-  }
-  return warmPage
-}
-
-async function releasePage(keepAliveMs: number) {
-  try {
-    await warmPage?.evaluate(() => {
-      const addr = document.querySelector<HTMLInputElement>('#shopping_address')
-      const prod = document.querySelector<HTMLInputElement>('#product_name_or_barcode')
-      if (addr) addr.value = ''
-      if (prod) prod.value = ''
-      const menus = document.querySelectorAll<HTMLElement>('ul.ui-autocomplete')
-      menus.forEach(ul => { ul.style.display = 'none'; ul.innerHTML = '' })
-      const results = document.querySelector<HTMLElement>('#compare_results')
-      if (results) results.innerHTML = ''
-    })
-  } catch {}
-  keepAlive(keepAliveMs)
-  if (release) release()
-  lock = null
-}
-
-// ---------- jQuery UI helpers (with "stamp" to avoid stale results) ----------
+// ---------- UI helpers ----------
 async function ensureJQueryUI(page: Page) {
   await page.waitForFunction(() => {
-    // @ts-ignore
     const $ = (window as any).jQuery
     return !!$ && !!$.fn && typeof $.fn.autocomplete === 'function'
   })
 
-  // speed up autocomplete
   await page.evaluate((addrSel, prodSel) => {
-    // @ts-ignore
     const $ = (window as any).jQuery
     ;[addrSel, prodSel].forEach(sel => {
       try {
@@ -232,7 +76,6 @@ async function ensureJQueryUI(page: Page) {
 
 async function openWidgetAndGetListId(page: Page, selector: string, value: string) {
   const data = await page.evaluate(async (sel: string, v: string) => {
-    // @ts-ignore
     const $ = (window as any).jQuery
     const el = $(sel)
     if (!el.length || !el.autocomplete) return { id: null as string | null, stamp: null as string | null }
@@ -242,16 +85,23 @@ async function openWidgetAndGetListId(page: Page, selector: string, value: strin
     if (!widget || !widget.length) return { id: null, stamp: null }
 
     let id = widget.attr('id')
-    if (!id) { id = `auto-${Math.random().toString(36).slice(2)}`; widget.attr('id', id) }
+    if (!id) {
+      id = `auto-${Math.random().toString(36).slice(2)}`
+      widget.attr('id', id)
+    }
     widget.empty()
     widget.removeAttr('data-stamp')
 
     const stamp = `${Date.now()}-${Math.random().toString(36).slice(2)}`
-    const once = () => new Promise<{ id: string, stamp: string }>(resolve => {
-      el.one('autocompleteresponse', () => { widget.attr('data-stamp', stamp); resolve({ id: id!, stamp }) })
-      el.val(v)
-      el.autocomplete('search', v)
-    })
+    const once = () =>
+      new Promise<{ id: string, stamp: string }>(resolve => {
+        el.one('autocompleteresponse', () => {
+          widget.attr('data-stamp', stamp)
+          resolve({ id: id!, stamp })
+        })
+        el.val(v)
+        el.autocomplete('search', v)
+      })
 
     return await once()
   }, selector, value)
@@ -272,7 +122,6 @@ async function selectProductByBarcodeOrName(page: Page, listId: string, desiredN
     const ul = document.getElementById(id)
     if (!ul) return false
 
-    // Filter list items, drop the "view more" row
     const items = Array.from(ul.querySelectorAll('li.ui-menu-item'))
       .filter(li => !/הצג\s+ערכים\s+נוספים/.test(li.textContent || ''))
 
@@ -298,7 +147,7 @@ async function selectProductByBarcodeOrName(page: Page, listId: string, desiredN
       if (byBC && clickEl(byBC as HTMLLIElement)) return true
     }
 
-    // 2) Try strict name match against the "primary" (text before first <span>)
+    // 2) Try strict name match
     const getPrimary = (li: Element) => {
       const firstSpan = li.querySelector('span')
       if (firstSpan) {
@@ -307,7 +156,6 @@ async function selectProductByBarcodeOrName(page: Page, listId: string, desiredN
         r.setEndBefore(firstSpan)
         return compact(r.toString())
       }
-      // fallback: remove img+span and read the rest
       const clone = li.cloneNode(true) as HTMLElement
       clone.querySelectorAll('img, span').forEach(el => el.remove())
       return compact(clone.textContent || '')
@@ -328,7 +176,10 @@ async function selectProductByBarcodeOrName(page: Page, listId: string, desiredN
   if (!clicked) throw new Error('failed to select product by barcode or name')
 }
 
-// ---------- scrape table (with normalization) ----------
+// ---------- Pre-compiled regex for text normalization ----------
+const BIDI_REGEX = /[\u200B-\u200F\u202A-\u202E\u2066-\u2069]/g
+
+// ---------- scrape table function ----------
 function buildScrapeTableFn() {
   return (tableSel: string, limit: number) => {
     const stripBidi = (s: string) =>
@@ -381,12 +232,10 @@ function buildScrapeTableFn() {
     const extractPrice = (td: HTMLElement | null, saleStr: string | null): string | null => {
       if (!td) return null
 
-      // prefer explicit sort hint if present
       const ds = td.getAttribute('data-sort') || ''
       const dsNum = ds.match(/\d+(?:[.,]\d{1,2})?/)
       if (dsNum) return dsNum[0].replace(',', '.')
 
-      // visible text fallback
       const vis = compact((td as HTMLElement).innerText || '')
       const matches = Array.from(vis.matchAll(/\d{1,3}(?:[.,]\d{1,2})/g)).map(m => parseFloat(m[0].replace(',', '.')))
       const nums = matches.filter(n => Number.isFinite(n) && n > 0)
@@ -425,34 +274,22 @@ function buildScrapeTableFn() {
   }
 }
 
-// ---------- route ----------
-export async function POST(req: Request) {
-  let body: RequestBody
+// Core scraping operation
+async function scrapePrices(
+  productName: string,
+  locationName: string,
+  maxRows: number,
+  barcode?: string
+): Promise<StorePriceRow[]> {
+  const { page, release } = await browserPool.acquirePage()
+
   try {
-    body = await req.json() as RequestBody
-  } catch (parseErr) {
-    return NextResponse.json({ ok: false, error: 'Invalid JSON in request body' }, { status: 400 })
-  }
+    // Navigate to home if needed
+    const currentUrl = page.url()
+    if (!currentUrl.startsWith(HOME)) {
+      await page.goto(HOME, { waitUntil: 'domcontentloaded' })
+    }
 
-  const {
-    productName,
-    barcode,
-    locationName = 'תל אביב',
-    maxRows = 200,
-    keepAliveMs = 20_000
-  } = body
-
-  if (!productName || productName.trim().length < 2) {
-    return NextResponse.json({ ok: false, error: 'productName is required' }, { status: 400 })
-  }
-
-  if (maxRows < 1 || maxRows > 1000) {
-    return NextResponse.json({ ok: false, error: 'maxRows must be between 1 and 1000' }, { status: 400 })
-  }
-
-  let page: Page | null = null
-  try {
-    page = await acquirePage()
     await ensureJQueryUI(page)
 
     // 1) Set location
@@ -472,7 +309,7 @@ export async function POST(req: Request) {
       return !!((city && city.value && city.value !== '0') || (street && street.value && street.value !== '0'))
     })
 
-    // 2) Open product autocomplete & select by barcode OR name (fallback first)
+    // 2) Open product autocomplete & select by barcode OR name
     const productListId = await openWidgetAndGetListId(page, PRODUCT_SEL, productName.trim())
     await selectProductByBarcodeOrName(page, productListId, productName.trim(), barcode)
 
@@ -485,34 +322,128 @@ export async function POST(req: Request) {
 
     const rows = await page.evaluate(buildScrapeTableFn(), RESULTS_SEL, maxRows)
 
-    await releasePage(keepAliveMs)
+    // Clear inputs for next use
+    await page.evaluate(() => {
+      const addr = document.querySelector<HTMLInputElement>('#shopping_address')
+      const prod = document.querySelector<HTMLInputElement>('#product_name_or_barcode')
+      if (addr) addr.value = ''
+      if (prod) prod.value = ''
+      const menus = document.querySelectorAll<HTMLElement>('ul.ui-autocomplete')
+      menus.forEach(ul => { ul.style.display = 'none'; ul.innerHTML = '' })
+      const results = document.querySelector<HTMLElement>('#compare_results')
+      if (results) results.innerHTML = ''
+    }).catch(() => {})
 
-    return NextResponse.json({ ok: true, count: rows.length, rows }, { status: 200 })
-  } 
-  
-  catch (err: any) {
-    console.error('Error occurred while fetching product prices:', err)
-    // Clean up page state on error
-    try {
-      await warmPage?.evaluate(() => {
-        const addr = document.querySelector<HTMLInputElement>('#shopping_address')
-        const prod = document.querySelector<HTMLInputElement>('#product_name_or_barcode')
-        if (addr) addr.value = ''
-        if (prod) prod.value = ''
-        const menus = document.querySelectorAll<HTMLElement>('ul.ui-autocomplete')
-        menus.forEach(ul => { ul.style.display = 'none'; ul.innerHTML = '' })
-        const results = document.querySelector<HTMLElement>('#compare_results')
-        if (results) results.innerHTML = ''
+    return rows
+  } finally {
+    await release()
+  }
+}
+
+// ---------- route ----------
+export async function POST(req: Request): Promise<NextResponse<SuccessResponse | PriceErrorResponse>> {
+  const startTime = Date.now()
+
+  let body: RequestBody
+  try {
+    body = await req.json() as RequestBody
+  } catch {
+    return NextResponse.json(
+      createErrorResponse('Invalid JSON in request body'),
+      { status: 400 }
+    )
+  }
+
+  const {
+    productName,
+    barcode,
+    locationName = 'תל אביב',
+    maxRows = 200
+  } = body
+
+  // Validation
+  if (!productName || productName.trim().length < 2) {
+    return NextResponse.json(
+      createErrorResponse('productName is required'),
+      { status: 400 }
+    )
+  }
+
+  if (maxRows < 1 || maxRows > 1000) {
+    return NextResponse.json(
+      createErrorResponse('maxRows must be between 1 and 1000'),
+      { status: 400 }
+    )
+  }
+
+  // Check cache first
+  const cacheKey = generateCacheKey({
+    productName: productName.trim(),
+    barcode: barcode || '',
+    locationName,
+    maxRows
+  })
+  const cached = pricesCache.get(cacheKey)
+
+  if (cached) {
+    return NextResponse.json({
+      ok: true,
+      count: cached.length,
+      rows: cached,
+      cached: true,
+      meta: {
+        responseTimeMs: Date.now() - startTime,
+        circuitState: scraperCircuitBreaker.getState()
+      }
+    })
+  }
+
+  // Deduplicate identical in-flight requests
+  const dedupKey = `prices:${cacheKey}`
+
+  try {
+    const rows = await deduplicatedRequest(dedupKey, async () => {
+      // Use circuit breaker for fault tolerance
+      return scraperCircuitBreaker.execute(async () => {
+        // Wrap with retry and timeout
+        return withRetry(
+          () => withTimeout(
+            () => scrapePrices(productName, locationName, maxRows, barcode),
+            OPERATION_TIMEOUT_MS,
+            'Price fetch operation timed out'
+          ),
+          { maxAttempts: 2 }
+        )
       })
-    } catch (cleanupErr) {
-      // If cleanup fails, close the page entirely
-      try { await warmPage?.close() } catch {}
-      warmPage = null
+    })
+
+    // Cache successful results
+    pricesCache.set(cacheKey, rows)
+
+    return NextResponse.json({
+      ok: true,
+      count: rows.length,
+      rows,
+      cached: false,
+      meta: {
+        responseTimeMs: Date.now() - startTime,
+        circuitState: scraperCircuitBreaker.getState()
+      }
+    })
+  } catch (err: any) {
+    console.error('[get-product-prices] Error:', err?.message)
+
+    // Handle circuit breaker errors specially
+    if (err instanceof CircuitBreakerError) {
+      return NextResponse.json(
+        createErrorResponse(err.message, err.retryAfterMs),
+        { status: 503 }
+      )
     }
-    // Release lock and keep browser alive
-    if (release) release()
-    lock = null
-    keepAlive(keepAliveMs || 20_000)
-    return NextResponse.json({ ok: false, error: err?.message || 'Unknown error' }, { status: 500 })
+
+    return NextResponse.json(
+      createErrorResponse(err?.message || 'Unknown error'),
+      { status: 500 }
+    )
   }
 }
