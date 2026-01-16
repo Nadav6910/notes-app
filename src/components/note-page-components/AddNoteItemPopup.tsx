@@ -81,6 +81,7 @@ export default function AddNoteItemPopup (
   const [options, setOptions] = useState<AutocompleteSuggestion[]>([])
   const [inputValue, setInputValue] = useState('')
   const [hadError, setHadError] = useState(false)
+  const [searchComplete, setSearchComplete] = useState(false) // tracks when a search finished (for showing empty results)
 
   const { city } = useHebrewCity({
     preferGPS: true,
@@ -229,6 +230,7 @@ export default function AddNoteItemPopup (
       setOptions([])
       setAcLoading(false)
       setHadError(false)
+      setSearchComplete(false)
       setAcOpen(false)
       abortRef.current?.abort()
       return
@@ -239,6 +241,7 @@ export default function AddNoteItemPopup (
       setOptions([])
       setAcLoading(false)
       setHadError(false)
+      setSearchComplete(false)
       setAcOpen(false)
       abortRef.current?.abort()
       return
@@ -251,7 +254,9 @@ export default function AddNoteItemPopup (
     const run = async () => {
       setAcLoading(true)
       setHadError(false)
+      setSearchComplete(false)
       try {
+        console.log('[Autocomplete] Starting search for:', q)
         const res = await fetch('/api/auto-complete-products-search', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -259,19 +264,24 @@ export default function AddNoteItemPopup (
           signal: ac.signal
         })
 
+        console.log('[Autocomplete] Response status:', res.status)
         const data = await res.json()
+        console.log('[Autocomplete] Response data:', { ok: data?.ok, count: data?.count, error: data?.error })
 
         if (data?.ok) {
           const raw: AutocompleteSuggestion[] = data.suggestions ?? []
           const trimmed = raw.length > 1 ? raw.slice(0, -1) : raw
+          console.log('[Autocomplete] Got', trimmed.length, 'suggestions')
           setOptions(trimmed)
           setHadError(false)
+          setSearchComplete(true)
           setAcOpen(true)
         } else {
           // API returned an error - show error state
-          console.error('[Autocomplete] API error:', data?.error)
+          console.error('[Autocomplete] API error:', data?.error, 'errorType:', data?.errorType)
           setOptions([])
           setHadError(true)
+          setSearchComplete(true)
           setAcOpen(true)
         }
       } catch (err: any) {
@@ -279,6 +289,7 @@ export default function AddNoteItemPopup (
           console.error('[Autocomplete] Fetch error:', err?.message)
           setHadError(true)
           setOptions([])
+          setSearchComplete(true)
           setAcOpen(true)
         }
       } finally {
@@ -298,6 +309,7 @@ export default function AddNoteItemPopup (
       setOptions([])
       setAcLoading(false)
       setHadError(false)
+      setSearchComplete(false)
       setSelectedProduct(null)
       setPricesRows(null)
       setPricesError(null)
@@ -348,12 +360,12 @@ export default function AddNoteItemPopup (
                   open={
                     acOpen &&
                     canOpen(itemNameLive) &&
-                    (options.length > 0 || hadError || acLoading)
+                    (options.length > 0 || hadError || acLoading || searchComplete)
                   }
                   options={options}
                   loading={acLoading}
                   loadingText='מחפש מוצרים...'
-                  noOptionsText={hadError ? 'לא נמצאו מוצרים' : 'לא נמצאו מוצרים'}
+                  noOptionsText={hadError ? 'שגיאה בחיפוש - נסה שוב' : 'לא נמצאו מוצרים'}
                   filterOptions={(x) => x}
                   getOptionLabel={(o) => typeof o === 'string' ? o : o.primary}
                   disablePortal={false}
@@ -393,6 +405,7 @@ export default function AddNoteItemPopup (
                       setOptions([])
                       setAcLoading(false)
                       setHadError(false)
+                      setSearchComplete(false)
                       setAcOpen(false)
                       setSelectedProduct(null)
                       setPricesRows(null)
@@ -409,6 +422,7 @@ export default function AddNoteItemPopup (
                         setInputValue(val)
                         setAcLoading(true)
                         setHadError(false)
+                        setSearchComplete(false)
                         field.onChange(val)
                         setAcOpen(val.trim().length >= 3)
                       } else {
@@ -416,6 +430,7 @@ export default function AddNoteItemPopup (
                         setOptions([])
                         setAcLoading(false)
                         setHadError(false)
+                        setSearchComplete(false)
                         field.onChange(val)
                         setAcOpen(false)
                       }
@@ -427,6 +442,7 @@ export default function AddNoteItemPopup (
                       setOptions([])
                       setAcLoading(false)
                       setHadError(false)
+                      setSearchComplete(false)
                       field.onChange('')
                       setAcOpen(false)
                     }
@@ -506,7 +522,7 @@ export default function AddNoteItemPopup (
                         ...params.InputProps,
                         onFocus: (e: React.FocusEvent<HTMLInputElement>) => {
                           params.inputProps?.onFocus?.(e)
-                          if (comparePrices && canOpen(itemNameLive) && (options.length > 0 || hadError || acLoading)) {
+                          if (comparePrices && canOpen(itemNameLive) && (options.length > 0 || hadError || acLoading || searchComplete)) {
                             setAcOpen(true)
                           }
                         },

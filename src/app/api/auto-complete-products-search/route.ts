@@ -206,18 +206,36 @@ async function scrapeAutocomplete(
   locationName: string,
   maxResults: number
 ): Promise<AutocompleteSuggestion[]> {
-  const { page, release } = await browserPool.acquirePage()
+  console.log('[scrapeAutocomplete] Acquiring page from browser pool...')
+
+  let page, release
+  try {
+    const acquired = await browserPool.acquirePage()
+    page = acquired.page
+    release = acquired.release
+    console.log('[scrapeAutocomplete] Page acquired successfully')
+  } catch (acquireErr: any) {
+    console.error('[scrapeAutocomplete] Failed to acquire page:', acquireErr?.message)
+    throw acquireErr
+  }
 
   try {
     // Navigate to home if needed
     const currentUrl = page.url()
+    console.log('[scrapeAutocomplete] Current URL:', currentUrl)
+
     if (!currentUrl.startsWith(HOME)) {
+      console.log('[scrapeAutocomplete] Navigating to', HOME)
       await page.goto(HOME, { waitUntil: 'domcontentloaded' })
+      console.log('[scrapeAutocomplete] Navigation complete')
     }
 
+    console.log('[scrapeAutocomplete] Ensuring jQuery UI...')
     await ensureJQueryUI(page)
+    console.log('[scrapeAutocomplete] jQuery UI ready')
 
     // 1) Set address/location
+    console.log('[scrapeAutocomplete] Setting location:', locationName)
     const addrListId = await openWidgetAndGetListId(page, ADDRESS_SEL, locationName)
     await clickFirstByListId(page, addrListId)
     await page.waitForFunction(() => {
@@ -225,10 +243,13 @@ async function scrapeAutocomplete(
       const street = document.querySelector<HTMLInputElement>('#shopping_address_street_id')
       return !!((city && city.value && city.value !== '0') || (street && street.value && street.value !== '0'))
     })
+    console.log('[scrapeAutocomplete] Location set')
 
     // 2) Search for product
+    console.log('[scrapeAutocomplete] Searching for product:', itemName)
     const productListId = await openWidgetAndGetListId(page, PRODUCT_SEL, itemName.trim())
     const suggestions = await page.evaluate(buildScrapeFn(), productListId, maxResults)
+    console.log('[scrapeAutocomplete] Got', suggestions.length, 'suggestions')
 
     // Clear inputs for next use
     await page.evaluate(() => {
@@ -245,19 +266,26 @@ async function scrapeAutocomplete(
     }).catch(() => {})
 
     return suggestions
+  } catch (scrapeErr: any) {
+    console.error('[scrapeAutocomplete] Scraping error:', scrapeErr?.message)
+    throw scrapeErr
   } finally {
+    console.log('[scrapeAutocomplete] Releasing page...')
     await release()
+    console.log('[scrapeAutocomplete] Page released')
   }
 }
 
 // ---------- route ----------
 export async function POST(req: Request): Promise<NextResponse<SuccessResponse | PriceErrorResponse>> {
   const startTime = Date.now()
+  console.log('[auto-complete-products-search] Request received')
 
   let body: RequestBody
   try {
     body = await req.json() as RequestBody
-  } catch {
+  } catch (parseErr: any) {
+    console.error('[auto-complete-products-search] JSON parse error:', parseErr?.message)
     return NextResponse.json(
       createErrorResponse('Invalid JSON in request body'),
       { status: 400 }
@@ -265,9 +293,11 @@ export async function POST(req: Request): Promise<NextResponse<SuccessResponse |
   }
 
   const { itemName, maxResults = 15, locationName = 'תל אביב' } = body
+  console.log('[auto-complete-products-search] Searching for:', itemName, 'in', locationName)
 
   // Validation
   if (!itemName || itemName.trim().length < 2) {
+    console.log('[auto-complete-products-search] Validation failed: item name too short')
     return NextResponse.json(
       createErrorResponse('Item name must be at least 2 characters'),
       { status: 400 }
@@ -275,6 +305,7 @@ export async function POST(req: Request): Promise<NextResponse<SuccessResponse |
   }
 
   if (maxResults < 1 || maxResults > 100) {
+    console.log('[auto-complete-products-search] Validation failed: maxResults out of range')
     return NextResponse.json(
       createErrorResponse('maxResults must be between 1 and 100'),
       { status: 400 }
@@ -286,6 +317,7 @@ export async function POST(req: Request): Promise<NextResponse<SuccessResponse |
   const cached = autocompleteCache.get(cacheKey)
 
   if (cached) {
+    console.log('[auto-complete-products-search] Returning cached result:', cached.length, 'items')
     return NextResponse.json({
       ok: true,
       count: cached.length,
@@ -298,17 +330,35 @@ export async function POST(req: Request): Promise<NextResponse<SuccessResponse |
     })
   }
 
+  // Log circuit breaker state
+  const cbState = scraperCircuitBreaker.getState()
+  console.log('[auto-complete-products-search] Circuit breaker state:', cbState)
+
+  // If circuit breaker is OPEN, reset it after a period to allow retry
+  // This helps prevent getting stuck in OPEN state
+  if (cbState === 'OPEN') {
+    const cbStats = scraperCircuitBreaker.getStats()
+    const timeSinceLastFailure = Date.now() - cbStats.lastFailureTime
+    console.log('[auto-complete-products-search] Circuit OPEN, time since last failure:', timeSinceLastFailure, 'ms')
+  }
+
   // Deduplicate identical in-flight requests
   const dedupKey = `autocomplete:${cacheKey}`
 
   try {
+    console.log('[auto-complete-products-search] Starting scraping operation...')
+
     const suggestions = await deduplicatedRequest(dedupKey, async () => {
       // Use circuit breaker for fault tolerance
       return scraperCircuitBreaker.execute(async () => {
+        console.log('[auto-complete-products-search] Inside circuit breaker, starting retry wrapper...')
         // Wrap with retry and timeout
         return withRetry(
           () => withTimeout(
-            () => scrapeAutocomplete(itemName, locationName, maxResults),
+            () => {
+              console.log('[auto-complete-products-search] Starting scrapeAutocomplete...')
+              return scrapeAutocomplete(itemName, locationName, maxResults)
+            },
             OPERATION_TIMEOUT_MS,
             'Search operation timed out'
           ),
@@ -316,6 +366,8 @@ export async function POST(req: Request): Promise<NextResponse<SuccessResponse |
         )
       })
     })
+
+    console.log('[auto-complete-products-search] Scraping complete, got', suggestions.length, 'suggestions')
 
     // Cache successful results
     autocompleteCache.set(cacheKey, suggestions)
@@ -331,10 +383,13 @@ export async function POST(req: Request): Promise<NextResponse<SuccessResponse |
       }
     })
   } catch (err: any) {
-    console.error('[auto-complete-products-search] Error:', err?.message)
+    const elapsed = Date.now() - startTime
+    console.error('[auto-complete-products-search] Error after', elapsed, 'ms:', err?.name, '-', err?.message)
+    console.error('[auto-complete-products-search] Error stack:', err?.stack)
 
     // Handle circuit breaker errors specially
     if (err instanceof CircuitBreakerError) {
+      console.error('[auto-complete-products-search] Circuit breaker error - service unavailable')
       return NextResponse.json(
         createErrorResponse(err.message, err.retryAfterMs),
         { status: 503 }

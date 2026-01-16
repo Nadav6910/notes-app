@@ -115,26 +115,47 @@ class BrowserPool {
   }
 
   private async createBrowser(): Promise<PooledBrowser> {
-    const executablePath = await resolveExecutablePath()
-    const isLinux = process.platform === 'linux'
+    console.log('[BrowserPool] Creating new browser...')
+    console.log('[BrowserPool] Platform:', process.platform)
 
-    const browser = await puppeteer.launch({
-      executablePath,
-      headless: true,
-      args: isLinux
-        ? [
-            ...chromium.args,
-            '--no-sandbox',
-            '--disable-setuid-sandbox',
-            '--disable-dev-shm-usage',
-            '--single-process',
-          ]
-        : [
-            '--no-sandbox',
-            '--disable-setuid-sandbox',
-            '--disable-dev-shm-usage',
-          ],
-    })
+    let executablePath: string
+    try {
+      executablePath = await resolveExecutablePath()
+      console.log('[BrowserPool] Executable path resolved:', executablePath)
+    } catch (pathErr: any) {
+      console.error('[BrowserPool] Failed to resolve executable path:', pathErr?.message)
+      throw pathErr
+    }
+
+    const isLinux = process.platform === 'linux'
+    const args = isLinux
+      ? [
+          ...chromium.args,
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--disable-dev-shm-usage',
+          '--single-process',
+        ]
+      : [
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--disable-dev-shm-usage',
+        ]
+
+    console.log('[BrowserPool] Launching puppeteer with args:', args.length, 'arguments')
+
+    let browser: Browser
+    try {
+      browser = await puppeteer.launch({
+        executablePath,
+        headless: true,
+        args,
+      })
+      console.log('[BrowserPool] Browser launched successfully')
+    } catch (launchErr: any) {
+      console.error('[BrowserPool] Failed to launch browser:', launchErr?.message)
+      throw launchErr
+    }
 
     const pooled: PooledBrowser = {
       browser,
@@ -144,10 +165,12 @@ class BrowserPool {
     }
 
     browser.on('disconnected', () => {
+      console.log('[BrowserPool] Browser disconnected:', pooled.id)
       this.pool = this.pool.filter(p => p.id !== pooled.id)
     })
 
     this.pool.push(pooled)
+    console.log('[BrowserPool] Browser added to pool. Total browsers:', this.pool.length)
     return pooled
   }
 
@@ -173,22 +196,31 @@ class BrowserPool {
   }
 
   async acquirePage(): Promise<{ page: Page; release: () => Promise<void> }> {
+    console.log('[BrowserPool] acquirePage called. Pool size:', this.pool.length, 'pending:', this.pendingRequests.length)
+
     // Find available browser with capacity
     let pooled = this.pool.find(p =>
       p.activePagesCount < this.config.maxPagesPerBrowser
     )
 
+    if (pooled) {
+      console.log('[BrowserPool] Found available browser:', pooled.id, 'active pages:', pooled.activePagesCount)
+    }
+
     // Create new browser if none available and under limit
     if (!pooled && this.pool.length < this.config.maxBrowsers) {
+      console.log('[BrowserPool] No available browser, creating new one...')
       pooled = await this.createBrowser()
     }
 
     // If still no available browser, wait for one
     if (!pooled) {
+      console.log('[BrowserPool] All browsers at capacity, waiting for one to become available...')
       return new Promise((resolve, reject) => {
         const timeout = setTimeout(() => {
           const idx = this.pendingRequests.findIndex(r => r.resolve === resolve)
           if (idx !== -1) this.pendingRequests.splice(idx, 1)
+          console.error('[BrowserPool] Timeout waiting for available browser')
           reject(new Error('Timeout waiting for available browser'))
         }, 30_000)
 
@@ -208,8 +240,26 @@ class BrowserPool {
     pooled.activePagesCount++
     pooled.lastUsed = Date.now()
 
-    const page = await pooled.browser.newPage()
-    await this.hardenPage(page)
+    console.log('[BrowserPool] Creating new page on browser:', pooled.id)
+    let page: Page
+    try {
+      page = await pooled.browser.newPage()
+      console.log('[BrowserPool] Page created successfully')
+    } catch (pageErr: any) {
+      pooled.activePagesCount--
+      console.error('[BrowserPool] Failed to create page:', pageErr?.message)
+      throw pageErr
+    }
+
+    try {
+      await this.hardenPage(page)
+      console.log('[BrowserPool] Page hardened successfully')
+    } catch (hardenErr: any) {
+      pooled.activePagesCount--
+      await page.close().catch(() => {})
+      console.error('[BrowserPool] Failed to harden page:', hardenErr?.message)
+      throw hardenErr
+    }
 
     const release = async () => {
       try {
