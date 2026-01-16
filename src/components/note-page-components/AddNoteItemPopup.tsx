@@ -261,12 +261,22 @@ export default function AddNoteItemPopup (
 
         const data = await res.json()
 
-        const raw: AutocompleteSuggestion[] = data?.ok ? data.suggestions ?? [] : []
-        const trimmed = raw.length > 1 ? raw.slice(0, -1) : raw
-        setOptions(trimmed)
-        setAcOpen(true)
-      } catch {
+        if (data?.ok) {
+          const raw: AutocompleteSuggestion[] = data.suggestions ?? []
+          const trimmed = raw.length > 1 ? raw.slice(0, -1) : raw
+          setOptions(trimmed)
+          setHadError(false)
+          setAcOpen(true)
+        } else {
+          // API returned an error - show error state
+          console.error('[Autocomplete] API error:', data?.error)
+          setOptions([])
+          setHadError(true)
+          setAcOpen(true)
+        }
+      } catch (err: any) {
         if (!ac.signal.aborted) {
+          console.error('[Autocomplete] Fetch error:', err?.message)
           setHadError(true)
           setOptions([])
           setAcOpen(true)
