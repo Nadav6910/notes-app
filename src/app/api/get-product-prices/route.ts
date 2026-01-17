@@ -8,6 +8,7 @@ import { SCRAPER_CONFIG, SCRAPER_URLS } from '@/lib/scraper-config'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
+export const maxDuration = 45 // Vercel timeout
 
 type RequestBody = {
   productName: string
@@ -27,10 +28,17 @@ type StorePriceRow = {
   price: string | null
 }
 
+type ProductMetadata = {
+  productImage: string | null
+  productName: string | null
+  priceGapPercent: number | null
+  locationText: string | null
+}
+
 const { HOME, ADDRESS_SEL, PRODUCT_SEL, SUBMIT_BTN, RESULTS_SEL } = SCRAPER_URLS
 
-// Cache implementation
-const cache = new Map<string, { data: any, expiry: number }>()
+// Cache implementation with better LRU
+const cache = new Map<string, { data: any, expiry: number, timestamp: number }>()
 
 function getCached(key: string) {
   const entry = cache.get(key)
@@ -42,10 +50,148 @@ function getCached(key: string) {
 function setCache(key: string, data: any, ttlMs = SCRAPER_CONFIG.CACHE_TTL_MS) {
   // Implement simple LRU: if cache is full, delete oldest
   if (cache.size >= SCRAPER_CONFIG.CACHE_MAX_ENTRIES) {
-    const firstKey = cache.keys().next().value
-    if (firstKey) cache.delete(firstKey)
+    let oldestKey: string | null = null
+    let oldestTime = Infinity
+    for (const [k, v] of cache.entries()) {
+      if (v.timestamp < oldestTime) {
+        oldestTime = v.timestamp
+        oldestKey = k
+      }
+    }
+    if (oldestKey) cache.delete(oldestKey)
   }
-  cache.set(key, { data, expiry: Date.now() + ttlMs })
+  cache.set(key, { data, expiry: Date.now() + ttlMs, timestamp: Date.now() })
+}
+
+// ---------- timeout utility ----------
+function withTimeout<T>(promise: Promise<T>, ms: number, errorMsg: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(errorMsg)), ms)
+    promise
+      .then(val => { clearTimeout(timer); resolve(val) })
+      .catch(err => { clearTimeout(timer); reject(err) })
+  })
+}
+
+// City name normalization - handle spelling variations
+function normalizeCityName(city: string): string {
+  return city
+    .trim()
+    .toLowerCase()
+    // Common spelling variations
+    .replace(/קרי[יה]ת/g, 'קריית')  // קרית or קריה -> קריית
+    .replace(/קרי[יה]/g, 'קרי')      // קרי or קריה -> קרי
+    .replace(/בא[ה]?ר/g, 'באר')    // באר or באהר -> באר
+    .replace(/יפו/g, 'יפו')          // normalize יפו
+    .replace(/תל[\s-]אביב/g, 'תל אביב')  // normalize Tel Aviv spacing
+    // Normalize dashes and spaces
+    .replace(/[\s-]+/g, ' ')
+    .trim()
+}
+
+// Generate alternate spellings for a city name
+function generateAlternateSpellings(city: string): string[] {
+  const alternates: string[] = [city]
+  const trimmed = city.trim()
+  
+  // קריית <-> קרית variations
+  if (trimmed.includes('קריית')) {
+    alternates.push(trimmed.replace(/קריית/g, 'קרית'))
+    alternates.push(trimmed.replace(/קריית/g, 'קריית'))
+  } else if (trimmed.includes('קרית')) {
+    alternates.push(trimmed.replace(/קרית/g, 'קריית'))
+    alternates.push(trimmed.replace(/קרית/g, 'קריית'))
+  }
+  
+  // ה ending variations
+  if (trimmed.endsWith('ה')) {
+    alternates.push(trimmed.slice(0, -1) + 'א')
+  } else if (trimmed.endsWith('א')) {
+    alternates.push(trimmed.slice(0, -1) + 'ה')
+  }
+  
+  return [...new Set(alternates)] // Remove duplicates
+}
+
+// Normalized city lookup - try exact match first, then normalized match
+function findCityInMap<T>(city: string, map: Record<string, T>): T | undefined {
+  // Try exact match
+  if (map[city]) return map[city]
+  
+  // Try normalized match
+  const normalized = normalizeCityName(city)
+  const mapEntries = Object.entries(map)
+  
+  for (const [key, value] of mapEntries) {
+    if (normalizeCityName(key) === normalized) {
+      return value
+    }
+  }
+  
+  return undefined
+}
+
+// Major cities fallback map - when a small city isn't found, use nearest major city
+const CITY_FALLBACK: Record<string, string> = {
+  'קריית ים': 'חיפה',
+  'קרית ים': 'חיפה',  // spelling variation
+  'קריית אתא': 'חיפה',
+  'קרית אתא': 'חיפה',  // spelling variation
+  'קריית ביאליק': 'חיפה',
+  'קרית ביאליק': 'חיפה',  // spelling variation
+  'קריית מוצקין': 'חיפה',
+  'קרית מוצקין': 'חיפה',  // spelling variation
+  'טירת כרמל': 'חיפה',
+  'נשר': 'חיפה',
+  'כרמיאל': 'חיפה',
+  'עכו': 'חיפה',
+  'נהריה': 'חיפה',
+  'נהרייה': 'חיפה',  // spelling variation
+  'קריית שמונה': 'חיפה',
+  'קרית שמונה': 'חיפה',  // spelling variation
+  'צפת': 'חיפה',
+  'טבריה': 'חיפה',
+  'טבריא': 'חיפה',  // spelling variation
+  'עפולה': 'חיפה',
+  'נצרת': 'חיפה',
+  'מגדל העמק': 'חיפה',
+  'רמת גן': 'תל אביב',
+  'גבעתיים': 'תל אביב',
+  'בני ברק': 'תל אביב',
+  'חולון': 'תל אביב',
+  'בת ים': 'תל אביב',
+  'הרצליה': 'תל אביב',
+  'הרצלייה': 'תל אביב',  // spelling variation
+  'רעננה': 'תל אביב',
+  'כפר סבא': 'תל אביב',
+  'הוד השרון': 'תל אביב',
+  'רמת השרון': 'תל אביב',
+  'פתח תקווה': 'תל אביב',
+  'פתח תקוה': 'תל אביב',  // spelling variation
+  'ראש העין': 'תל אביב',
+  'יהוד': 'תל אביב',
+  'אור יהודה': 'תל אביב',
+  'קריית אונו': 'תל אביב',
+  'קרית אונו': 'תל אביב',  // spelling variation
+  'ראשון לציון': 'תל אביב',
+  'נס ציונה': 'תל אביב',
+  'נס ציונא': 'תל אביב',  // spelling variation
+  'רחובות': 'תל אביב',
+  'לוד': 'תל אביב',
+  'רמלה': 'תל אביב',
+  'מודיעין': 'תל אביב',
+  'מודיעין מכבים רעות': 'תל אביב',
+  'אשדוד': 'באר שבע',
+  'אשקלון': 'באר שבע',
+  'קריית גת': 'באר שבע',
+  'קרית גת': 'באר שבע',  // spelling variation
+  'שדרות': 'באר שבע',
+  'נתיבות': 'באר שבע',
+  'אופקים': 'באר שבע',
+  'דימונה': 'באר שבע',
+  'דימונא': 'באר שבע',  // spelling variation
+  'ערד': 'באר שבע',
+  'אילת': 'באר שבע',
 }
 
 // ---------- resolve Chrome executable (dev vs prod) ----------
@@ -156,8 +302,9 @@ async function hardenPage(page: Page) {
   page.on('request', req => {
     const t = req.resourceType()
     const url = req.url()
-    // DO NOT block fonts (digit glyphs can be font-mapped)
-    if (t === 'image' || t === 'media') return req.abort()
+    // Allow images in results area for product images, block others
+    if (t === 'media') return req.abort()
+    // Block tracking/analytics
     if (blockedHosts.some(h => url.includes(h))) return req.abort()
     req.continue()
   })
@@ -239,16 +386,16 @@ async function ensureJQueryUI(page: Page) {
   }, ADDRESS_SEL, PRODUCT_SEL)
 }
 
-async function openWidgetAndGetListId(page: Page, selector: string, value: string) {
-  const data = await page.evaluate(async (sel: string, v: string) => {
+async function openWidgetAndGetListId(page: Page, selector: string, value: string, timeoutMs = 8000) {
+  const data = await page.evaluate(async (sel: string, v: string, timeout: number) => {
     // @ts-ignore
     const $ = (window as any).jQuery
     const el = $(sel)
-    if (!el.length || !el.autocomplete) return { id: null as string | null, stamp: null as string | null }
+    if (!el.length || !el.autocomplete) return { id: null as string | null, stamp: null as string | null, hasResults: false }
 
     el.autocomplete('close')
     const widget = el.autocomplete('widget')
-    if (!widget || !widget.length) return { id: null, stamp: null }
+    if (!widget || !widget.length) return { id: null, stamp: null, hasResults: false }
 
     let id = widget.attr('id')
     if (!id) { id = `auto-${Math.random().toString(36).slice(2)}`; widget.attr('id', id) }
@@ -256,23 +403,34 @@ async function openWidgetAndGetListId(page: Page, selector: string, value: strin
     widget.removeAttr('data-stamp')
 
     const stamp = `${Date.now()}-${Math.random().toString(36).slice(2)}`
-    const once = () => new Promise<{ id: string, stamp: string }>(resolve => {
-      el.one('autocompleteresponse', () => { widget.attr('data-stamp', stamp); resolve({ id: id!, stamp }) })
+    const once = () => new Promise<{ id: string, stamp: string, hasResults: boolean }>((resolve) => {
+      // Set a timeout in case autocomplete never responds
+      const timer = setTimeout(() => {
+        widget.attr('data-stamp', stamp)
+        resolve({ id: id!, stamp, hasResults: false })
+      }, timeout - 1000)
+      
+      el.one('autocompleteresponse', (_: any, ui: any) => {
+        clearTimeout(timer)
+        widget.attr('data-stamp', stamp)
+        const hasResults = ui?.content?.length > 0
+        resolve({ id: id!, stamp, hasResults })
+      })
       el.val(v)
       el.autocomplete('search', v)
     })
 
     return await once()
-  }, selector, value)
+  }, selector, value, timeoutMs)
 
   if (!data.id || !data.stamp) throw new Error(`no widget id for ${selector}`)
 
   await page.waitForFunction((id: string, stamp: string) => {
     const ul = document.getElementById(id)
-    return !!ul && ul.getAttribute('data-stamp') === stamp && ul.querySelectorAll('li.ui-menu-item').length > 0
+    return !!ul && ul.getAttribute('data-stamp') === stamp
   }, {}, data.id, data.stamp)
 
-  return data.id
+  return { listId: data.id, hasResults: data.hasResults }
 }
 
 // ---------- selection helpers (barcode OR name OR fallback) ----------
@@ -335,6 +493,64 @@ async function selectProductByBarcodeOrName(page: Page, listId: string, desiredN
   }, listId, desiredName, desiredBarcode)
 
   if (!clicked) throw new Error('failed to select product by barcode or name')
+}
+
+// ---------- scrape product metadata (image + price gap) ----------
+function buildScrapeMetadataFn() {
+  return () => {
+    const resultsDiv = document.getElementById('compare_results')
+    if (!resultsDiv) return { productImage: null, productName: null, priceGapPercent: null, locationText: null }
+
+    // Get product image - look for img with class imageuri or in the results table
+    let productImage: string | null = null
+    const imgEl = resultsDiv.querySelector('img.imageuri') || resultsDiv.querySelector('table img')
+    if (imgEl) {
+      // Prefer src over data-uri for smaller payload
+      const src = imgEl.getAttribute('src')
+      if (src && !src.startsWith('data:')) {
+        productImage = src
+      } else {
+        // If it's a data URI, check if there's a non-data src elsewhere
+        const dataSrc = imgEl.getAttribute('data-src') || imgEl.getAttribute('data-uri')
+        productImage = dataSrc || src
+      }
+    }
+
+    // Get product name from hidden input or h3
+    let productName: string | null = null
+    const nameInput = resultsDiv.querySelector<HTMLInputElement>('#displayed_product_name_and_contents')
+    if (nameInput?.value) {
+      productName = nameInput.value.trim()
+    } else {
+      const h3 = resultsDiv.querySelector('h3')
+      if (h3) {
+        // Get text before the <a> tag
+        const clone = h3.cloneNode(true) as HTMLElement
+        clone.querySelectorAll('a').forEach(a => a.remove())
+        productName = clone.textContent?.replace(/\s+/g, ' ').trim() || null
+      }
+    }
+
+    // Get price gap percentage from h4
+    let priceGapPercent: number | null = null
+    let locationText: string | null = null
+    const h4 = resultsDiv.querySelector('h4')
+    if (h4) {
+      const h4Text = h4.textContent || ''
+      // Extract location (e.g., "מחירים בקרבת קרית ים")
+      const locationMatch = h4Text.match(/מחירים בקרבת\s+([^(]+)/)
+      if (locationMatch) {
+        locationText = locationMatch[1].trim()
+      }
+      // Extract percentage (e.g., "306%")
+      const percentMatch = h4Text.match(/(\d+(?:\.\d+)?)\s*%/)
+      if (percentMatch) {
+        priceGapPercent = parseFloat(percentMatch[1])
+      }
+    }
+
+    return { productImage, productName, priceGapPercent, locationText }
+  }
 }
 
 // ---------- scrape table (with normalization) ----------
@@ -445,6 +661,8 @@ function buildScrapeTableFn() {
 
 // ---------- route ----------
 export async function POST(req: Request) {
+  const startTime = Date.now()
+  
   const {
     productName,
     barcode,                               // optional
@@ -454,90 +672,233 @@ export async function POST(req: Request) {
   } = await req.json() as RequestBody
 
   if (!productName || productName.trim().length < 2) {
-    return NextResponse.json({ ok: false, error: 'productName is required' }, { status: 400 })
+    return NextResponse.json({ ok: false, error: 'productName is required', errorCode: 'INVALID_INPUT' }, { status: 400 })
   }
 
   // Check cache first
-  const cacheKey = `prices:${productName.trim()}:${barcode || ''}:${locationName}`
+  const cacheKey = `prices:${productName.trim().toLowerCase()}:${barcode || ''}:${locationName}`
   const cached = getCached(cacheKey)
   if (cached) {
-    return NextResponse.json(cached, { status: 200 })
+    return NextResponse.json({ ...cached, fromCache: true }, { status: 200 })
   }
 
   let page: Page | null = null
-  try {
-    page = await acquirePage()
-    await ensureJQueryUI(page)
-
-    // 1) Set location
-    const addrListId = await openWidgetAndGetListId(page, ADDRESS_SEL, locationName)
-    await page.evaluate((id: string) => {
-      const ul = document.getElementById(id)
-      if (!ul) return
-      const li = ul.querySelector('li.ui-menu-item') as HTMLLIElement | null
-      const target = (li?.querySelector('a') as HTMLElement) || (li as unknown as HTMLElement)
-      target?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))
-      target?.click()
-    }, addrListId)
-
-    await page.waitForFunction(() => {
-      const city = document.querySelector<HTMLInputElement>('#shopping_address_city_id')
-      const street = document.querySelector<HTMLInputElement>('#shopping_address_street_id')
-      return !!((city && city.value && city.value !== '0') || (street && street.value && street.value !== '0'))
-    })
-
-    // 2) Open product autocomplete & select by barcode OR name (fallback first)
-    const productListId = await openWidgetAndGetListId(page, PRODUCT_SEL, productName.trim())
-    await selectProductByBarcodeOrName(page, productListId, productName.trim(), barcode)
-
-    // 3) Render results
-    await page.click(SUBMIT_BTN)
-    await page.waitForFunction((sel: string) => {
-      const table = document.querySelector<HTMLTableElement>(sel)
-      return !!table && table.querySelectorAll('tbody > tr').length > 0
-    }, {}, RESULTS_SEL)
-
-    const rows = await page.evaluate(buildScrapeTableFn(), RESULTS_SEL, maxRows)
-
-    await releasePage(keepAliveMs)
-
-    const result = { ok: true, count: rows.length, rows }
-    setCache(cacheKey, result)
-
-    return NextResponse.json(result, { status: 200 })
-  } 
+  let retryCount = 0
   
-  catch (err: any) {
-    activeRequests--
-    console.error('[get-product-prices] Error:', err)
+  let usedFallbackCity = false
+  let actualCity = locationName
+
+  const executePricesFetch = async (): Promise<any> => {
+    try {
+      page = await withTimeout(
+        acquirePage(),
+        10_000,
+        'Browser initialization timed out'
+      )
+      
+      await withTimeout(
+        ensureJQueryUI(page),
+        5_000,
+        'Page initialization timed out'
+      )
+
+      // 1) Set location - with timeout and alternate spelling support
+      let addrResult = await withTimeout(
+        openWidgetAndGetListId(page, ADDRESS_SEL, actualCity),
+        8_000,
+        'Address lookup timed out'
+      )
+      
+      // If no results, try alternate spellings of the same city
+      if (!addrResult.hasResults) {
+        const alternates = generateAlternateSpellings(actualCity)
+        for (const altCity of alternates.slice(1)) { // Skip first (original)
+          console.log(`[get-product-prices] Trying alternate spelling "${altCity}"`)
+          try {
+            addrResult = await withTimeout(
+              openWidgetAndGetListId(page, ADDRESS_SEL, altCity),
+              8_000,
+              'Address lookup timed out (alternate)'
+            )
+            if (addrResult.hasResults) {
+              actualCity = altCity
+              console.log(`[get-product-prices] Found city with alternate spelling: "${altCity}"`)
+              break
+            }
+          } catch {
+            continue
+          }
+        }
+      }
+      
+      // If still no results, try a fallback major city
+      if (!addrResult.hasResults) {
+        const fallbackCity = findCityInMap(actualCity, CITY_FALLBACK)
+        if (fallbackCity) {
+          console.log(`[get-product-prices] City "${actualCity}" not found, falling back to "${fallbackCity}"`)
+          
+          addrResult = await withTimeout(
+            openWidgetAndGetListId(page, ADDRESS_SEL, fallbackCity),
+            8_000,
+            'Address lookup timed out (fallback)'
+          )
+          usedFallbackCity = true
+          actualCity = fallbackCity
+        }
+      }
+      
+      // If still no results, use default city
+      if (!addrResult.hasResults) {
+        console.log(`[get-product-prices] All attempts failed, using default "${SCRAPER_CONFIG.DEFAULT_CITY}"`)
+        addrResult = await withTimeout(
+          openWidgetAndGetListId(page, ADDRESS_SEL, SCRAPER_CONFIG.DEFAULT_CITY),
+          8_000,
+          'Address lookup timed out (default)'
+        )
+        usedFallbackCity = true
+        actualCity = SCRAPER_CONFIG.DEFAULT_CITY
+      }
+      
+      await page.evaluate((id: string) => {
+        const ul = document.getElementById(id)
+        if (!ul) return
+        const li = ul.querySelector('li.ui-menu-item') as HTMLLIElement | null
+        const target = (li?.querySelector('a') as HTMLElement) || (li as unknown as HTMLElement)
+        target?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))
+        target?.click()
+      }, addrResult.listId)
+
+      await withTimeout(
+        page.waitForFunction(() => {
+          const city = document.querySelector<HTMLInputElement>('#shopping_address_city_id')
+          const street = document.querySelector<HTMLInputElement>('#shopping_address_street_id')
+          return !!((city && city.value && city.value !== '0') || (street && street.value && street.value !== '0'))
+        }),
+        5_000,
+        'Address selection timed out'
+      )
+
+      // 2) Open product autocomplete & select by barcode OR name - with timeout
+      const productResult = await withTimeout(
+        openWidgetAndGetListId(page, PRODUCT_SEL, productName.trim()),
+        10_000,
+        'Product search timed out'
+      )
+      
+      await withTimeout(
+        selectProductByBarcodeOrName(page, productResult.listId, productName.trim(), barcode),
+        5_000,
+        'Product selection timed out'
+      )
+
+      // 3) Render results - with timeout
+      await page.click(SUBMIT_BTN)
+      
+      await withTimeout(
+        page.waitForFunction((sel: string) => {
+          const table = document.querySelector<HTMLTableElement>(sel)
+          return !!table && table.querySelectorAll('tbody > tr').length > 0
+        }, {}, RESULTS_SEL),
+        15_000,
+        'Results loading timed out'
+      )
+
+      // Scrape both the table rows and the metadata
+      const [rows, metadata] = await Promise.all([
+        page.evaluate(buildScrapeTableFn(), RESULTS_SEL, maxRows),
+        page.evaluate(buildScrapeMetadataFn())
+      ])
+
+      await releasePage(keepAliveMs)
+
+      const duration = Date.now() - startTime
+      const result = { 
+        ok: true, 
+        count: rows.length, 
+        rows,
+        metadata,
+        duration,
+        usedFallbackCity,
+        actualCity: usedFallbackCity ? actualCity : undefined
+      }
+      setCache(cacheKey, result)
+
+      return NextResponse.json(result, { status: 200 })
+    }
+    catch (err: any) {
+      // Retry logic for certain errors
+      const isRetryable = err?.message?.includes('timeout') || 
+                          err?.message?.includes('net::') ||
+                          err?.message?.includes('disconnected')
+      
+      if (isRetryable && retryCount < SCRAPER_CONFIG.MAX_RETRIES) {
+        retryCount++
+        console.log(`[get-product-prices] Retry ${retryCount}/${SCRAPER_CONFIG.MAX_RETRIES}`)
+        
+        // Force cleanup before retry
+        try { await warmPage?.close() } catch {}
+        warmPage = null
+        
+        if (release) release()
+        lock = null
+        
+        await new Promise(r => setTimeout(r, SCRAPER_CONFIG.RETRY_DELAY_MS))
+        return executePricesFetch()
+      }
+      
+      throw err
+    }
+  }
+
+  try {
+    return await withTimeout(
+      executePricesFetch(),
+      SCRAPER_CONFIG.PRICES_TIMEOUT_MS,
+      'Request timed out'
+    )
+  } catch (err: any) {
+    activeRequests = Math.max(0, activeRequests - 1)
+    console.error('[get-product-prices] Error:', err?.message || err)
     
     // Categorize errors for better user feedback
     const isTimeout = err?.message?.includes('timeout') || err?.name === 'TimeoutError'
     const isNetwork = err?.message?.includes('net::') || err?.code === 'ENOTFOUND'
+    const isDisconnected = err?.message?.includes('disconnected')
+    const isNoResults = err?.message?.includes('failed to select')
     
-    const message = isTimeout 
-      ? 'Request timed out. Please try again.'
-      : isNetwork
-      ? 'Network error. Check your connection.'
-      : 'Failed to fetch prices. Please try again.'
+    let errorCode = 'UNKNOWN_ERROR'
+    let message = 'Failed to fetch prices. Please try again.'
+    
+    if (isTimeout) {
+      errorCode = 'TIMEOUT'
+      message = 'Price lookup timed out. The service may be slow - please try again.'
+    } else if (isNetwork) {
+      errorCode = 'NETWORK_ERROR'
+      message = 'Network error. Please check your connection.'
+    } else if (isDisconnected) {
+      errorCode = 'BROWSER_DISCONNECTED'
+      message = 'Connection lost. Please try again.'
+    } else if (isNoResults) {
+      errorCode = 'PRODUCT_NOT_FOUND'
+      message = 'Product not found. Try a different search term.'
+    }
     
     // Force cleanup on error
     try { await warmPage?.close() } catch {}
     warmPage = null
     
-    try { 
-      await browser?.close()
-    } catch {}
+    try { await browser?.close() } catch {}
     browser = null
     
     if (release) release()
     lock = null
     
-    // Only keep alive if there are other active requests
-    if (activeRequests === 0) {
-      keepAlive(keepAliveMs || SCRAPER_CONFIG.BROWSER_KEEP_ALIVE_MS)
-    }
-    
-    return NextResponse.json({ ok: false, error: message }, { status: 500 })
+    return NextResponse.json({ 
+      ok: false, 
+      error: message, 
+      errorCode,
+      retries: retryCount,
+      duration: Date.now() - startTime
+    }, { status: 500 })
   }
 }

@@ -228,7 +228,7 @@ export function useHebrewCity(
       return
     }
 
-    abortRef.current?.abort()
+    abortRef.current?.abort('refresh')
     const ac = new AbortController()
     abortRef.current = ac
 
@@ -281,22 +281,20 @@ export function useHebrewCity(
     refresh()
     return () => {
       mountedRef.current = false
-      abortRef.current?.abort()
+      abortRef.current?.abort('cleanup')
     }
   }, [refresh])
 
   // when toggling from enabled -> disabled, immediately cancel and set fallback
   useEffect(() => {
     if (!enabled) {
-      abortRef.current?.abort()
+      abortRef.current?.abort('disabled')
       setSafely(s => ({ ...s, city: fallback, loading: false, source: 'fallback', error: null }))
-    } else {
-      // when toggling back on, clear city immediately and kick off a fresh resolve
-      setSafely(s => ({ ...s, city: null, source: null, loading: true, error: null }))
-      refresh()
     }
+    // Note: we don't call refresh() here when enabled changes to true
+    // because the refresh callback itself depends on enabled and will trigger
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled])
+  }, [enabled, fallback])
 
   return { ...state, refresh }
 }

@@ -18,19 +18,32 @@ export default function NoteTypeSelector({createdNoteType}: NoteTypeSelectorProp
     const toggleButton = (e: React.MouseEvent) => {
 
         if (e.currentTarget.childNodes[0].textContent === "Items list") {
-            controls.start({left: "0.5em"})
+            controls.start({
+                left: "0.5em",
+                transition: { 
+                    type: "spring", 
+                    stiffness: 250, 
+                    damping: 12, 
+                    mass: 0.8,
+                    bounce: 0.5
+                }
+            })
             setSelectedNoteType("Items list")
             createdNoteType("Items list")
         }
 
         if (e.currentTarget.childNodes[0].textContent === "Note book") {
-            if (breakPoint) {
-                controls.start({left: "7.1em"})
-            }
-
-            else {
-                controls.start({left: "6.82em"})
-            }
+            const leftPosition = breakPoint ? "7.3em" : "7em"
+            controls.start({
+                left: leftPosition,
+                transition: { 
+                    type: "spring", 
+                    stiffness: 250, 
+                    damping: 12, 
+                    mass: 0.8,
+                    bounce: 0.5
+                }
+            })
             setSelectedNoteType("Note book")
             createdNoteType("Note book")
         }
@@ -42,7 +55,6 @@ export default function NoteTypeSelector({createdNoteType}: NoteTypeSelectorProp
             <MotionWrap
                 className={selectedNoteType === "Items list" ? styles.typeSelectionAreaList : styles.typeSelectionAreaBook}
                 animate={controls}       
-                transition={{ type: "spring", stiffness: 160, damping: 19, duration: 0.5, bounce: 0.2}}
             />
             <div 
                 onClick={toggleButton} 

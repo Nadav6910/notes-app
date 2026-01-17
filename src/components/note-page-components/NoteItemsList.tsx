@@ -17,20 +17,24 @@ import {
   CircularProgress,
   Accordion,
   AccordionSummary,
-  AccordionDetails
+  AccordionDetails,
+  Chip,
+  Tooltip,
+  LinearProgress,
+  Box,
+  Typography
 } from '@mui/material'
 import AnimatedCheckbox from "./AnimatedCheckbox"
 import { useRouter } from "next/navigation"
 import { useTheme } from 'next-themes'
 import { formatDate } from "@/lib/utils"
 import { AiOutlineSearch } from 'react-icons/ai'
-import { MdDelete } from 'react-icons/md'
-import { MdModeEditOutline } from 'react-icons/md'
+import { MdDelete, MdModeEditOutline, MdOutlineCancel, MdCheckCircle, MdRadioButtonUnchecked } from 'react-icons/md'
+import { HiUsers, HiUser } from 'react-icons/hi2'
 import NoNoteItemsDrawing from "@/SvgDrawings/NoNoteItemsDrawing"
 import { Entry } from "../../../types"
 import { FaPlus } from 'react-icons/fa'
-import { MdOutlineCancel } from 'react-icons/md'
-import { BsChevronDown } from 'react-icons/bs'
+import { BsChevronDown, BsListCheck, BsCheckAll } from 'react-icons/bs'
 import { useScroll, AnimatePresence } from 'framer-motion'
 import MotionWrap from "@/wrappers/MotionWrap"
 import SortingMenu from "./SortingMenu"
@@ -38,7 +42,6 @@ import SwitchNoteViewBtn from "./SwitchNoteViewBtn"
 import CategoriesSelector from "./CategoriesSelector"
 import FilterByCheckedSelector from "./FilterByCheckedSelector"
 import { ably, clientId } from "@/lib/Ably/Ably"
-import { kanit } from "@/fonts/fonts"
 import FlipNumbers from 'react-flip-numbers'
 import useChannelOccupancy from '../../app/hooks/useChannelOccupancy'
 
@@ -187,6 +190,16 @@ export default function NoteItemsList({ noteEntries, noteView, noteId }: { noteE
       return groups
     }, [])
   }, [filteredNoteItems])
+
+  // Compute item counts per category for the selector
+  const categoryItemCounts = useMemo(() => {
+    if (!noteItemsState) return {}
+    return noteItemsState.reduce((counts: Record<string, number>, item) => {
+      const category = !item.category || item.category === 'none' ? 'No Category' : item.category
+      counts[category] = (counts[category] || 0) + 1
+      return counts
+    }, {})
+  }, [noteItemsState])
 
   const addItemButtonRef = useRef<HTMLDivElement>(null)
 
@@ -417,13 +430,68 @@ export default function NoteItemsList({ noteEntries, noteView, noteId }: { noteE
   return (
     <>
       {noteEntries && noteEntries.length < 1 ? (
-        <div className={styles.noNoteItemsContainer}>
-          <NoNoteItemsDrawing />
-          <h3>No items in this note...</h3>
-          <div onClick={() => setOpenAddItemPopupEmpty(true)} className={styles.addItemToNoteEmptyNotes}>
-            <FaPlus />
-            <p>Add Item</p>
-          </div>
+        <MotionWrap
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, type: "spring" }}
+          className={styles.noNoteItemsContainer}
+        >
+          <Box
+            sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: 3,
+              p: 4,
+              borderRadius: 3,
+              bgcolor: 'var(--note-card-background-card-item)',
+              border: '1px solid var(--borders-color)',
+              boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
+              maxWidth: 400,
+              mx: 'auto'
+            }}
+          >
+            <NoNoteItemsDrawing />
+            <Box sx={{ textAlign: 'center' }}>
+              <Typography variant="h6" sx={{ color: 'var(--primary-color)', fontWeight: 600, mb: 1 }}>
+                Your list is empty
+              </Typography>
+              <Typography variant="body2" sx={{ color: 'var(--primary-color)', opacity: 0.6 }}>
+                Start adding items to your shopping list
+              </Typography>
+            </Box>
+            <Tooltip title="Add your first item" arrow placement="bottom">
+              <Box
+                onClick={() => setOpenAddItemPopupEmpty(true)} 
+                className={styles.addItemToNoteEmptyNotes}
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1,
+                  py: 1.5,
+                  px: 3,
+                  borderRadius: 2,
+                  bgcolor: 'var(--secondary-color)',
+                  color: '#fff',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+                  '&:hover': {
+                    transform: 'translateY(-2px)',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.2)'
+                  },
+                  '&:active': {
+                    transform: 'translateY(0)'
+                  }
+                }}
+              >
+                <FaPlus style={{ fontSize: '0.9rem' }} />
+                <Typography variant="button" sx={{ fontWeight: 600 }}>
+                  Add First Item
+                </Typography>
+              </Box>
+            </Tooltip>
+          </Box>
           {openAddItemPopupEmpty && (
             <AddNoteItemPopup
               isOpen={openAddItemPopupEmpty}
@@ -437,129 +505,188 @@ export default function NoteItemsList({ noteEntries, noteView, noteId }: { noteE
               onError={() => setOpenAddItemError(true)}
             />
           )}
-        </div>
+        </MotionWrap>
       ) : (
         <>
-          {/* Items counter */}
-          <h5 
-            style={{ 
-              marginBottom: '0.5em', 
-              alignSelf: 'flex-start', 
-              fontSize: '0.75rem', 
-              lineHeight: '1.2', 
-              display: "flex", 
-              gap: "0.35em" 
+          {/* Stats Dashboard */}
+          <Box 
+            sx={{ 
+              width: '100%', 
+              mb: 2,
+              p: 1.5,
+              borderRadius: 2,
+              bgcolor: 'var(--note-card-background-card-item)',
+              border: '1px solid var(--borders-color)',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
             }}
           >
-            <span 
-              style={{ 
-                display: 'inline-flex', 
-                alignItems: 'center', 
-                verticalAlign: 'middle', 
-                fontWeight: "bold"
+            {/* Items count row */}
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Chip
+                  icon={<BsListCheck style={{ fontSize: '0.9rem' }} />}
+                  label={
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                      <span style={{ fontWeight: 600 }}>
+                        <FlipNumbers
+                          key={`flip-total-${resolvedTheme}`}
+                          height={14}
+                          width={10}
+                          duration={1}
+                          numbers={filteredNoteItems?.length.toString()}
+                          play
+                          perspective={100}
+                          color={resolvedTheme === 'dark' ? 'white' : 'black'}
+                        />
+                      </span>
+                      <span>{filteredNoteItems?.length === 1 ? 'Item' : 'Items'}</span>
+                    </Box>
+                  }
+                  size="small"
+                  sx={{ 
+                    bgcolor: 'var(--secondary-color-faded)',
+                    color: 'var(--primary-color)',
+                    fontWeight: 500,
+                    '& .MuiChip-icon': { color: 'var(--secondary-color)' }
+                  }}
+                />
+                
+                <Chip
+                  icon={<MdCheckCircle style={{ fontSize: '0.85rem', color: '#4caf50' }} />}
+                  label={
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                      <span style={{ fontWeight: 600 }}>
+                        <FlipNumbers
+                          key={`flip-checked-${resolvedTheme}`}
+                          height={14}
+                          width={10}
+                          duration={1}
+                          numbers={ChecksCount.toString()}
+                          play
+                          perspective={100}
+                          color={'#4caf50'}
+                        />
+                      </span>
+                    </Box>
+                  }
+                  size="small"
+                  variant="outlined"
+                  sx={{ 
+                    borderColor: '#4caf5040',
+                    color: '#4caf50',
+                    '& .MuiChip-icon': { color: '#4caf50' }
+                  }}
+                />
+                
+                <Chip
+                  icon={<MdRadioButtonUnchecked style={{ fontSize: '0.85rem', color: 'var(--primary-color)' }} />}
+                  label={
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                      <span style={{ fontWeight: 600 }}>
+                        <FlipNumbers
+                          key={`flip-unchecked-${resolvedTheme}`}
+                          height={14}
+                          width={10}
+                          duration={1}
+                          numbers={UnCheckedCount.toString()}
+                          play
+                          perspective={100}
+                          color={resolvedTheme === 'dark' ? '#aaa' : '#666'}
+                        />
+                      </span>
+                    </Box>
+                  }
+                  size="small"
+                  variant="outlined"
+                  sx={{ 
+                    borderColor: 'var(--borders-color)',
+                    color: 'var(--primary-color)',
+                    opacity: 0.7,
+                    '& .MuiChip-icon': { opacity: 0.7 }
+                  }}
+                />
+              </Box>
+              
+              {/* Progress indicator */}
+              {filteredNoteItems.length > 0 && (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Typography variant="caption" sx={{ color: 'var(--primary-color)', opacity: 0.7 }}>
+                    {Math.round((ChecksCount / filteredNoteItems.length) * 100)}% complete
+                  </Typography>
+                  <Box sx={{ width: 60 }}>
+                    <LinearProgress 
+                      variant="determinate" 
+                      value={(ChecksCount / filteredNoteItems.length) * 100}
+                      sx={{
+                        height: 6,
+                        borderRadius: 3,
+                        bgcolor: 'var(--borders-color)',
+                        '& .MuiLinearProgress-bar': {
+                          bgcolor: ChecksCount === filteredNoteItems.length ? '#4caf50' : 'var(--secondary-color)',
+                          borderRadius: 3
+                        }
+                      }}
+                    />
+                  </Box>
+                </Box>
+              )}
+            </Box>
+            
+            {/* Occupancy indicator */}
+            <Box 
+              sx={{ 
+                mt: 1.5, 
+                pt: 1.5, 
+                borderTop: '1px solid var(--borders-color)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1
               }}
-              className={`${kanit.className}`} 
             >
-              <FlipNumbers
-                key={`flip-${resolvedTheme}`}
-                height={15.5}
-                width={11.5}
-                duration={1.5}
-                numbers={filteredNoteItems?.length.toString()}
-                play
-                perspective={100}
-                color={resolvedTheme === 'dark' ? 'white' : 'black'}
-              />
-            </span>
-            <span style={{paddingTop: "0.2em"}}>{filteredNoteItems?.length === 1 ? 'Item' : 'Items'} -</span>
-            <span 
-              style={{ 
-                display: 'inline-flex', 
-                alignItems: 'center', 
-                verticalAlign: 'middle',
-                fontWeight: "bold"
-              }}
-              className={`${kanit.className}`}
-            >
-              <FlipNumbers
-                key={`flip-${resolvedTheme}`}
-                height={15.5}
-                width={11.5}
-                duration={1.5}
-                numbers={ChecksCount.toString()}
-                play
-                perspective={100}
-                color={resolvedTheme === 'dark' ? 'white' : 'black'}
-              />
-            </span>
-            <span style={{ paddingTop: "0.2em" }}>Checked ●</span>
-            <span 
-              style={{ 
-                display: 'inline-flex', 
-                alignItems: 'center', 
-                verticalAlign: 'middle', 
-                fontWeight: "bold"
-              }}
-              className={`${kanit.className}`}
-            >
-              <FlipNumbers
-                key={`flip-${resolvedTheme}`}
-                height={15.5}
-                width={11.5}
-                duration={1.5}
-                numbers={UnCheckedCount.toString()}
-                play
-                perspective={100}
-                color={resolvedTheme === 'dark' ? 'white' : 'black'}
-              />
-            </span>
-            <span style={{ paddingTop: "0.2em" }}>Unchecked</span>
-          </h5>
-
-          {/* show occupancy */}
-          {(occupancy === 0 || occupancy === 1) ?
-          
-          <span 
-            style={{ marginBottom: '1em', alignSelf: 'flex-start', fontSize: '0.75rem', lineHeight: '1.2' }}
-            className={`${kanit.className}`} 
-          >
-            Note is being viewed only by you
-          </span> :
-
-          <h6
-            style={{ 
-              marginBottom: '1em', 
-              alignSelf: 'flex-start', 
-              fontSize: '0.75rem', 
-              lineHeight: '1.2', 
-              display: "flex", 
-              gap: "0.35em" 
-            }}
-          >
-            <span 
-              style={{ 
-                display: 'inline-flex', 
-                alignItems: 'center', 
-                verticalAlign: 'middle', 
-                fontWeight: "bold",
-                gap: "0.35em"
-              }}
-              className={`${kanit.className}`} 
-            >
-              <span>You and</span>
-              <FlipNumbers
-                key={`flip-${resolvedTheme}`}
-                height={12.5}
-                width={6.5}
-                duration={1.5}
-                numbers={(occupancy - 1).toString()}
-                play
-                perspective={100}
-                color={resolvedTheme === 'dark' ? 'white' : 'black'}
-              />
-              <span>{`other ${occupancy - 1 === 1 ? 'user' : 'users'} are viewing this note`}</span>
-            </span>
-          </h6>}
+              {(occupancy === 0 || occupancy === 1) ? (
+                <Chip
+                  icon={<HiUser style={{ fontSize: '0.85rem' }} />}
+                  label="Only you are viewing"
+                  size="small"
+                  variant="outlined"
+                  sx={{ 
+                    borderColor: 'var(--borders-color)',
+                    color: 'var(--primary-color)',
+                    opacity: 0.7,
+                    fontSize: '0.75rem'
+                  }}
+                />
+              ) : (
+                <Chip
+                  icon={<HiUsers style={{ fontSize: '0.85rem' }} />}
+                  label={
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                      <span>You +</span>
+                      <FlipNumbers
+                        key={`flip-occupancy-${resolvedTheme}`}
+                        height={12}
+                        width={8}
+                        duration={1}
+                        numbers={(occupancy - 1).toString()}
+                        play
+                        perspective={100}
+                        color={'var(--secondary-color)'}
+                      />
+                      <span>{occupancy - 1 === 1 ? 'user' : 'users'} viewing</span>
+                    </Box>
+                  }
+                  size="small"
+                  sx={{ 
+                    bgcolor: 'var(--secondary-color-faded)',
+                    color: 'var(--secondary-color)',
+                    fontWeight: 500,
+                    fontSize: '0.75rem',
+                    '& .MuiChip-icon': { color: 'var(--secondary-color)' }
+                  }}
+                />
+              )}
+            </Box>
+          </Box>
 
           {/* Toolbar: add items, sort, etc. */}
           <div style={{ display: "flex", justifyContent: "space-between", width: "100%" }}>
@@ -594,7 +721,8 @@ export default function NoteItemsList({ noteEntries, noteView, noteId }: { noteE
           {noteViewSelect === "categories" && (
             <CategoriesSelector 
               availableCategories={allCategories} 
-              filterByCategory={(category: string) => setFilterByCategory(category)} 
+              filterByCategory={(category: string) => setFilterByCategory(category)}
+              itemCounts={categoryItemCounts}
             />
           )}
 
@@ -617,7 +745,50 @@ export default function NoteItemsList({ noteEntries, noteView, noteId }: { noteE
           {/* Render items */}
           {noteViewSelect === "regular" ? (
             filteredNoteItems.length === 0 ? (
-              <p style={{ marginTop: "7em" }}>No Results...</p>
+              <Box 
+                sx={{ 
+                  mt: 6, 
+                  mb: 2,
+                  textAlign: 'center',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: 2
+                }}
+              >
+                <Box
+                  sx={{
+                    width: 80,
+                    height: 80,
+                    borderRadius: '50%',
+                    bgcolor: 'var(--secondary-color-faded)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                >
+                  <AiOutlineSearch style={{ fontSize: '2.5rem', color: 'var(--secondary-color)', opacity: 0.7 }} />
+                </Box>
+                <Typography variant="body1" sx={{ color: 'var(--primary-color)', fontWeight: 500 }}>
+                  No matching items
+                </Typography>
+                <Typography variant="body2" sx={{ color: 'var(--primary-color)', opacity: 0.6 }}>
+                  Try adjusting your search or filters
+                </Typography>
+                {searchTerm && (
+                  <Chip
+                    label="Clear search"
+                    onClick={() => setSearchTerm("")}
+                    onDelete={() => setSearchTerm("")}
+                    size="small"
+                    sx={{
+                      bgcolor: 'var(--secondary-color-faded)',
+                      color: 'var(--secondary-color)',
+                      '& .MuiChip-deleteIcon': { color: 'var(--secondary-color)' }
+                    }}
+                  />
+                )}
+              </Box>
             ) : (
               <List className={styles.noteListContainer} sx={{ width: '100%', borderRadius: "12px", boxShadow: "0px 2px 18px 3px rgba(0, 0, 0, 0.2)", padding: 0 }}>
                 {filteredNoteItems.map((entry, index) => {
@@ -675,7 +846,50 @@ export default function NoteItemsList({ noteEntries, noteView, noteId }: { noteE
             )
           ) : // Categories view
           filteredNoteItems.length === 0 ? (
-            <p style={{ marginTop: "7em", marginBottom: "1em", textAlign: "center" }}>No Results...</p>
+            <Box 
+              sx={{ 
+                mt: 6, 
+                mb: 2,
+                textAlign: 'center',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: 2
+              }}
+            >
+              <Box
+                sx={{
+                  width: 80,
+                  height: 80,
+                  borderRadius: '50%',
+                  bgcolor: 'var(--secondary-color-faded)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                <AiOutlineSearch style={{ fontSize: '2.5rem', color: 'var(--secondary-color)', opacity: 0.7 }} />
+              </Box>
+              <Typography variant="body1" sx={{ color: 'var(--primary-color)', fontWeight: 500 }}>
+                No matching items
+              </Typography>
+              <Typography variant="body2" sx={{ color: 'var(--primary-color)', opacity: 0.6 }}>
+                Try adjusting your search or filters
+              </Typography>
+              {searchTerm && (
+                <Chip
+                  label="Clear search"
+                  onClick={() => setSearchTerm("")}
+                  onDelete={() => setSearchTerm("")}
+                  size="small"
+                  sx={{
+                    bgcolor: 'var(--secondary-color-faded)',
+                    color: 'var(--secondary-color)',
+                    '& .MuiChip-deleteIcon': { color: 'var(--secondary-color)' }
+                  }}
+                />
+              )}
+            </Box>
           ) : (
             groupedNoteItems.map(group => (
               <AnimatePresence key={group.category}>
@@ -693,18 +907,54 @@ export default function NoteItemsList({ noteEntries, noteView, noteId }: { noteE
                     })}
                   >
                     <AccordionSummary expandIcon={<BsChevronDown className={styles.expandIcon} />} aria-controls="panel1a-content" id="panel1a-header">
-                      <div style={{ display: "flex", flexDirection: "column", gap: "0.5em" }}>
-                        <p>{group.category === "none" || group.category === null ? "No category" : group.category}</p>
-                        {group.data.length === 1 ? (
-                          <p style={{ fontSize: "0.75rem", color: "gray" }}>
-                            1 Item - {`${group.data.filter(entry => entry.isChecked).length}/${group.data.length}`}
-                          </p>
-                        ) : (
-                          <p style={{ fontSize: "0.75rem", color: "gray" }}>
-                            {group.data.length} Items - {`${group.data.filter(entry => entry.isChecked).length}/${group.data.length}`}
-                          </p>
-                        )}
-                      </div>
+                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, width: '100%' }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', pr: 1 }}>
+                          <Typography variant="body1" sx={{ fontWeight: 500, color: 'var(--primary-color)' }}>
+                            {group.category === "none" || group.category === null ? "No category" : group.category}
+                          </Typography>
+                          {group.data.filter(entry => entry.isChecked).length === group.data.length && (
+                            <Chip 
+                              icon={<BsCheckAll style={{ fontSize: '0.9rem' }} />}
+                              label="Complete" 
+                              size="small" 
+                              sx={{ 
+                                height: 20,
+                                fontSize: '0.65rem',
+                                bgcolor: '#4caf5020',
+                                color: '#4caf50',
+                                '& .MuiChip-icon': { color: '#4caf50' }
+                              }} 
+                            />
+                          )}
+                        </Box>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Typography variant="caption" sx={{ color: 'var(--primary-color)', opacity: 0.6 }}>
+                            {group.data.length} {group.data.length === 1 ? 'item' : 'items'}
+                          </Typography>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                            <Box sx={{ width: 40, mr: 0.5 }}>
+                              <LinearProgress 
+                                variant="determinate" 
+                                value={(group.data.filter(entry => entry.isChecked).length / group.data.length) * 100}
+                                sx={{
+                                  height: 4,
+                                  borderRadius: 2,
+                                  bgcolor: 'var(--borders-color)',
+                                  '& .MuiLinearProgress-bar': {
+                                    bgcolor: group.data.filter(entry => entry.isChecked).length === group.data.length 
+                                      ? '#4caf50' 
+                                      : 'var(--secondary-color)',
+                                    borderRadius: 2
+                                  }
+                                }}
+                              />
+                            </Box>
+                            <Typography variant="caption" sx={{ color: 'var(--primary-color)', opacity: 0.5 }}>
+                              {group.data.filter(entry => entry.isChecked).length}/{group.data.length}
+                            </Typography>
+                          </Box>
+                        </Box>
+                      </Box>
                     </AccordionSummary>
                     <AccordionDetails sx={{ padding: 0 }}>
                       <List className={styles.noteListContainer} sx={{ width: '100%', padding: 0 }}>
@@ -883,65 +1133,149 @@ export default function NoteItemsList({ noteEntries, noteView, noteId }: { noteE
       )}
 
       {showUserEntered && (
-        <Snackbar open={showUserEntered} autoHideDuration={2500} onClose={() => setShowUserEntered(false)} anchorOrigin={{ horizontal: "center", vertical: "bottom" }}>
-          <Alert onClose={() => setShowUserEntered(false)} severity="info" sx={{ width: '100%' }}>
-            User entered the note!
+        <Snackbar 
+          open={showUserEntered} 
+          autoHideDuration={3000} 
+          onClose={() => setShowUserEntered(false)} 
+          anchorOrigin={{ horizontal: "center", vertical: "bottom" }}
+        >
+          <Alert 
+            onClose={() => setShowUserEntered(false)} 
+            severity="info" 
+            icon={<HiUsers style={{ fontSize: '1.2rem' }} />}
+            sx={{ 
+              width: '100%',
+              bgcolor: 'var(--secondary-color)',
+              color: '#fff',
+              '& .MuiAlert-icon': { color: '#fff' },
+              '& .MuiAlert-action .MuiIconButton-root': { color: '#fff' },
+              borderRadius: 2,
+              boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
+            }}
+          >
+            👋 Someone joined the note!
           </Alert>
         </Snackbar>
       )}
 
       {showUserLeft && (
-        <Snackbar open={showUserLeft} autoHideDuration={2500} onClose={() => setShowUserLeft(false)} anchorOrigin={{ horizontal: "center", vertical: "bottom" }}>
-          <Alert onClose={() => setShowUserLeft(false)} severity="info" sx={{ width: '100%' }}>
-            User left the note!
+        <Snackbar 
+          open={showUserLeft} 
+          autoHideDuration={3000} 
+          onClose={() => setShowUserLeft(false)} 
+          anchorOrigin={{ horizontal: "center", vertical: "bottom" }}
+        >
+          <Alert 
+            onClose={() => setShowUserLeft(false)} 
+            severity="info" 
+            icon={<HiUser style={{ fontSize: '1.2rem' }} />}
+            sx={{ 
+              width: '100%',
+              bgcolor: 'var(--note-card-background-card-item)',
+              color: 'var(--primary-color)',
+              border: '1px solid var(--borders-color)',
+              '& .MuiAlert-icon': { color: 'var(--primary-color)' },
+              borderRadius: 2,
+              boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+            }}
+          >
+            User left the note
           </Alert>
         </Snackbar>
       )}
 
       {openError && (
-        <Snackbar open={openError} autoHideDuration={2500} onClose={() => setOpenError(false)} anchorOrigin={{ horizontal: "center", vertical: "bottom" }}>
-          <Alert onClose={() => setOpenError(false)} severity="error" sx={{ width: '100%' }}>
-            Error changing note status!
+        <Snackbar open={openError} autoHideDuration={4000} onClose={() => setOpenError(false)} anchorOrigin={{ horizontal: "center", vertical: "bottom" }}>
+          <Alert 
+            onClose={() => setOpenError(false)} 
+            severity="error" 
+            sx={{ 
+              width: '100%',
+              borderRadius: 2,
+              boxShadow: '0 4px 12px rgba(244,67,54,0.2)'
+            }}
+          >
+            ❌ Failed to update item status
           </Alert>
         </Snackbar>
       )}
 
       {openAddItemError && (
-        <Snackbar open={openAddItemError} autoHideDuration={2500} onClose={() => setOpenAddItemError(false)} anchorOrigin={{ horizontal: "center", vertical: "bottom" }}>
-          <Alert onClose={() => setOpenAddItemError(false)} severity="error" sx={{ width: '100%' }}>
-            Error adding new note item!
+        <Snackbar open={openAddItemError} autoHideDuration={4000} onClose={() => setOpenAddItemError(false)} anchorOrigin={{ horizontal: "center", vertical: "bottom" }}>
+          <Alert 
+            onClose={() => setOpenAddItemError(false)} 
+            severity="error" 
+            sx={{ 
+              width: '100%',
+              borderRadius: 2,
+              boxShadow: '0 4px 12px rgba(244,67,54,0.2)'
+            }}
+          >
+            ❌ Failed to add item
           </Alert>
         </Snackbar>
       )}
 
       {openDeleteItemError && (
-        <Snackbar open={openDeleteItemError} autoHideDuration={2500} onClose={() => setOpenDeleteItemError(false)} anchorOrigin={{ horizontal: "center", vertical: "bottom" }}>
-          <Alert onClose={() => setOpenDeleteItemError(false)} severity="error" sx={{ width: '100%' }}>
-            Error deleting note item!
+        <Snackbar open={openDeleteItemError} autoHideDuration={4000} onClose={() => setOpenDeleteItemError(false)} anchorOrigin={{ horizontal: "center", vertical: "bottom" }}>
+          <Alert 
+            onClose={() => setOpenDeleteItemError(false)} 
+            severity="error" 
+            sx={{ 
+              width: '100%',
+              borderRadius: 2,
+              boxShadow: '0 4px 12px rgba(244,67,54,0.2)'
+            }}
+          >
+            ❌ Failed to delete item
           </Alert>
         </Snackbar>
       )}
 
       {openRenameItemError && (
-        <Snackbar open={openRenameItemError} autoHideDuration={2500} onClose={() => setOpenRenameItemError(false)} anchorOrigin={{ horizontal: "center", vertical: "bottom" }}>
-          <Alert onClose={() => setOpenRenameItemError(false)} severity="error" sx={{ width: '100%' }}>
-            Error renaming note item!
+        <Snackbar open={openRenameItemError} autoHideDuration={4000} onClose={() => setOpenRenameItemError(false)} anchorOrigin={{ horizontal: "center", vertical: "bottom" }}>
+          <Alert 
+            onClose={() => setOpenRenameItemError(false)} 
+            severity="error" 
+            sx={{ 
+              width: '100%',
+              borderRadius: 2,
+              boxShadow: '0 4px 12px rgba(244,67,54,0.2)'
+            }}
+          >
+            ❌ Failed to rename item
           </Alert>
         </Snackbar>
       )}
 
       {openSetPriorityError && (
-        <Snackbar open={openSetPriorityError} autoHideDuration={2500} onClose={() => setOpenSetPriorityError(false)} anchorOrigin={{ horizontal: "center", vertical: "bottom" }}>
-          <Alert onClose={() => setOpenSetPriorityError(false)} severity="error" sx={{ width: '100%' }}>
-            Error setting note item priority!
+        <Snackbar open={openSetPriorityError} autoHideDuration={4000} onClose={() => setOpenSetPriorityError(false)} anchorOrigin={{ horizontal: "center", vertical: "bottom" }}>
+          <Alert 
+            onClose={() => setOpenSetPriorityError(false)} 
+            severity="error" 
+            sx={{ 
+              width: '100%',
+              borderRadius: 2,
+              boxShadow: '0 4px 12px rgba(244,67,54,0.2)'
+            }}
+          >
+            ❌ Failed to update priority
           </Alert>
         </Snackbar>
       )}
 
       {openSetCategoryError && (
-        <Snackbar open={openSetCategoryError} autoHideDuration={2500} onClose={() => setOpenSetCategoryError(false)} anchorOrigin={{ horizontal: "center", vertical: "bottom" }}>
-          <Alert onClose={() => setOpenSetCategoryError(false)} severity="error" sx={{ width: '100%' }}>
-            Error setting note item category!
+        <Snackbar open={openSetCategoryError} autoHideDuration={4000} onClose={() => setOpenSetCategoryError(false)} anchorOrigin={{ horizontal: "center", vertical: "bottom" }}>
+          <Alert 
+            onClose={() => setOpenSetCategoryError(false)} 
+            severity="error" 
+            sx={{ 
+              width: '100%',
+              borderRadius: 2,
+              boxShadow: '0 4px 12px rgba(244,67,54,0.2)'
+            }}
+          >
+            ❌ Failed to update category
           </Alert>
         </Snackbar>
       )}

@@ -3,6 +3,7 @@
   --menu-background-color: #2a3d53;
   --primary-color: white;
   --secondary-color: #19a29b;
+  --primary-color-text-contrast: #000000;
   --secondary-color-faded: #19a29b22;
   --borders-color: #868383;
   --google-button-background-hover: rgb(187, 183, 183);
@@ -19,6 +20,7 @@
   --menu-background-color: #c7cbce;
   --primary-color: black;
   --secondary-color: #610c62;
+  --primary-color-text-contrast: #ffffff;
   --secondary-color-faded: #600c623f;
   --borders-color: #887c7c;
   --google-button-background-hover: rgb(207, 197, 197);

@@ -8,6 +8,7 @@ import { SCRAPER_CONFIG, SCRAPER_URLS } from '@/lib/scraper-config'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
+export const maxDuration = 30 // Vercel timeout
 
 type RequestBody = {
   itemName: string
@@ -27,8 +28,8 @@ export type AutocompleteSuggestion = {
 
 const { HOME, ADDRESS_SEL, PRODUCT_SEL } = SCRAPER_URLS
 
-// Cache implementation
-const cache = new Map<string, { data: any, expiry: number }>()
+// Cache implementation with better structure
+const cache = new Map<string, { data: any, expiry: number, timestamp: number }>()
 
 function getCached(key: string) {
   const entry = cache.get(key)
@@ -40,10 +41,17 @@ function getCached(key: string) {
 function setCache(key: string, data: any, ttlMs = SCRAPER_CONFIG.CACHE_TTL_MS) {
   // Implement simple LRU: if cache is full, delete oldest
   if (cache.size >= SCRAPER_CONFIG.CACHE_MAX_ENTRIES) {
-    const firstKey = cache.keys().next().value
-    if (firstKey) cache.delete(firstKey)
+    let oldestKey: string | null = null
+    let oldestTime = Infinity
+    for (const [k, v] of cache.entries()) {
+      if (v.timestamp < oldestTime) {
+        oldestTime = v.timestamp
+        oldestKey = k
+      }
+    }
+    if (oldestKey) cache.delete(oldestKey)
   }
-  cache.set(key, { data, expiry: Date.now() + ttlMs })
+  cache.set(key, { data, expiry: Date.now() + ttlMs, timestamp: Date.now() })
 }
 
 // ---------- resolve a Chrome/Chromium executable path cross-platform ----------
@@ -240,16 +248,16 @@ async function ensureJQueryUI(page: Page) {
   }, ADDRESS_SEL, PRODUCT_SEL)
 }
 
-async function openWidgetAndGetListId(page: Page, selector: string, value: string) {
-  const data = await page.evaluate(async (sel: string, v: string) => {
+async function openWidgetAndGetListId(page: Page, selector: string, value: string, timeoutMs = 8000) {
+  const data = await page.evaluate(async (sel: string, v: string, timeout: number) => {
     // @ts-ignore
     const $ = (window as any).jQuery
     const el = $(sel)
-    if (!el.length || !el.autocomplete) return { id: null as string | null, stamp: null as string | null }
+    if (!el.length || !el.autocomplete) return { id: null as string | null, stamp: null as string | null, hasResults: false }
 
     el.autocomplete('close')
     const widget = el.autocomplete('widget')
-    if (!widget || !widget.length) return { id: null, stamp: null }
+    if (!widget || !widget.length) return { id: null, stamp: null, hasResults: false }
 
     let id = widget.attr('id')
     if (!id) {
@@ -260,18 +268,27 @@ async function openWidgetAndGetListId(page: Page, selector: string, value: strin
     widget.removeAttr('data-stamp')
 
     const stamp = `${Date.now()}-${Math.random().toString(36).slice(2)}`
+    
     const once = () =>
-      new Promise<{ id: string, stamp: string }>(resolve => {
-        el.one('autocompleteresponse', () => {
+      new Promise<{ id: string, stamp: string, hasResults: boolean }>((resolve, reject) => {
+        // Set a timeout in case autocomplete never responds
+        const timer = setTimeout(() => {
           widget.attr('data-stamp', stamp)
-          resolve({ id: id!, stamp })
+          resolve({ id: id!, stamp, hasResults: false })
+        }, timeout - 1000)
+        
+        el.one('autocompleteresponse', (_: any, ui: any) => {
+          clearTimeout(timer)
+          widget.attr('data-stamp', stamp)
+          const hasResults = ui?.content?.length > 0
+          resolve({ id: id!, stamp, hasResults })
         })
         el.val(v)
         el.autocomplete('search', v)
       })
 
     return await once()
-  }, selector, value)
+  }, selector, value, timeoutMs)
 
   if (!data.id || !data.stamp) throw new Error(`no widget id for ${selector}`)
 
@@ -280,7 +297,7 @@ async function openWidgetAndGetListId(page: Page, selector: string, value: strin
     return !!ul && ul.getAttribute('data-stamp') === stamp
   }, {}, data.id, data.stamp)
 
-  return data.id
+  return { listId: data.id, hasResults: data.hasResults }
 }
 
 async function clickFirstByListId(page: Page, listId: string) {
@@ -379,8 +396,141 @@ function buildScrapeFn() {
   }
 }
 
+// City name normalization - handle spelling variations
+function normalizeCityName(city: string): string {
+  return city
+    .trim()
+    .toLowerCase()
+    // Common spelling variations
+    .replace(/קרי[יה]ת/g, 'קריית')  // קרית or קריה -> קריית
+    .replace(/קרי[יה]/g, 'קרי')      // קרי or קריה -> קרי
+    .replace(/בא[ה]?ר/g, 'באר')    // באר or באהר -> באר
+    .replace(/יפו/g, 'יפו')          // normalize יפו
+    .replace(/תל[\s-]אביב/g, 'תל אביב')  // normalize Tel Aviv spacing
+    // Normalize dashes and spaces
+    .replace(/[\s-]+/g, ' ')
+    .trim()
+}
+
+// Generate alternate spellings for a city name
+function generateAlternateSpellings(city: string): string[] {
+  const alternates: string[] = [city]
+  const trimmed = city.trim()
+  
+  // קריית <-> קרית variations
+  if (trimmed.includes('קריית')) {
+    alternates.push(trimmed.replace(/קריית/g, 'קרית'))
+    alternates.push(trimmed.replace(/קריית/g, 'קריית'))
+  } else if (trimmed.includes('קרית')) {
+    alternates.push(trimmed.replace(/קרית/g, 'קריית'))
+    alternates.push(trimmed.replace(/קרית/g, 'קריית'))
+  }
+  
+  // ה ending variations
+  if (trimmed.endsWith('ה')) {
+    alternates.push(trimmed.slice(0, -1) + 'א')
+  } else if (trimmed.endsWith('א')) {
+    alternates.push(trimmed.slice(0, -1) + 'ה')
+  }
+  
+  return [...new Set(alternates)] // Remove duplicates
+}
+
+// Normalized city lookup - try exact match first, then normalized match
+function findCityInMap<T>(city: string, map: Record<string, T>): T | undefined {
+  // Try exact match
+  if (map[city]) return map[city]
+  
+  // Try normalized match
+  const normalized = normalizeCityName(city)
+  const mapEntries = Object.entries(map)
+  
+  for (const [key, value] of mapEntries) {
+    if (normalizeCityName(key) === normalized) {
+      return value
+    }
+  }
+  
+  return undefined
+}
+
+// Major cities fallback map - when a small city isn't found, use nearest major city
+const CITY_FALLBACK: Record<string, string> = {
+  'קריית ים': 'חיפה',
+  'קרית ים': 'חיפה',  // spelling variation
+  'קריית אתא': 'חיפה',
+  'קרית אתא': 'חיפה',  // spelling variation
+  'קריית ביאליק': 'חיפה',
+  'קרית ביאליק': 'חיפה',  // spelling variation
+  'קריית מוצקין': 'חיפה',
+  'קרית מוצקין': 'חיפה',  // spelling variation
+  'טירת כרמל': 'חיפה',
+  'נשר': 'חיפה',
+  'כרמיאל': 'חיפה',
+  'עכו': 'חיפה',
+  'נהריה': 'חיפה',
+  'נהרייה': 'חיפה',  // spelling variation
+  'קריית שמונה': 'חיפה',
+  'קרית שמונה': 'חיפה',  // spelling variation
+  'צפת': 'חיפה',
+  'טבריה': 'חיפה',
+  'טבריא': 'חיפה',  // spelling variation
+  'עפולה': 'חיפה',
+  'נצרת': 'חיפה',
+  'מגדל העמק': 'חיפה',
+  'רמת גן': 'תל אביב',
+  'גבעתיים': 'תל אביב',
+  'בני ברק': 'תל אביב',
+  'חולון': 'תל אביב',
+  'בת ים': 'תל אביב',
+  'הרצליה': 'תל אביב',
+  'הרצלייה': 'תל אביב',  // spelling variation
+  'רעננה': 'תל אביב',
+  'כפר סבא': 'תל אביב',
+  'הוד השרון': 'תל אביב',
+  'רמת השרון': 'תל אביב',
+  'פתח תקווה': 'תל אביב',
+  'פתח תקוה': 'תל אביב',  // spelling variation
+  'ראש העין': 'תל אביב',
+  'יהוד': 'תל אביב',
+  'אור יהודה': 'תל אביב',
+  'קריית אונו': 'תל אביב',
+  'קרית אונו': 'תל אביב',  // spelling variation
+  'ראשון לציון': 'תל אביב',
+  'נס ציונה': 'תל אביב',
+  'נס ציונא': 'תל אביב',  // spelling variation
+  'רחובות': 'תל אביב',
+  'לוד': 'תל אביב',
+  'רמלה': 'תל אביב',
+  'מודיעין': 'תל אביב',
+  'מודיעין מכבים רעות': 'תל אביב',
+  'אשדוד': 'באר שבע',
+  'אשקלון': 'באר שבע',
+  'קריית גת': 'באר שבע',
+  'קרית גת': 'באר שבע',  // spelling variation
+  'שדרות': 'באר שבע',
+  'נתיבות': 'באר שבע',
+  'אופקים': 'באר שבע',
+  'דימונה': 'באר שבע',
+  'דימונא': 'באר שבע',  // spelling variation
+  'ערד': 'באר שבע',
+  'אילת': 'באר שבע',
+}
+
+// ---------- timeout utility ----------
+function withTimeout<T>(promise: Promise<T>, ms: number, errorMsg: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(errorMsg)), ms)
+    promise
+      .then(val => { clearTimeout(timer); resolve(val) })
+      .catch(err => { clearTimeout(timer); reject(err) })
+  })
+}
+
 // ---------- route ----------
 export async function POST(req: Request) {
+  const startTime = Date.now()
+  
   const { 
     itemName, 
     maxResults = SCRAPER_CONFIG.AUTOCOMPLETE_MAX_RESULTS, 
@@ -389,73 +539,197 @@ export async function POST(req: Request) {
   } = await req.json() as RequestBody
 
   if (!itemName || itemName.trim().length < 2) {
-    return NextResponse.json({ ok: false, error: 'itemName too short' }, { status: 400 })
+    return NextResponse.json({ ok: false, error: 'itemName too short', errorCode: 'INVALID_INPUT' }, { status: 400 })
   }
 
   // Check cache first
-  const cacheKey = `autocomplete:${itemName.trim()}:${locationName}`
+  const cacheKey = `autocomplete:${itemName.trim().toLowerCase()}:${locationName}`
   const cached = getCached(cacheKey)
   if (cached) {
-    return NextResponse.json(cached, { status: 200 })
+    return NextResponse.json({ ...cached, fromCache: true }, { status: 200 })
   }
 
   let page: Page | null = null
-  try {
-    page = await acquirePage()
-    await ensureJQueryUI(page)
-
-    // 1) Address
-    const addrListId = await openWidgetAndGetListId(page, ADDRESS_SEL, locationName)
-    await clickFirstByListId(page, addrListId)
-    await page.waitForFunction(() => {
-      const city = document.querySelector<HTMLInputElement>('#shopping_address_city_id')
-      const street = document.querySelector<HTMLInputElement>('#shopping_address_street_id')
-      return !!((city && city.value && city.value !== '0') || (street && street.value && street.value !== '0'))
-    })
-
-    // 2) Product
-    const productListId = await openWidgetAndGetListId(page, PRODUCT_SEL, itemName.trim())
-    const suggestions = await page.evaluate(buildScrapeFn(), productListId, maxResults)
-
-    await releasePage(keepAliveMs)
-    
-    const result = { ok: true, count: suggestions.length, suggestions }
-    setCache(cacheKey, result)
-    
-    return NextResponse.json(result, { status: 200 })
-  } 
+  let retryCount = 0
+  let usedFallbackCity = false
+  let actualCity = locationName
   
-  catch (err: any) {
-    activeRequests--
-    console.error('[auto-complete-products-search] Error:', err)
+  const executeSearch = async (): Promise<any> => {
+    try {
+      page = await withTimeout(
+        acquirePage(),
+        10_000,
+        'Browser initialization timed out'
+      )
+      
+      await withTimeout(
+        ensureJQueryUI(page),
+        5_000,
+        'Page initialization timed out'
+      )
+
+      // 1) Address - with timeout and alternate spelling support
+      let addrResult = await withTimeout(
+        openWidgetAndGetListId(page, ADDRESS_SEL, actualCity),
+        8_000,
+        'Address lookup timed out'
+      )
+      
+      // If no results, try alternate spellings of the same city
+      if (!addrResult.hasResults) {
+        const alternates = generateAlternateSpellings(actualCity)
+        for (const altCity of alternates.slice(1)) { // Skip first (original)
+          console.log(`[auto-complete] Trying alternate spelling "${altCity}"`)
+          try {
+            addrResult = await withTimeout(
+              openWidgetAndGetListId(page, ADDRESS_SEL, altCity),
+              8_000,
+              'Address lookup timed out (alternate)'
+            )
+            if (addrResult.hasResults) {
+              actualCity = altCity
+              console.log(`[auto-complete] Found city with alternate spelling: "${altCity}"`)
+              break
+            }
+          } catch {
+            continue
+          }
+        }
+      }
+      
+      // If still no results, try a fallback major city
+      if (!addrResult.hasResults) {
+        const fallbackCity = findCityInMap(actualCity, CITY_FALLBACK)
+        if (fallbackCity) {
+          console.log(`[auto-complete] City "${actualCity}" not found, falling back to "${fallbackCity}"`)
+          
+          addrResult = await withTimeout(
+            openWidgetAndGetListId(page, ADDRESS_SEL, fallbackCity),
+            8_000,
+            'Address lookup timed out (fallback)'
+          )
+          usedFallbackCity = true
+          actualCity = fallbackCity
+        }
+      }
+      
+      // If still no results, use default city
+      if (!addrResult.hasResults) {
+        console.log(`[auto-complete] All attempts failed, using default "${SCRAPER_CONFIG.DEFAULT_CITY}"`)
+        addrResult = await withTimeout(
+          openWidgetAndGetListId(page, ADDRESS_SEL, SCRAPER_CONFIG.DEFAULT_CITY),
+          8_000,
+          'Address lookup timed out (default)'
+        )
+        usedFallbackCity = true
+        actualCity = SCRAPER_CONFIG.DEFAULT_CITY
+      }
+      
+      await clickFirstByListId(page, addrResult.listId)
+      
+      await withTimeout(
+        page.waitForFunction(() => {
+          const city = document.querySelector<HTMLInputElement>('#shopping_address_city_id')
+          const street = document.querySelector<HTMLInputElement>('#shopping_address_street_id')
+          return !!((city && city.value && city.value !== '0') || (street && street.value && street.value !== '0'))
+        }),
+        5_000,
+        'Address selection timed out'
+      )
+
+      // 2) Product - with timeout
+      const productResult = await withTimeout(
+        openWidgetAndGetListId(page, PRODUCT_SEL, itemName.trim()),
+        10_000,
+        'Product search timed out'
+      )
+      const suggestions = await page.evaluate(buildScrapeFn(), productResult.listId, maxResults)
+
+      await releasePage(keepAliveMs)
+      
+      const duration = Date.now() - startTime
+      const result = { 
+        ok: true, 
+        count: suggestions.length, 
+        suggestions, 
+        duration,
+        usedFallbackCity,
+        actualCity: usedFallbackCity ? actualCity : undefined
+      }
+      setCache(cacheKey, result)
+      
+      return NextResponse.json(result, { status: 200 })
+    } 
+    catch (err: any) {
+      // Retry logic for certain errors
+      const isRetryable = err?.message?.includes('timeout') || 
+                          err?.message?.includes('net::') ||
+                          err?.message?.includes('disconnected')
+      
+      if (isRetryable && retryCount < SCRAPER_CONFIG.MAX_RETRIES) {
+        retryCount++
+        console.log(`[auto-complete-products-search] Retry ${retryCount}/${SCRAPER_CONFIG.MAX_RETRIES}`)
+        
+        // Force cleanup before retry
+        try { await warmPage?.close() } catch {}
+        warmPage = null
+        
+        if (release) release()
+        lock = null
+        
+        await new Promise(r => setTimeout(r, SCRAPER_CONFIG.RETRY_DELAY_MS))
+        return executeSearch()
+      }
+      
+      throw err
+    }
+  }
+
+  try {
+    return await withTimeout(
+      executeSearch(),
+      SCRAPER_CONFIG.AUTOCOMPLETE_TIMEOUT_MS,
+      'Request timed out'
+    )
+  } catch (err: any) {
+    activeRequests = Math.max(0, activeRequests - 1)
+    console.error('[auto-complete-products-search] Error:', err?.message || err)
     
     // Categorize errors for better user feedback
     const isTimeout = err?.message?.includes('timeout') || err?.name === 'TimeoutError'
     const isNetwork = err?.message?.includes('net::') || err?.code === 'ENOTFOUND'
+    const isDisconnected = err?.message?.includes('disconnected')
     
-    const message = isTimeout 
-      ? 'Request timed out. Please try again.'
-      : isNetwork
-      ? 'Network error. Check your connection.'
-      : 'Failed to fetch suggestions. Please try again.'
+    let errorCode = 'UNKNOWN_ERROR'
+    let message = 'Failed to fetch suggestions. Please try again.'
+    
+    if (isTimeout) {
+      errorCode = 'TIMEOUT'
+      message = 'Search timed out. The service may be slow - please try again.'
+    } else if (isNetwork) {
+      errorCode = 'NETWORK_ERROR'
+      message = 'Network error. Please check your connection.'
+    } else if (isDisconnected) {
+      errorCode = 'BROWSER_DISCONNECTED'
+      message = 'Connection lost. Please try again.'
+    }
     
     // Force cleanup on error
     try { await warmPage?.close() } catch {}
     warmPage = null
     
-    try { 
-      await browser?.close()
-    } catch {}
+    try { await browser?.close() } catch {}
     browser = null
     
     if (release) release()
     lock = null
     
-    // Only keep alive if there are other active requests
-    if (activeRequests === 0) {
-      keepAlive(keepAliveMs || SCRAPER_CONFIG.BROWSER_KEEP_ALIVE_MS)
-    }
-    
-    return NextResponse.json({ ok: false, error: message }, { status: 500 })
+    return NextResponse.json({ 
+      ok: false, 
+      error: message, 
+      errorCode,
+      retries: retryCount,
+      duration: Date.now() - startTime
+    }, { status: 500 })
   }
 }

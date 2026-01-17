@@ -3,6 +3,9 @@
 import styles from "../../app/my-notes/note/[noteId]/styles/notePage.module.css";
 import { MdOutlineRemoveDone, MdOutlineDoneAll } from "react-icons/md";
 import MotionWrap from "@/wrappers/MotionWrap";
+import { Tooltip } from "@mui/material";
+import { m, LazyMotion, domAnimation } from "framer-motion";
+import { useState } from "react";
 
 export default function SwitchCheckedBtn({
   changeFilterView,
@@ -11,6 +14,8 @@ export default function SwitchCheckedBtn({
   changeFilterView: (view: string) => void
   currentFilterView: string
 }) {
+
+  const [hoveredButton, setHoveredButton] = useState<string | null>(null)
 
   const variants = {
     hidden: {
@@ -50,51 +55,91 @@ export default function SwitchCheckedBtn({
     }
   }
 
-  return (
-    <div className={(currentFilterView === "checked" || currentFilterView === "unchecked") ? styles.filterNoteItemsSwitchBtnContainerSelected : styles.filterNoteItemsSwitchBtnContainer}>
-      <MotionWrap
-        className={
-          currentFilterView !== "checked" && currentFilterView !== "unchecked"
-            ? styles.notSelectedArea
-            : currentFilterView === "checked"
-            ? styles.selectedAreaRegular
-            : styles.selectedAreaCategories
-        }
-        variants={variants}
-        initial="hidden"
-        animate={
-          currentFilterView === "checked"
-            ? "checked"
-            : currentFilterView === "unchecked"
-            ? "unchecked"
-            : "hidden"
-        }
-        transition={{
-          type: "spring",
-          stiffness: 150,
-          damping: 20,
-          duration: 0.4,
-          bounce: 0.1
-        }}
-      />
+  const isEitherSelected = currentFilterView === "checked" || currentFilterView === "unchecked"
 
-      <div
-        className={styles.checkedFilterViewBtnContainer}
-        onClick={checkedSwitch}
-      >
-        <MdOutlineDoneAll className={currentFilterView === "checked" ? styles.selectedCheckIcon : "none"} />
+  return (
+    <LazyMotion features={domAnimation}>
+      <div className={isEitherSelected ? styles.filterNoteItemsSwitchBtnContainerSelected : styles.filterNoteItemsSwitchBtnContainer}>
+        <MotionWrap
+          className={
+            !isEitherSelected
+              ? styles.notSelectedArea
+              : currentFilterView === "checked"
+              ? styles.selectedAreaRegular
+              : styles.selectedAreaCategories
+          }
+          variants={variants}
+          initial="hidden"
+          animate={
+            currentFilterView === "checked"
+              ? "checked"
+              : currentFilterView === "unchecked"
+              ? "unchecked"
+              : "hidden"
+          }
+          transition={{
+            type: "spring",
+            stiffness: 300,
+            damping: 25,
+          }}
+        />
+
+        <Tooltip title="Show completed" arrow placement="top" enterDelay={400}>
+          <m.div
+            className={styles.checkedFilterViewBtnContainer}
+            onClick={checkedSwitch}
+            animate={hoveredButton === "checked" && currentFilterView !== "checked" ? {
+              y: 3,
+              boxShadow: '0 1px 3px rgba(0, 0, 0, 0.15)'
+            } : {
+              y: 0,
+              boxShadow: '0 0 0px rgba(0, 0, 0, 0)'
+            }}
+            transition={{
+              type: "spring",
+              stiffness: 150,
+              damping: 15,
+              mass: 0.8
+            }}
+            onHoverStart={() => setHoveredButton("checked")}
+            onHoverEnd={() => setHoveredButton(null)}
+          >
+            <MdOutlineDoneAll 
+              className={currentFilterView === "checked" ? styles.selectedCheckIcon : "none"} 
+              style={{ fontSize: '1.1rem' }}
+            />
+          </m.div>
+        </Tooltip>
+        <div 
+          className={isEitherSelected ? styles.dividerSelected : styles.divider} 
+        />
+        <Tooltip title="Show pending" arrow placement="top" enterDelay={400}>
+          <m.div
+            className={styles.uncheckedFilterViewBtnContainer}
+            onClick={uncheckedSwitch}
+            animate={hoveredButton === "unchecked" && currentFilterView !== "unchecked" ? {
+              y: 3,
+              boxShadow: '0 1px 3px rgba(0, 0, 0, 0.15)'
+            } : {
+              y: 0,
+              boxShadow: '0 0 0px rgba(0, 0, 0, 0)'
+            }}
+            transition={{
+              type: "spring",
+              stiffness: 150,
+              damping: 15,
+              mass: 0.8
+            }}
+            onHoverStart={() => setHoveredButton("unchecked")}
+            onHoverEnd={() => setHoveredButton(null)}
+          >
+            <MdOutlineRemoveDone 
+              className={currentFilterView === "unchecked" ? styles.selectedUncheckIcon : "none"} 
+              style={{ fontSize: '1.1rem' }}
+            />
+          </m.div>
+        </Tooltip>
       </div>
-      <div 
-        className={
-          (currentFilterView === "checked" || currentFilterView === "unchecked") ? styles.dividerSelected : styles.divider
-        } 
-      />
-      <div
-        className={styles.uncheckedFilterViewBtnContainer}
-        onClick={uncheckedSwitch}
-      >
-        <MdOutlineRemoveDone className={currentFilterView === "unchecked" ? styles.selectedUncheckIcon : "none"} />
-      </div>
-    </div>
+    </LazyMotion>
   )
 }

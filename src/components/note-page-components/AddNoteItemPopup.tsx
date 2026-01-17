@@ -1,16 +1,17 @@
 import styles from '../../app/my-notes/styles/myNotes.module.css'
-import { useState, useEffect, useRef, forwardRef, useMemo } from 'react'
+import { useState, useEffect, useRef, forwardRef, useMemo, useCallback } from 'react'
+import Image from 'next/image'
 import {
   Button, Dialog, DialogActions, DialogContent, DialogTitle, Slide,
   CircularProgress, FormControlLabel, RadioGroup, FormControl, Radio as MuiRadio,
   InputLabel, Select, MenuItem, Divider, TextField, Autocomplete,
   ListItem, ListItemAvatar, Avatar, ListItemText, InputAdornment, Box, Chip, Table, 
   TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Typography,
-  Checkbox
+  Checkbox, Skeleton, Alert, LinearProgress
 } from '@mui/material'
 import { useForm, Controller } from 'react-hook-form'
 import { TransitionProps } from '@mui/material/transitions'
-import { MdOutlineDriveFileRenameOutline } from 'react-icons/md'
+import { MdOutlineDriveFileRenameOutline, MdRefresh } from 'react-icons/md'
 import { IoMdArrowDropdown, IoMdRefresh } from 'react-icons/io'
 import { AddNoteItemFormValues, AddNoteItemPopupProps } from '../../../types'
 import MotionWrap from '@/wrappers/MotionWrap'
@@ -42,7 +43,7 @@ type AutocompleteSuggestion = {
   priceRange: string | null
 }
 
-  type StorePriceRow = {
+type StorePriceRow = {
   chain: string
   branch: string
   address: string | null
@@ -52,11 +53,23 @@ type AutocompleteSuggestion = {
   price: string | null
 }
 
+type ProductMetadata = {
+  productImage: string | null
+  productName: string | null
+  priceGapPercent: number | null
+  locationText: string | null
+}
+
 type GetPricesResponse =
-  | { ok: true, count: number, rows: StorePriceRow[] }
-  | { ok: false, error: string }
+  | { ok: true, count: number, rows: StorePriceRow[], metadata?: ProductMetadata, fromCache?: boolean, duration?: number, usedFallbackCity?: boolean, actualCity?: string }
+  | { ok: false, error: string, errorCode?: string, retries?: number, duration?: number }
+
+type AutocompleteResponse =
+  | { ok: true, count: number, suggestions: AutocompleteSuggestion[], fromCache?: boolean, duration?: number }
+  | { ok: false, error: string, errorCode?: string, retries?: number, duration?: number }
 
 const DEBOUNCE_MS = SCRAPER_CONFIG.DEBOUNCE_MS
+const REQUEST_TIMEOUT_MS = 25_000 // Client-side timeout
 
 export default function AddNoteItemPopup (
   { isOpen, setIsOpen, clientId, noteId, onAdd, onError }: AddNoteItemPopupProps
@@ -70,13 +83,22 @@ export default function AddNoteItemPopup (
   const [selectedProduct, setSelectedProduct] = useState<SelectedProduct | null>(null)
   const [pricesLoading, setPricesLoading] = useState(false)
   const [pricesError, setPricesError] = useState<string | null>(null)
+  const [pricesErrorCode, setPricesErrorCode] = useState<string | null>(null)
   const [pricesRows, setPricesRows] = useState<StorePriceRow[] | null>(null)
+  const [pricesFromCache, setPricesFromCache] = useState(false)
+  const [pricesFetchDuration, setPricesFetchDuration] = useState<number | null>(null)
+  const [actualCityUsed, setActualCityUsed] = useState<string | null>(null)
+  const [productMetadata, setProductMetadata] = useState<ProductMetadata | null>(null)
+  const [sortBy, setSortBy] = useState<'chain' | 'price'>('price')
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
 
   const [acOpen, setAcOpen] = useState(false)
   const [acLoading, setAcLoading] = useState(false)
+  const [acError, setAcError] = useState<string | null>(null)
   const [options, setOptions] = useState<AutocompleteSuggestion[]>([])
   const [inputValue, setInputValue] = useState('')      // updated by typing/clear only
   const [hadError, setHadError] = useState(false)       // used to drive empty-state visibility
+  const [searchAttempts, setSearchAttempts] = useState(0)
 
   const { city, loading: locationLoading, error: locationError, source, refresh } = useHebrewCity({
     preferGPS: true,
@@ -85,6 +107,7 @@ export default function AddNoteItemPopup (
   })
   
   const abortRef = useRef<AbortController | null>(null)
+  const pricesAbortRef = useRef<AbortController | null>(null)
   const controls = useAnimationControls()
 
   useEffect(() => {
@@ -128,15 +151,33 @@ export default function AddNoteItemPopup (
     }
   }
 
-  const fetchPrices = async (prod?: SelectedProduct | null) => {
+  const fetchPrices = useCallback(async (prod?: SelectedProduct | null, isRetry = false) => {
 
     if (!comparePrices) return
 
     const p = prod ?? selectedProduct
     if (!p) return
 
+    // Cancel any existing request
+    pricesAbortRef.current?.abort()
+    const ac = new AbortController()
+    pricesAbortRef.current = ac
+
     setPricesLoading(true)
     setPricesError(null)
+    setPricesErrorCode(null)
+    setPricesFromCache(false)
+    setPricesFetchDuration(null)
+    setProductMetadata(null)
+    
+    if (!isRetry) {
+      setPricesRows(null)
+    }
+
+    // Client-side timeout
+    const timeoutId = setTimeout(() => {
+      ac.abort()
+    }, REQUEST_TIMEOUT_MS)
 
     try {
       const res = await fetch('/api/get-product-prices', {
@@ -145,28 +186,46 @@ export default function AddNoteItemPopup (
         body: JSON.stringify({
           productName: p.name,           // original (uncropped) name
           barcode: p.barcode,
-          locationName: city,       // optional: pass if you want to pin the city
-        })
+          locationName: city,
+        }),
+        signal: ac.signal
       })
 
+      clearTimeout(timeoutId)
+
       const data: GetPricesResponse = await res.json()
+      
+      if (ac.signal.aborted) return
+      
       if (data.ok) {
         setPricesRows(data.rows)
+        setPricesFromCache(data.fromCache || false)
+        setPricesFetchDuration(data.duration || null)
+        setActualCityUsed(data.usedFallbackCity ? data.actualCity || null : null)
+        setProductMetadata(data.metadata || null)
       } else {
         setPricesRows([])
         setPricesError(data.error || 'Failed to load prices')
+        setPricesErrorCode(data.errorCode || null)
       }
     } 
     
     catch (e: any) {
+      if (ac.signal.aborted) {
+        setPricesError('Request was cancelled or timed out')
+        setPricesErrorCode('TIMEOUT')
+      } else {
+        setPricesError(e?.message || 'Network error')
+        setPricesErrorCode('NETWORK_ERROR')
+      }
       setPricesRows([])
-      setPricesError(e?.message || 'Network error')
     } 
     
     finally {
+      clearTimeout(timeoutId)
       setPricesLoading(false)
     }
-  }
+  }, [comparePrices, selectedProduct, city])
 
   // value the user sees in the input
   const itemNameLive = watch('itemName', '')
@@ -186,6 +245,7 @@ export default function AddNoteItemPopup (
       setOptions([])
       setAcLoading(false)
       setHadError(false)
+      setAcError(null)
       setAcOpen(false)
       abortRef.current?.abort()
       return
@@ -196,6 +256,7 @@ export default function AddNoteItemPopup (
       setOptions([])
       setAcLoading(false)
       setHadError(false)
+      setAcError(null)
       setAcOpen(false)
       abortRef.current?.abort()
       return
@@ -205,9 +266,17 @@ export default function AddNoteItemPopup (
     const ac = new AbortController()
     abortRef.current = ac
 
+    // Client-side timeout
+    const timeoutId = setTimeout(() => {
+      ac.abort()
+    }, REQUEST_TIMEOUT_MS)
+
     const run = async () => {
       setAcLoading(true)
       setHadError(false)
+      setAcError(null)
+      setSearchAttempts(prev => prev + 1)
+      
       try {
         const res = await fetch('/api/auto-complete-products-search', {
           method: 'POST',
@@ -216,17 +285,32 @@ export default function AddNoteItemPopup (
           signal: ac.signal
         })
 
-        const data = await res.json()
+        clearTimeout(timeoutId)
+
+        const data: AutocompleteResponse = await res.json()
         
-        const raw: AutocompleteSuggestion[] = data?.ok ? data.suggestions ?? [] : []
-        const trimmed = raw.length > 1 ? raw.slice(0, -1) : raw   // drop "view more"
-        setOptions(trimmed)
-        setAcOpen(true)                     // open when results arrive
-      } catch {
+        if (ac.signal.aborted) return
+        
+        if (data.ok) {
+          const raw: AutocompleteSuggestion[] = data.suggestions ?? []
+          const trimmed = raw.length > 1 ? raw.slice(0, -1) : raw   // drop "view more"
+          setOptions(trimmed)
+          setAcOpen(true)
+          setHadError(false)
+          setAcError(null)
+        } else {
+          setHadError(true)
+          setAcError(data.error || 'Search failed')
+          setOptions([])
+          setAcOpen(true)  // show error state
+        }
+      } catch (e: any) {
+        clearTimeout(timeoutId)
         if (!ac.signal.aborted) {
           setHadError(true)
-          setOptions([])                    // empty triggers noOptionsText
-          setAcOpen(true)                   // force open to show empty-state text
+          setAcError(ac.signal.aborted ? 'Search timed out' : (e?.message || 'Network error'))
+          setOptions([])
+          setAcOpen(true)  // force open to show empty-state text
         }
       } finally {
         setAcLoading(false)
@@ -234,21 +318,39 @@ export default function AddNoteItemPopup (
     }
 
     run()
+    
+    return () => {
+      clearTimeout(timeoutId)
+    }
   }, [comparePrices, debouncedQuery, city])
 
   // reset everything when closing popup or turning off comparePrices
   useEffect(() => {
     if (!comparePrices) {
       abortRef.current?.abort()
+      pricesAbortRef.current?.abort()
       setAcOpen(false)
       setOptions([])
       setAcLoading(false)
       setHadError(false)
+      setAcError(null)
       setSelectedProduct(null)
       setPricesRows(null)
       setPricesError(null)
+      setPricesErrorCode(null)
+      setPricesFromCache(false)
+      setPricesFetchDuration(null)
+      setSearchAttempts(0)
     }
   }, [comparePrices])
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      abortRef.current?.abort()
+      pricesAbortRef.current?.abort()
+    }
+  }, [])
 
   return (
     <div>
@@ -292,8 +394,24 @@ export default function AddNoteItemPopup (
                   }
                   options={options}
                   loading={acLoading}
-                  loadingText='Loading...'
-                  noOptionsText={hadError ? 'No items found' : 'No items found'}
+                  loadingText={
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 1 }}>
+                      <CircularProgress size={16} sx={{ color: 'var(--secondary-color)' }} />
+                      <span>Searching products...</span>
+                    </Box>
+                  }
+                  noOptionsText={
+                    hadError ? (
+                      <Box sx={{ py: 1 }}>
+                        <Typography sx={{ color: 'var(--primary-color)', opacity: 0.8 }}>
+                          {acError || 'No products found'}
+                        </Typography>
+                        <Typography variant="caption" sx={{ color: 'var(--primary-color)', opacity: 0.6 }}>
+                          Try a different search term or check your connection
+                        </Typography>
+                      </Box>
+                    ) : 'No products found'
+                  }
                   filterOptions={(x) => x}
                   getOptionLabel={(o) => typeof o === 'string' ? o : o.primary}
                   disablePortal={false}
@@ -410,24 +528,66 @@ export default function AddNoteItemPopup (
                     }
                   }}
                   // fix <li> nesting by rendering ListItem as 'div'
-                  renderOption={(props, option) => (
+                  renderOption={(props, option, { index }) => (
                     <li {...props} key={option.barcode ?? option.href ?? option.primary}>
-                      <ListItem disableGutters dense component='div'>
-                        <ListItemAvatar>
-                          <Avatar
-                            src={option.img || undefined}
-                            sx={{ bgcolor: 'transparent', color: 'var(--primary-color)' }}
-                          >
-                            {(option.primary?.[0] ?? '?').toUpperCase()}
-                          </Avatar>
-                        </ListItemAvatar>
-                        <ListItemText
-                          primary={option.primary}
-                          secondary={`${option.extra ?? ""} ${option.extra ? '|' : ''} טווח מחירים: ${option.priceRange ?? "לא ידוע"}`}
-                          primaryTypographyProps={{ sx: { color: 'var(--primary-color)' } }}
-                          secondaryTypographyProps={{ sx: { color: 'var(--primary-color)', opacity: .8 } }}
-                        />
-                      </ListItem>
+                      <MotionWrap
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: index * 0.03, duration: 0.15 }}
+                      >
+                        <ListItem disableGutters dense component='div' sx={{ py: 0.5 }}>
+                          <ListItemAvatar>
+                            <Avatar
+                              src={option.img || undefined}
+                              sx={{ 
+                                bgcolor: 'var(--secondary-color-faded)', 
+                                color: 'var(--primary-color)',
+                                width: 40,
+                                height: 40
+                              }}
+                            >
+                              {(option.primary?.[0] ?? '?').toUpperCase()}
+                            </Avatar>
+                          </ListItemAvatar>
+                          <ListItemText
+                            primary={
+                              <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                                {option.primary}
+                              </Typography>
+                            }
+                            secondary={
+                              <Box component="span" sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.25 }}>
+                                {option.extra && (
+                                  <Chip 
+                                    size="small" 
+                                    label={option.extra}
+                                    sx={{ 
+                                      height: 18, 
+                                      fontSize: '0.65rem',
+                                      bgcolor: 'var(--secondary-color-faded)',
+                                      color: 'var(--primary-color)'
+                                    }} 
+                                  />
+                                )}
+                                {option.priceRange && (
+                                  <Chip 
+                                    size="small" 
+                                    label={`💰 ${option.priceRange}`}
+                                    sx={{ 
+                                      height: 18, 
+                                      fontSize: '0.65rem',
+                                      bgcolor: '#4caf5020',
+                                      color: '#4caf50'
+                                    }} 
+                                  />
+                                )}
+                              </Box>
+                            }
+                            primaryTypographyProps={{ sx: { color: 'var(--primary-color)' } }}
+                            secondaryTypographyProps={{ component: 'div', sx: { color: 'var(--primary-color)', opacity: .8 } }}
+                          />
+                        </ListItem>
+                      </MotionWrap>
                     </li>
                   )}
                   renderInput={(params) => (
@@ -556,108 +716,555 @@ export default function AddNoteItemPopup (
               )}
             </Box>
 
-            {selectedProduct && comparePrices && <div style={{ display: 'flex', gap: 8 }}>
+            {selectedProduct && comparePrices && <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
               {/* Actions row under the input */}
               {selectedProduct && comparePrices && (
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <Button
-                    variant="text"
+                    variant="outlined"
+                    size="small"
                     onClick={() => fetchPrices()}
                     disabled={!selectedProduct || pricesLoading}
+                    startIcon={pricesLoading ? <CircularProgress size={14} sx={{ color: 'inherit' }} /> : null}
                     sx={{
-                      color: 'var(--primary-color)'
+                      color: 'var(--primary-color)',
+                      borderColor: 'var(--borders-color)',
+                      '&:hover': {
+                        borderColor: 'var(--secondary-color)',
+                        backgroundColor: 'var(--secondary-color-faded)'
+                      },
+                      '&.Mui-disabled': {
+                        color: 'var(--primary-color)',
+                        opacity: 0.5
+                      }
                     }}
                   >
-                    {pricesLoading ? 'Loading…' : 'View prices'}
+                    {pricesLoading ? 'Loading…' : '💰 View prices'}
                   </Button>
                 </Box>
               )}
 
+              {/* Selected product chip */}
+              {selectedProduct && (
+                <Chip
+                  size="small"
+                  label={cropName(selectedProduct.name)}
+                  onDelete={() => {
+                    setSelectedProduct(null)
+                    setPricesRows(null)
+                    setPricesError(null)
+                  }}
+                  sx={{
+                    bgcolor: 'var(--secondary-color-faded)',
+                    color: 'var(--primary-color)',
+                    border: '1px solid var(--borders-color)',
+                    '& .MuiChip-deleteIcon': {
+                      color: 'var(--primary-color)',
+                      '&:hover': { color: 'var(--secondary-color)' }
+                    }
+                  }}
+                />
+              )}
+
               {/* close table button */}
               {comparePrices && pricesRows && pricesRows.length > 0 && (
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Button
-                    variant="text"
-                    onClick={() => setPricesRows(null)}
-                    sx={{
-                      color: 'var(--primary-color)'
-                    }}
-                  >
-                    Close prices
-                  </Button>
-                </Box>
+                <Button
+                  variant="text"
+                  size="small"
+                  onClick={() => setPricesRows(null)}
+                  sx={{
+                    color: 'var(--primary-color)',
+                    '&:hover': { color: 'var(--secondary-color)' }
+                  }}
+                >
+                  ✕ Close prices
+                </Button>
+              )}
+              
+              {/* Cache indicator */}
+              {pricesFromCache && pricesRows && pricesRows.length > 0 && (
+                <Chip 
+                  size="small" 
+                  label="⚡ Cached" 
+                  sx={{ 
+                    bgcolor: 'transparent', 
+                    color: 'var(--primary-color)', 
+                    opacity: 0.7,
+                    fontSize: '0.7rem'
+                  }} 
+                />
               )}
             </div>}
 
             {/* Prices table / states */}
             {comparePrices && (pricesLoading || pricesError || pricesRows) && (
-              <Box sx={{ maxHeight: '350px', overflowY: 'auto', pr: 0.5 }}>
+              <Box sx={{ maxHeight: '350px', overflowY: 'auto', pr: 0.5, mt: 1 }}>
+                {/* Loading state with skeleton */}
                 {pricesLoading && (
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, justifyContent: 'center', height: '2.5em' }}>
-                    <CircularProgress size={18} sx={{ color: 'var(--primary-color)' }} />
-                    <Typography sx={{ color: 'var(--primary-color)', textAlign: 'center' }}>Loading prices…</Typography>
+                  <Box sx={{ p: 1 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                      <CircularProgress size={18} sx={{ color: 'var(--secondary-color)' }} />
+                      <Typography sx={{ color: 'var(--primary-color)' }}>
+                        Searching prices...
+                      </Typography>
+                    </Box>
+                    <LinearProgress 
+                      sx={{ 
+                        mb: 2, 
+                        bgcolor: 'var(--borders-color)',
+                        '& .MuiLinearProgress-bar': { bgcolor: 'var(--secondary-color)' }
+                      }} 
+                    />
+                    {/* Skeleton rows */}
+                    {[1, 2, 3].map(i => (
+                      <Box key={i} sx={{ display: 'flex', gap: 2, mb: 1 }}>
+                        <Skeleton 
+                          variant="text" 
+                          width="60%" 
+                          sx={{ bgcolor: 'var(--borders-color)' }} 
+                        />
+                        <Skeleton 
+                          variant="text" 
+                          width="20%" 
+                          sx={{ bgcolor: 'var(--borders-color)' }} 
+                        />
+                      </Box>
+                    ))}
                   </Box>
                 )}
 
+                {/* Error state with retry */}
                 {!pricesLoading && pricesError && (
-                  <Typography sx={{ color: 'var(--primary-color)', textAlign: 'center' }}>
-                    Error loading prices!
-                  </Typography>
+                  <Alert 
+                    severity="error"
+                    sx={{ 
+                      bgcolor: 'transparent',
+                      color: 'var(--primary-color)',
+                      border: '1px solid var(--error-color, #f44336)',
+                      '& .MuiAlert-icon': { color: 'var(--error-color, #f44336)' }
+                    }}
+                    action={
+                      <Button 
+                        color="inherit" 
+                        size="small"
+                        onClick={() => fetchPrices(selectedProduct, true)}
+                        startIcon={<MdRefresh />}
+                      >
+                        Retry
+                      </Button>
+                    }
+                  >
+                    <Typography variant="body2">
+                      {pricesError}
+                    </Typography>
+                    {pricesErrorCode && (
+                      <Typography variant="caption" sx={{ opacity: 0.7, display: 'block' }}>
+                        Error code: {pricesErrorCode}
+                      </Typography>
+                    )}
+                  </Alert>
                 )}
 
+                {/* Results */}
                 {!pricesLoading && !pricesError && pricesRows && (
                   pricesRows.length === 0 ? (
-                    <Typography sx={{ color: 'var(--primary-color)' }}>
-                      No prices found for this product in the selected area.
-                    </Typography>
-                  ) : (
-                    <TableContainer
-                      component={Paper}
-                      sx={{
-                        mt: 1,
-                        bgcolor: 'var(--note-card-background-card-item)',
-                        border: '1px solid var(--borders-color)'
+                    <Alert 
+                      severity="info"
+                      sx={{ 
+                        bgcolor: 'transparent',
+                        color: 'var(--primary-color)',
+                        border: '1px solid var(--borders-color)',
+                        '& .MuiAlert-icon': { color: 'var(--secondary-color)' }
                       }}
                     >
-                      <Table size="small">
-                        <TableHead>
-                          <TableRow>
-                            <TableCell sx={{ color: 'var(--primary-color)', borderColor: 'var(--borders-color)', fontWeight: 'bold' }}>רשת</TableCell>
-                            <TableCell align="right" sx={{ color: 'var(--primary-color)', borderColor: 'var(--borders-color)', fontWeight: 'bold' }}>מחיר</TableCell>
-                          </TableRow>
-                        </TableHead>
-                        <TableBody>
-                          {pricesRows.map((row, idx) => (
-                            <TableRow key={`${row.chain}-${row.branch}-${idx}`}>
-                              {/* Chain (+ branch on mobile) */}
-                              <TableCell sx={{ color: 'var(--primary-color)', borderColor: 'var(--borders-color)' }}>
-                                {row.chain}
-                                {/* show branch beneath on mobile */}
-                                {row.branch && (
-                                  <Typography variant="body2" sx={{ display: 'block', opacity: .8 }}>
-                                    {row.branch}
-                                  </Typography>
-                                )}
-                                {/* optional: show short sale chip on mobile */}
-                                {row.salePrice && (
-                                  <Chip
-                                    size="small"
-                                    label={`מבצע: ${row.salePrice}`}
-                                    sx={{ display: 'inline-flex', ml: 0.5, mt: 0.5,
-                                    bgcolor: 'var(--secondary-color-faded)', color: 'var(--primary-color)', border: '1px solid var(--borders-color)' }}
-                                  />
-                                )}
+                      No prices found for this product in the selected area.
+                    </Alert>
+                  ) : (
+                    <MotionWrap
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.3 }}
+                    >
+                      {/* Product Info Card with Image */}
+                      {productMetadata && (productMetadata.productImage || productMetadata.priceGapPercent) && (
+                        <Box
+                          sx={{
+                            mb: 2,
+                            p: 1.5,
+                            borderRadius: 2,
+                            bgcolor: 'var(--note-card-background-card-item)',
+                            border: '1px solid var(--borders-color)',
+                            display: 'flex',
+                            gap: 2,
+                            alignItems: 'center'
+                          }}
+                        >
+                          {/* Product Image */}
+                          {productMetadata.productImage && (
+                            <Box
+                              sx={{
+                                width: 80,
+                                height: 80,
+                                flexShrink: 0,
+                                borderRadius: 1.5,
+                                overflow: 'hidden',
+                                bgcolor: '#fff',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+                                position: 'relative'
+                              }}
+                            >
+                              <Image
+                                src={productMetadata.productImage}
+                                alt={productMetadata.productName || 'Product'}
+                                fill
+                                sizes="80px"
+                                style={{
+                                  objectFit: 'contain'
+                                }}
+                                unoptimized // Required for external/data URLs
+                                onError={(e) => {
+                                  // Hide broken images
+                                  (e.target as HTMLImageElement).style.display = 'none'
+                                }}
+                              />
+                            </Box>
+                          )}
+                          
+                          {/* Product Details */}
+                          <Box sx={{ flex: 1, minWidth: 0 }}>
+                            {productMetadata.productName && (
+                              <Typography 
+                                variant="body2" 
+                                sx={{ 
+                                  color: 'var(--primary-color)', 
+                                  fontWeight: 600,
+                                  mb: 0.5,
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  display: '-webkit-box',
+                                  WebkitLineClamp: 2,
+                                  WebkitBoxOrient: 'vertical'
+                                }}
+                              >
+                                {productMetadata.productName}
+                              </Typography>
+                            )}
+                            
+                            {/* Location & Price Gap */}
+                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, alignItems: 'center' }}>
+                              {productMetadata.locationText && (
+                                <Chip
+                                  size="small"
+                                  icon={<span style={{ fontSize: '0.7rem' }}>📍</span>}
+                                  label={productMetadata.locationText}
+                                  sx={{
+                                    height: 22,
+                                    fontSize: '0.7rem',
+                                    bgcolor: 'var(--secondary-color-faded)',
+                                    color: 'var(--primary-color)',
+                                    '& .MuiChip-icon': { ml: 0.5 }
+                                  }}
+                                />
+                              )}
+                              
+                              {productMetadata.priceGapPercent !== null && (
+                                <Chip
+                                  size="small"
+                                  icon={<span style={{ fontSize: '0.7rem' }}>📊</span>}
+                                  label={`${productMetadata.priceGapPercent}% price gap`}
+                                  sx={{
+                                    height: 22,
+                                    fontSize: '0.7rem',
+                                    bgcolor: productMetadata.priceGapPercent > 100 
+                                      ? 'rgba(244, 67, 54, 0.1)' 
+                                      : productMetadata.priceGapPercent > 50 
+                                        ? 'rgba(255, 152, 0, 0.1)' 
+                                        : 'rgba(76, 175, 80, 0.1)',
+                                    color: productMetadata.priceGapPercent > 100 
+                                      ? '#f44336' 
+                                      : productMetadata.priceGapPercent > 50 
+                                        ? '#ff9800' 
+                                        : '#4caf50',
+                                    fontWeight: 600,
+                                    '& .MuiChip-icon': { ml: 0.5 }
+                                  }}
+                                />
+                              )}
+                            </Box>
+                            
+                            {/* Price Gap Explanation */}
+                            {productMetadata.priceGapPercent !== null && productMetadata.priceGapPercent > 50 && (
+                              <Typography 
+                                variant="caption" 
+                                sx={{ 
+                                  display: 'block', 
+                                  mt: 0.5, 
+                                  opacity: 0.7,
+                                  color: 'var(--primary-color)',
+                                  fontSize: '0.65rem'
+                                }}
+                              >
+                                {productMetadata.priceGapPercent > 100 
+                                  ? '⚠️ Huge price difference! Compare carefully.' 
+                                  : '💡 Noticeable price variation between stores.'}
+                              </Typography>
+                            )}
+                          </Box>
+                        </Box>
+                      )}
+                      
+                      {/* Header with info */}
+                      <Box sx={{ mb: 1.5 }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 0.5 }}>
+                          <Box>
+                            <Typography variant="body2" sx={{ color: 'var(--primary-color)', fontWeight: 600 }}>
+                              🛒 {pricesRows.length} {pricesRows.length === 1 ? 'Store' : 'Stores'}
+                            </Typography>
+                            {actualCityUsed && actualCityUsed !== city && (
+                              <Typography variant="caption" sx={{ color: 'var(--primary-color)', opacity: 0.7, display: 'block' }}>
+                                📍 Showing prices for {actualCityUsed}
+                              </Typography>
+                            )}
+                          </Box>
+                          <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
+                            {pricesFetchDuration && (
+                              <Chip 
+                                size="small" 
+                                label={`${(pricesFetchDuration / 1000).toFixed(1)}s`} 
+                                sx={{ 
+                                  height: 20,
+                                  fontSize: '0.65rem',
+                                  bgcolor: 'transparent', 
+                                  color: 'var(--primary-color)', 
+                                  opacity: 0.6
+                                }} 
+                              />
+                            )}
+                          </Box>
+                        </Box>
+                        
+                        {/* Sort buttons */}
+                        <Box sx={{ display: 'flex', gap: 0.5, mt: 1 }}>
+                          <Button
+                            size="small"
+                            variant={sortBy === 'price' ? 'contained' : 'outlined'}
+                            onClick={() => {
+                              if (sortBy === 'price') {
+                                setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')
+                              } else {
+                                setSortBy('price')
+                                setSortDirection('asc')
+                              }
+                            }}
+                            sx={{
+                              fontSize: '0.7rem',
+                              py: 0.5,
+                              px: 1,
+                              minWidth: 'auto',
+                              bgcolor: sortBy === 'price' ? 'var(--secondary-color)' : 'transparent',
+                              color: sortBy === 'price' ? '#fff' : 'var(--primary-color)',
+                              borderColor: 'var(--borders-color)',
+                              '&:hover': {
+                                bgcolor: sortBy === 'price' ? 'var(--secondary-color)' : 'var(--secondary-color-faded)',
+                                borderColor: 'var(--secondary-color)'
+                              }
+                            }}
+                          >
+                            💰 Price {sortBy === 'price' && (sortDirection === 'asc' ? '↑' : '↓')}
+                          </Button>
+                          <Button
+                            size="small"
+                            variant={sortBy === 'chain' ? 'contained' : 'outlined'}
+                            onClick={() => {
+                              if (sortBy === 'chain') {
+                                setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')
+                              } else {
+                                setSortBy('chain')
+                                setSortDirection('asc')
+                              }
+                            }}
+                            sx={{
+                              fontSize: '0.7rem',
+                              py: 0.5,
+                              px: 1,
+                              minWidth: 'auto',
+                              bgcolor: sortBy === 'chain' ? 'var(--secondary-color)' : 'transparent',
+                              color: sortBy === 'chain' ? '#fff' : 'var(--primary-color)',
+                              borderColor: 'var(--borders-color)',
+                              '&:hover': {
+                                bgcolor: sortBy === 'chain' ? 'var(--secondary-color)' : 'var(--secondary-color-faded)',
+                                borderColor: 'var(--secondary-color)'
+                              }
+                            }}
+                          >
+                            🏪 Chain {sortBy === 'chain' && (sortDirection === 'asc' ? '↑' : '↓')}
+                          </Button>
+                        </Box>
+                      </Box>
+                      
+                      <TableContainer
+                        component={Paper}
+                        sx={{
+                          bgcolor: 'var(--note-card-background-card-item)',
+                          border: '1px solid var(--borders-color)',
+                          borderRadius: 2,
+                          overflow: 'hidden',
+                          boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+                        }}
+                      >
+                        <Table size="small">
+                          <TableHead>
+                            <TableRow sx={{ bgcolor: 'var(--secondary-color-faded)' }}>
+                              <TableCell sx={{ 
+                                color: 'var(--primary-color)', 
+                                borderColor: 'var(--borders-color)', 
+                                fontWeight: 'bold',
+                                py: 1.5
+                              }}>
+                                רשת / סניף
                               </TableCell>
-
-                              {/* Price */}
-                              <TableCell align="right" sx={{ color: 'var(--primary-color)', borderColor: 'var(--borders-color)' }}>
-                                {row.price ? `${row.price}₪` : '—'}
+                              <TableCell align="right" sx={{ 
+                                color: 'var(--primary-color)', 
+                                borderColor: 'var(--borders-color)', 
+                                fontWeight: 'bold',
+                                py: 1.5
+                              }}>
+                                מחיר
                               </TableCell>
                             </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </TableContainer>
+                          </TableHead>
+                          <TableBody>
+                            {(() => {
+                              // Sort the rows based on current sort settings
+                              const sorted = [...pricesRows].sort((a, b) => {
+                                if (sortBy === 'price') {
+                                  const priceA = parseFloat(a.price || '999999')
+                                  const priceB = parseFloat(b.price || '999999')
+                                  return sortDirection === 'asc' ? priceA - priceB : priceB - priceA
+                                } else {
+                                  return sortDirection === 'asc' 
+                                    ? a.chain.localeCompare(b.chain, 'he')
+                                    : b.chain.localeCompare(a.chain, 'he')
+                                }
+                              })
+                              
+                              // Find best price for highlighting
+                              const validPrices = sorted.map(r => parseFloat(r.price || '999999')).filter(p => p < 999999)
+                              const bestPrice = validPrices.length > 0 ? Math.min(...validPrices) : null
+                              
+                              return sorted.map((row, idx) => {
+                                const rowPrice = parseFloat(row.price || '999999')
+                                const isBestPrice = bestPrice !== null && rowPrice === bestPrice
+                                
+                                return (
+                                  <TableRow
+                                    key={`${row.chain}-${row.branch}-${idx}`}
+                                    sx={{
+                                      animation: `fadeIn 0.2s ease-out ${idx * 0.03}s both`,
+                                      '@keyframes fadeIn': {
+                                        from: { opacity: 0, transform: 'translateX(-10px)' },
+                                        to: { opacity: 1, transform: 'translateX(0)' }
+                                      },
+                                      bgcolor: isBestPrice ? 'rgba(76, 175, 80, 0.08)' : 'transparent',
+                                      '&:hover': {
+                                        bgcolor: isBestPrice ? 'rgba(76, 175, 80, 0.12)' : 'var(--secondary-color-faded)'
+                                      }
+                                    }}
+                                  >
+                                    {/* Chain + branch */}
+                                    <TableCell sx={{ 
+                                      color: 'var(--primary-color)', 
+                                      borderColor: 'var(--borders-color)',
+                                      py: 1.5,
+                                      position: 'relative'
+                                    }}>
+                                      {isBestPrice && (
+                                        <Box
+                                          component="span"
+                                          sx={{
+                                            position: 'absolute',
+                                            left: 10,
+                                            top: '50%',
+                                            transform: 'translateY(-50%)',
+                                            fontSize: '1.2rem'
+                                          }}
+                                        >
+                                          👑
+                                        </Box>
+                                      )}
+                                      <Box sx={{ pl: isBestPrice ? 3 : 0 }}>
+                                        <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                                          {row.chain}
+                                        </Typography>
+                                        {row.branch && (
+                                          <Typography variant="caption" sx={{ display: 'block', opacity: 0.7 }}>
+                                            {row.branch}
+                                          </Typography>
+                                        )}
+                                        {row.address && (
+                                          <Typography variant="caption" sx={{ display: 'block', opacity: 0.6, fontSize: '0.65rem' }}>
+                                            {row.address}
+                                          </Typography>
+                                        )}
+                                        {row.salePrice && (
+                                          <Box sx={{ mt: 0.5 }}>
+                                            <Chip
+                                              size="small"
+                                              icon={<span style={{ fontSize: '0.7rem' }}>🏷️</span>}
+                                              label={`מבצע: ₪${row.salePrice}`}
+                                              sx={{ 
+                                                height: 22,
+                                                fontSize: '0.7rem',
+                                                bgcolor: '#4caf5020',
+                                                color: '#4caf50',
+                                                border: '1px solid #4caf5040',
+                                                '& .MuiChip-icon': { ml: 0.5 }
+                                              }}
+                                            />
+                                            {row.saleTitle && (
+                                              <Typography variant="caption" sx={{ display: 'block', color: '#4caf50', mt: 0.25, fontSize: '0.65rem' }}>
+                                                {row.saleTitle}
+                                              </Typography>
+                                            )}
+                                          </Box>
+                                        )}
+                                      </Box>
+                                    </TableCell>
+
+                                    {/* Price */}
+                                    <TableCell align="right" sx={{ 
+                                      color: 'var(--primary-color)', 
+                                      borderColor: 'var(--borders-color)',
+                                      py: 1.5,
+                                      verticalAlign: 'top'
+                                    }}>
+                                      <Typography 
+                                        variant="body1" 
+                                        sx={{ 
+                                          fontWeight: isBestPrice ? 700 : 600,
+                                          fontSize: isBestPrice ? '1.1rem' : '1rem',
+                                          color: row.salePrice ? '#4caf50' : (isBestPrice ? '#4caf50' : 'var(--primary-color)')
+                                        }}
+                                      >
+                                        {row.price ? `₪${row.price}` : '—'}
+                                      </Typography>
+                                      {isBestPrice && (
+                                        <Typography variant="caption" sx={{ display: 'block', color: '#4caf50', fontSize: '0.65rem' }}>
+                                          Best price
+                                        </Typography>
+                                      )}
+                                    </TableCell>
+                                  </TableRow>
+                                )
+                              })
+                            })()}
+                          </TableBody>
+                        </Table>
+                      </TableContainer>
+                    </MotionWrap>
                   )
                 )}
               </Box>
