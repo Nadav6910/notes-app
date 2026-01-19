@@ -105,7 +105,7 @@ export default function RenameNoteItemPopup(
 
       const data = await response.json()
   
-      if (data.massage === "renamed note item") {
+      if (data.message === "renamed note item") {
           setLoading(false)
           onRename(true, data.newName)
           setIsOpen(false)
@@ -137,7 +137,7 @@ export default function RenameNoteItemPopup(
         })
         const data = await response.json()
     
-        if (data.massage === "changed note item priority") {
+        if (data.message === "changed note item priority") {
             setLoadingSetPriority(false)
             onPriorityChange(true, data.newPriority)
             setIsOpen(false)
@@ -168,7 +168,7 @@ export default function RenameNoteItemPopup(
       })
       const data = await response.json()
   
-      if (data.massage === "changed note item category") {
+      if (data.message === "changed note item category") {
           setLoadingSetCategory(false)
           onCategoryChange(true, data.newCategory)
           setIsOpen(false)

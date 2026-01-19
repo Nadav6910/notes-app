@@ -46,7 +46,7 @@ export default function DeleteNoteItemPopup(
       
       const data = await response.json()
   
-      if (data.massage === "deleted item") {
+      if (data.message === "deleted item") {
           setLoading(false)
           OnDelete(true)
           setIsOpen(false)

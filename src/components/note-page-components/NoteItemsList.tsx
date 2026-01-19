@@ -1,16 +1,10 @@
 'use client'
 
 import styles from "../../app/my-notes/note/[noteId]/styles/notePage.module.css"
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
+import { useState, useEffect, useRef, useMemo, useCallback, useDeferredValue, useTransition } from 'react'
 import dynamic from 'next/dynamic'
 import {
   List,
-  ListItem,
-  ListItemButton,
-  ListItemIcon,
-  ListItemText,
-  Checkbox,
-  IconButton,
   Snackbar,
   Alert,
   Backdrop,
@@ -24,12 +18,10 @@ import {
   Box,
   Typography
 } from '@mui/material'
-import AnimatedCheckbox from "./AnimatedCheckbox"
 import { useRouter } from "next/navigation"
 import { useTheme } from 'next-themes'
-import { formatDate } from "@/lib/utils"
 import { AiOutlineSearch } from 'react-icons/ai'
-import { MdDelete, MdModeEditOutline, MdOutlineCancel, MdCheckCircle, MdRadioButtonUnchecked } from 'react-icons/md'
+import { MdOutlineCancel, MdCheckCircle, MdRadioButtonUnchecked } from 'react-icons/md'
 import { HiUsers, HiUser } from 'react-icons/hi2'
 import NoNoteItemsDrawing from "@/SvgDrawings/NoNoteItemsDrawing"
 import { Entry } from "../../../types"
@@ -41,6 +33,8 @@ import SortingMenu from "./SortingMenu"
 import SwitchNoteViewBtn from "./SwitchNoteViewBtn"
 import CategoriesSelector from "./CategoriesSelector"
 import FilterByCheckedSelector from "./FilterByCheckedSelector"
+import NoteListItem from "./NoteListItem"
+import CategoryListItem from "./CategoryListItem"
 import { ably, clientId } from "@/lib/Ably/Ably"
 import FlipNumbers from 'react-flip-numbers'
 import useChannelOccupancy from '../../app/hooks/useChannelOccupancy'
@@ -109,8 +103,14 @@ export default function NoteItemsList({ noteEntries, noteView, noteId }: { noteE
   const [filterByCategory, setFilterByCategory] = useState<string>("empty")
   const [sortMethod, setSortMethod] = useState<string>("newToOld")
   const [noteViewSelect, setNoteViewSelect] = useState<string>(noteView)
-  const [ChecksCount, SetChecksCount] = useState(noteEntries?.filter(entry => entry.isChecked).length ?? 0)
-  const [UnCheckedCount, SetUnCheckedCount] = useState(noteEntries?.filter(entry => !entry.isChecked).length ?? 0)
+
+  // Use deferred values for filters to prevent UI blocking during filtering
+  const deferredSearchTerm = useDeferredValue(searchTerm)
+  const deferredFilterByChecked = useDeferredValue(filterByChecked)
+  const deferredFilterByCategory = useDeferredValue(filterByCategory)
+
+  // Use transition for non-urgent filter updates
+  const [isPending, startTransition] = useTransition()
 
   // Compute available categories from the initial data
   const itemsCategories = useMemo(() => {
@@ -163,18 +163,29 @@ export default function NoteItemsList({ noteEntries, noteView, noteId }: { noteE
     return sorted
   }, [noteItemsState, sortMethod])
 
-  // Apply filtering on top of the sorted list
+  // Apply filtering on top of the sorted list - use deferred values for smoother UX
   const filteredNoteItems = useMemo(() => {
-    const searchTermLower = searchTerm.trim().toLowerCase()
+    const searchTermLower = deferredSearchTerm.trim().toLowerCase()
     return sortedNoteItems.filter(entry => {
       const matchesSearch = searchTermLower === '' || entry.item.toLowerCase().includes(searchTermLower)
-      const matchesChecked = filterByChecked === 'All' ||
-        (filterByChecked === 'checked' && entry.isChecked) ||
-        (filterByChecked === 'unchecked' && !entry.isChecked)
-      const matchesCategory = filterByCategory === 'empty' || entry.category === filterByCategory
+      const matchesChecked = deferredFilterByChecked === 'All' ||
+        (deferredFilterByChecked === 'checked' && entry.isChecked) ||
+        (deferredFilterByChecked === 'unchecked' && !entry.isChecked)
+      const matchesCategory = deferredFilterByCategory === 'empty' || entry.category === deferredFilterByCategory
       return matchesSearch && matchesChecked && matchesCategory
     })
-  }, [sortedNoteItems, searchTerm, filterByChecked, filterByCategory])
+  }, [sortedNoteItems, deferredSearchTerm, deferredFilterByChecked, deferredFilterByCategory])
+
+  // Calculate counts inline in memo to avoid extra re-render
+  const { ChecksCount, UnCheckedCount } = useMemo(() => {
+    let checked = 0
+    let unchecked = 0
+    filteredNoteItems.forEach(entry => {
+      if (entry.isChecked) checked++
+      else unchecked++
+    })
+    return { ChecksCount: checked, UnCheckedCount: unchecked }
+  }, [filteredNoteItems])
 
   // Group filtered items for categories view
   const groupedNoteItems = useMemo(() => {
@@ -227,44 +238,36 @@ export default function NoteItemsList({ noteEntries, noteView, noteId }: { noteE
     }
   }, [scrollY, handleScroll])
 
-  // Update checked/unchecked counts
-  useEffect(() => {
-    let checkedItemsCount = 0
-    let uncheckedItemsCount = 0
-    filteredNoteItems?.forEach(entry => {
-      if (entry.isChecked) {
-        checkedItemsCount += 1
-      }
-      else {
-        uncheckedItemsCount += 1
-      }
-    })
-    SetChecksCount(checkedItemsCount)
-    SetUnCheckedCount(uncheckedItemsCount)
-  }, [filteredNoteItems])
 
   // Handlers wrapped with useCallback
   const handleToggle = useCallback(async (value: boolean | null | undefined, entryId: string) => {
+    const newValue = !value
+    // Optimistic update
     setNoteItemsState(prevEntries =>
       prevEntries?.map(entry =>
-        entry.entryId === entryId ? { ...entry, isChecked: !value } : entry
+        entry.entryId === entryId ? { ...entry, isChecked: newValue } : entry
       )
     )
     try {
-      await fetch('/api/change-note-item-is-checked', {
+      const response = await fetch('/api/change-note-item-is-checked', {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           clientId,
           noteId,
           entryId,
-          value: !value
+          value: newValue
         })
       })
+      if (!response.ok) {
+        throw new Error('Failed to update')
+      }
     }
     catch (error) {
+      // Rollback to original value on error
       setNoteItemsState(prevEntries =>
         prevEntries?.map(entry =>
-          entry.entryId === entryId ? { ...entry, isChecked: !value } : entry
+          entry.entryId === entryId ? { ...entry, isChecked: value } : entry
         )
       )
       setOpenError(true)
@@ -288,12 +291,32 @@ export default function NoteItemsList({ noteEntries, noteView, noteId }: { noteE
   }, [])
 
   const handleSearchInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchTerm(e.target.value)
+    const value = e.target.value
+    // Use transition for non-urgent search updates
+    startTransition(() => {
+      setSearchTerm(value)
+    })
+  }, [])
+
+  // Optimized filter handlers using transitions
+  const handleFilterByChecked = useCallback((filter: string) => {
+    startTransition(() => {
+      setFilterByChecked(filter)
+    })
+  }, [])
+
+  const handleFilterByCategory = useCallback((category: string) => {
+    startTransition(() => {
+      setFilterByCategory(category)
+    })
   }, [])
 
   const handleAddNoteItem = useCallback((newEntry: Entry) => {
     setNoteItemsState(prevEntries => [newEntry, ...prevEntries ?? []])
-    router.refresh()
+    // Defer the refresh to avoid blocking UI - ensures data persists on navigation
+    startTransition(() => {
+      router.refresh()
+    })
   }, [router])
 
   const openConfirmDeleteItem = useCallback((entryId: string, entryName: string) => {
@@ -393,15 +416,13 @@ export default function NoteItemsList({ noteEntries, noteView, noteId }: { noteE
       if (message.data.sender === clientId) return
 
       const deletedEntryId = message.data.entryId
-      setNoteItemsState(prevEntries => {
-        if (noteItemsState?.length === 1) {
-          router.refresh()
-        }
-        else {
-          return prevEntries?.filter(entry => entry.entryId !== deletedEntryId)
-        }
+      setNoteItemsState(prevEntries =>
+        prevEntries?.filter(entry => entry.entryId !== deletedEntryId)
+      )
+      // Deferred refresh for data persistence
+      startTransition(() => {
+        router.refresh()
       })
-      router.refresh()
     })
 
     channel.subscribe('note-item-renamed', message => {
@@ -416,7 +437,10 @@ export default function NoteItemsList({ noteEntries, noteView, noteId }: { noteE
           entry.entryId === renamedEntryId ? { ...entry, item: newName } : entry
         )
       )
-      router.refresh()
+      // Deferred refresh for data persistence
+      startTransition(() => {
+        router.refresh()
+      })
     })
 
     return () => {
@@ -500,7 +524,9 @@ export default function NoteItemsList({ noteEntries, noteView, noteId }: { noteE
               noteId={noteId}
               onAdd={(newEntry: Entry) => {
                 setNoteItemsState(prevEntries => [...prevEntries ?? [], newEntry])
-                router.refresh()
+                startTransition(() => {
+                  router.refresh()
+                })
               }}
               onError={() => setOpenAddItemError(true)}
             />
@@ -717,13 +743,20 @@ export default function NoteItemsList({ noteEntries, noteView, noteId }: { noteE
           </div>
 
           {/* Filter selectors */}
-          <FilterByCheckedSelector filterByChecked={(filter: string) => setFilterByChecked(filter)} />
+          <FilterByCheckedSelector filterByChecked={handleFilterByChecked} />
           {noteViewSelect === "categories" && (
-            <CategoriesSelector 
-              availableCategories={allCategories} 
-              filterByCategory={(category: string) => setFilterByCategory(category)}
+            <CategoriesSelector
+              availableCategories={allCategories}
+              filterByCategory={handleFilterByCategory}
               itemCounts={categoryItemCounts}
             />
+          )}
+
+          {/* Loading indicator during filter transitions */}
+          {isPending && (
+            <Box sx={{ width: '100%', position: 'absolute', top: 0, left: 0, zIndex: 10 }}>
+              <LinearProgress sx={{ height: 2 }} />
+            </Box>
           )}
 
           {/* Floating add item button when scrolling down */}
@@ -791,57 +824,17 @@ export default function NoteItemsList({ noteEntries, noteView, noteId }: { noteE
               </Box>
             ) : (
               <List className={styles.noteListContainer} sx={{ width: '100%', borderRadius: "12px", boxShadow: "0px 2px 18px 3px rgba(0, 0, 0, 0.2)", padding: 0 }}>
-                {filteredNoteItems.map((entry, index) => {
-                  const labelId = `checkbox-list-label-${entry.entryId}`
-                  const entryPriority = entry.priority
-                  return (
-                    <AnimatePresence key={entry.entryId}>
-                      <MotionWrap initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} transition={{ duration: 0.3, type: "spring", stiffness: 100, damping: 20 }} key={entry.entryId}>
-                        <ListItem
-                          key={entry.entryId}
-                          className={`${index === 0 ? styles.firstItem : index === filteredNoteItems.length - 1 ? styles.lastItem : ''} ${index % 2 === 0 ? styles.noteListItem : styles.noteListItemOdd}`}
-                          disablePadding
-                          secondaryAction={
-                            <div style={{ display: "flex", gap: "1em" }}>
-                              <IconButton onClick={() => openConfirmRenameItem(entry.entryId, entry.item, entry?.priority, entry?.category)} className={styles.iconButtonRename} edge="end" aria-label="edit">
-                                <MdModeEditOutline className={styles.iconRename} />
-                              </IconButton>
-                              <IconButton onClick={() => openConfirmDeleteItem(entry.entryId, entry.item)} className={styles.iconButtonDelete} edge="end" aria-label="delete">
-                                <MdDelete className={styles.iconDelete} />
-                              </IconButton>
-                            </div>
-                          }
-                        >
-                          <ListItemButton onClick={() => handleToggle(entry?.isChecked, entry.entryId)} dense>
-                            <ListItemIcon sx={{ minWidth: "2em" }}>
-                              <Checkbox className={styles.noteListCheckbox} edge="start" checked={entry?.isChecked ?? false} tabIndex={-1} disableRipple inputProps={{ 'aria-labelledby': labelId }} />
-                            </ListItemIcon>
-                            <div>
-                              <ListItemText
-                                className={styles.noteListItemText}
-                                sx={{ textDecoration: entry?.isChecked ? "line-through" : "none", paddingRight: "3em", lineBreak: "anywhere" }}
-                                id={labelId}
-                                primary={entry.item}
-                              />
-                              <div style={{ display: "flex" }}>
-                                <ListItemText className={styles.itemCreatedAt}>
-                                  {formatDate(entry.createdAt)}
-                                </ListItemText>
-                                {entry.priority && entryPriority === "green" ? (
-                                  <div className={styles.priorityColorGreen} />
-                                ) : entryPriority === "yellow" ? (
-                                  <div className={styles.priorityColorYellow} />
-                                ) : entryPriority === "red" ? (
-                                  <div className={styles.priorityColorRed} />
-                                ) : null}
-                              </div>
-                            </div>
-                          </ListItemButton>
-                        </ListItem>
-                      </MotionWrap>
-                    </AnimatePresence>
-                  )
-                })}
+                {filteredNoteItems.map((entry, index) => (
+                  <NoteListItem
+                    key={entry.entryId}
+                    entry={entry}
+                    index={index}
+                    totalItems={filteredNoteItems.length}
+                    onToggle={handleToggle}
+                    onRename={openConfirmRenameItem}
+                    onDelete={openConfirmDeleteItem}
+                  />
+                ))}
               </List>
             )
           ) : // Categories view
@@ -958,78 +951,18 @@ export default function NoteItemsList({ noteEntries, noteView, noteId }: { noteE
                     </AccordionSummary>
                     <AccordionDetails sx={{ padding: 0 }}>
                       <List className={styles.noteListContainer} sx={{ width: '100%', padding: 0 }}>
-                        {group.data.map((entry, index) => {
-                          const labelId = `checkbox-list-label-${entry.entryId}`
-                          const entryPriority = entry.priority
-                          return (
-                            <AnimatePresence key={entry.entryId}>
-                              <MotionWrap initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} transition={{ duration: 0.3, type: "spring", stiffness: 100, damping: 20 }} key={entry.entryId}>
-                                <ListItem
-                                  key={entry.entryId}
-                                  style={{ borderRadius: "unset" }}
-                                  className={`${index === 0 ? styles.firstItem : index === group.data.length - 1 ? styles.lastItem : ''} ${index % 2 === 0 ? styles.noteListItem : styles.noteListItemOdd}`}
-                                  disablePadding
-                                  secondaryAction={
-                                    <div style={{ display: "flex", gap: "1em" }}>
-                                      <IconButton onClick={() => openConfirmRenameItem(entry.entryId, entry.item, entry?.priority, entry?.category)} className={styles.iconButtonRename} edge="end" aria-label="edit">
-                                        <MdModeEditOutline className={styles.iconRename} />
-                                      </IconButton>
-                                      <IconButton onClick={() => openConfirmDeleteItem(entry.entryId, entry.item)} className={styles.iconButtonDelete} edge="end" aria-label="delete">
-                                        <MdDelete className={styles.iconDelete} />
-                                      </IconButton>
-                                    </div>
-                                  }
-                                >
-                                  <ListItemButton onClick={() => handleToggle(entry?.isChecked, entry.entryId)} dense>
-                                    <ListItemIcon sx={{ minWidth: "2em" }}>
-                                      <AnimatedCheckbox                    
-                                        className={styles.noteListCheckbox} 
-                                        edge="start" 
-                                        checked={entry?.isChecked ?? false} 
-                                        tabIndex={-1} 
-                                        disableRipple 
-                                        inputProps={{ 'aria-labelledby': labelId }} 
-                                        sx={{
-                                          '& svg': {
-                                            transition: 'transform 0.5s ease-in-out'
-                                          },
-                                          '&.Mui-checked svg': {
-                                            transform: 'scale(1.1)'
-                                          }
-                                        }}
-                                        theme={resolvedTheme}
-                                      />
-                                    </ListItemIcon>
-                                    <div>
-                                      <ListItemText
-                                        className={styles.noteListItemText}
-                                        sx={{ paddingRight: "3em", lineBreak: "anywhere" }}
-                                        id={labelId}
-                                        primary={
-                                          <span className={`${styles.textWrapper} ${entry?.isChecked ? styles.lineActive : ''}`}>
-                                            {entry.item}
-                                          </span>
-                                        }
-                                      />
-                                      <div style={{ display: "flex" }}>
-                                        <ListItemText className={styles.itemCreatedAt}>
-                                          {formatDate(entry.createdAt)}
-                                        </ListItemText>
-                                        {entry.priority && entryPriority === "green" ? (
-                                          <div className={styles.priorityColorGreen} />
-                                        ) : entryPriority === "yellow" ? (
-                                          <div className={styles.priorityColorYellow} />
-                                        ) : entryPriority === "red" ? (
-                                          <div className={styles.priorityColorRed} />
-                                        ) : null}
-                                      </div>
-                                    </div>
-                                  </ListItemButton>
-                                </ListItem>
-                              </MotionWrap>
-                            </AnimatePresence>
-                          )
-                        })}
+                        {group.data.map((entry, index) => (
+                          <CategoryListItem
+                            key={entry.entryId}
+                            entry={entry}
+                            index={index}
+                            totalItems={group.data.length}
+                            onToggle={handleToggle}
+                            onRename={openConfirmRenameItem}
+                            onDelete={openConfirmDeleteItem}
+                            resolvedTheme={resolvedTheme}
+                          />
+                        ))}
                       </List>
                     </AccordionDetails>
                   </Accordion>
@@ -1064,17 +997,14 @@ export default function NoteItemsList({ noteEntries, noteView, noteId }: { noteE
           entryId={selectedEntryId}
           entryName={selectedEntryName}
           OnDelete={(isDeleted: boolean) => {
-            setNoteItemsState(prevEntries => {
-              if (isDeleted) {
-                if (noteItemsState?.length === 1) {
-                  router.refresh()
-                }
-                else {
-                  return prevEntries?.filter(entry => entry.entryId !== selectedEntryId)
-                }
-              }
-            })
-            router.refresh()
+            if (isDeleted) {
+              setNoteItemsState(prevEntries =>
+                prevEntries?.filter(entry => entry.entryId !== selectedEntryId)
+              )
+              startTransition(() => {
+                router.refresh()
+              })
+            }
           }}
           onError={() => setOpenDeleteItemError(true)}
         />
@@ -1103,7 +1033,9 @@ export default function NoteItemsList({ noteEntries, noteView, noteId }: { noteE
                   entry.entryId === selectedEntryId ? { ...entry, item: newName } : entry
                 )
               )
-              router.refresh()
+              startTransition(() => {
+                router.refresh()
+              })
             }
           }}
           onPriorityChange={(isPriorityChanged: boolean, newPriority: string) => {
@@ -1113,7 +1045,9 @@ export default function NoteItemsList({ noteEntries, noteView, noteId }: { noteE
                   entry.entryId === selectedEntryId ? { ...entry, priority: newPriority } : entry
                 )
               )
-              router.refresh()
+              startTransition(() => {
+                router.refresh()
+              })
             }
           }}
           onCategoryChange={(isCategoryChanged: boolean, newCategory: string) => {
@@ -1123,7 +1057,9 @@ export default function NoteItemsList({ noteEntries, noteView, noteId }: { noteE
                   entry.entryId === selectedEntryId ? { ...entry, category: newCategory } : entry
                 )
               )
-              router.refresh()
+              startTransition(() => {
+                router.refresh()
+              })
             }
           }}
           onError={() => setOpenRenameItemError(true)}

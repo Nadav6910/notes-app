@@ -4,7 +4,8 @@ import puppeteer, { Browser, Page } from 'puppeteer-core'
 import chromium from '@sparticuz/chromium'
 import fs from 'node:fs'
 import path from 'node:path'
-import { SCRAPER_CONFIG, SCRAPER_URLS } from '@/lib/scraper-config'
+import { SCRAPER_CONFIG, SCRAPER_URLS, validateScraperUrl } from '@/lib/scraper-config'
+import { checkRateLimit, getClientIp, rateLimitResponse, RATE_LIMITS } from '@/lib/rate-limit'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -37,6 +38,9 @@ type ProductMetadata = {
 
 const { HOME, ADDRESS_SEL, PRODUCT_SEL, SUBMIT_BTN, RESULTS_SEL } = SCRAPER_URLS
 
+// Validate scraper URL at startup (defense-in-depth against SSRF)
+validateScraperUrl(HOME)
+
 // Cache implementation with better LRU
 const cache = new Map<string, { data: any, expiry: number, timestamp: number }>()
 
@@ -62,6 +66,27 @@ function setCache(key: string, data: any, ttlMs = SCRAPER_CONFIG.CACHE_TTL_MS) {
   }
   cache.set(key, { data, expiry: Date.now() + ttlMs, timestamp: Date.now() })
 }
+
+// City cache - remember which cities work/fail to avoid repeated lookups
+const cityCache = new Map<string, { resolved: string, expiry: number }>()
+const CITY_CACHE_TTL = 30 * 60_000 // 30 minutes
+
+function getCachedCity(city: string): string | null {
+  const entry = cityCache.get(city.toLowerCase())
+  if (entry && Date.now() < entry.expiry) return entry.resolved
+  cityCache.delete(city.toLowerCase())
+  return null
+}
+
+function setCachedCity(original: string, resolved: string) {
+  cityCache.set(original.toLowerCase(), {
+    resolved,
+    expiry: Date.now() + CITY_CACHE_TTL
+  })
+}
+
+// Track if page is already initialized with a city
+let lastInitializedCity: string | null = null
 
 // ---------- timeout utility ----------
 function withTimeout<T>(promise: Promise<T>, ms: number, errorMsg: string): Promise<T> {
@@ -659,10 +684,82 @@ function buildScrapeTableFn() {
   }
 }
 
+// ---------- Optimized address setup with caching ----------
+async function setupAddressOptimized(
+  page: Page,
+  locationName: string
+): Promise<{ actualCity: string, usedFallback: boolean, listId: string }> {
+  // Check if we have a cached resolved city
+  const cachedCity = getCachedCity(locationName)
+  const cityToUse = cachedCity || locationName
+
+  // Check if page is already initialized with this city - skip address setup
+  if (lastInitializedCity === cityToUse) {
+    // Return a dummy listId since we don't need to click anything
+    return { actualCity: cityToUse, usedFallback: cachedCity !== null && cachedCity !== locationName, listId: '' }
+  }
+
+  let actualCity = cityToUse
+  let usedFallback = cachedCity !== null && cachedCity !== locationName
+
+  // Try the city (or cached resolved city) with reduced timeout
+  let addrResult = await withTimeout(
+    openWidgetAndGetListId(page, ADDRESS_SEL, actualCity, SCRAPER_CONFIG.FAST_ADDRESS_TIMEOUT_MS),
+    SCRAPER_CONFIG.FAST_ADDRESS_TIMEOUT_MS + 500,
+    'Address lookup timed out'
+  )
+
+  // If no results and no cache, try fallback directly (skip alternate spellings for speed)
+  if (!addrResult.hasResults && !cachedCity) {
+    const fallbackCity = findCityInMap(locationName, CITY_FALLBACK) || SCRAPER_CONFIG.DEFAULT_CITY
+    console.log(`[get-product-prices] City "${locationName}" not found, using "${fallbackCity}"`)
+
+    addrResult = await withTimeout(
+      openWidgetAndGetListId(page, ADDRESS_SEL, fallbackCity, SCRAPER_CONFIG.FAST_ADDRESS_TIMEOUT_MS),
+      SCRAPER_CONFIG.FAST_ADDRESS_TIMEOUT_MS + 500,
+      'Fallback address lookup timed out'
+    )
+    actualCity = fallbackCity
+    usedFallback = true
+  }
+
+  // Click to select the address
+  if (addrResult.hasResults) {
+    await page.evaluate((id: string) => {
+      const ul = document.getElementById(id)
+      if (!ul) return
+      const li = ul.querySelector('li.ui-menu-item') as HTMLLIElement | null
+      const target = (li?.querySelector('a') as HTMLElement) || (li as unknown as HTMLElement)
+      target?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))
+      target?.click()
+    }, addrResult.listId)
+
+    // Quick wait for address to register (reduced timeout)
+    await page.waitForFunction(() => {
+      const city = document.querySelector<HTMLInputElement>('#shopping_address_city_id')
+      return !!(city && city.value && city.value !== '0')
+    }, { timeout: 2500 }).catch(() => {})
+
+    // Cache the successful resolution
+    setCachedCity(locationName, actualCity)
+    lastInitializedCity = actualCity
+  }
+
+  return { actualCity, usedFallback, listId: addrResult.listId }
+}
+
 // ---------- route ----------
 export async function POST(req: Request) {
+  // Rate limiting
+  const clientIp = getClientIp(req)
+  const rateLimitResult = checkRateLimit(clientIp, RATE_LIMITS.scraper)
+  const rateLimitError = rateLimitResponse(rateLimitResult)
+  if (rateLimitError) {
+    return rateLimitError
+  }
+
   const startTime = Date.now()
-  
+
   const {
     productName,
     barcode,                               // optional
@@ -684,122 +781,51 @@ export async function POST(req: Request) {
 
   let page: Page | null = null
   let retryCount = 0
-  
+
   let usedFallbackCity = false
   let actualCity = locationName
 
-  const executePricesFetch = async (): Promise<any> => {
+  const executePricesFetch = async (): Promise<NextResponse> => {
     try {
       page = await withTimeout(
         acquirePage(),
-        10_000,
+        8_000,  // Reduced from 10s
         'Browser initialization timed out'
       )
-      
+
       await withTimeout(
         ensureJQueryUI(page),
-        5_000,
+        3_000,  // Reduced from 5s
         'Page initialization timed out'
       )
 
-      // 1) Set location - with timeout and alternate spelling support
-      let addrResult = await withTimeout(
-        openWidgetAndGetListId(page, ADDRESS_SEL, actualCity),
-        8_000,
-        'Address lookup timed out'
-      )
-      
-      // If no results, try alternate spellings of the same city
-      if (!addrResult.hasResults) {
-        const alternates = generateAlternateSpellings(actualCity)
-        for (const altCity of alternates.slice(1)) { // Skip first (original)
-          console.log(`[get-product-prices] Trying alternate spelling "${altCity}"`)
-          try {
-            addrResult = await withTimeout(
-              openWidgetAndGetListId(page, ADDRESS_SEL, altCity),
-              8_000,
-              'Address lookup timed out (alternate)'
-            )
-            if (addrResult.hasResults) {
-              actualCity = altCity
-              console.log(`[get-product-prices] Found city with alternate spelling: "${altCity}"`)
-              break
-            }
-          } catch {
-            continue
-          }
-        }
-      }
-      
-      // If still no results, try a fallback major city
-      if (!addrResult.hasResults) {
-        const fallbackCity = findCityInMap(actualCity, CITY_FALLBACK)
-        if (fallbackCity) {
-          console.log(`[get-product-prices] City "${actualCity}" not found, falling back to "${fallbackCity}"`)
-          
-          addrResult = await withTimeout(
-            openWidgetAndGetListId(page, ADDRESS_SEL, fallbackCity),
-            8_000,
-            'Address lookup timed out (fallback)'
-          )
-          usedFallbackCity = true
-          actualCity = fallbackCity
-        }
-      }
-      
-      // If still no results, use default city
-      if (!addrResult.hasResults) {
-        console.log(`[get-product-prices] All attempts failed, using default "${SCRAPER_CONFIG.DEFAULT_CITY}"`)
-        addrResult = await withTimeout(
-          openWidgetAndGetListId(page, ADDRESS_SEL, SCRAPER_CONFIG.DEFAULT_CITY),
-          8_000,
-          'Address lookup timed out (default)'
-        )
-        usedFallbackCity = true
-        actualCity = SCRAPER_CONFIG.DEFAULT_CITY
-      }
-      
-      await page.evaluate((id: string) => {
-        const ul = document.getElementById(id)
-        if (!ul) return
-        const li = ul.querySelector('li.ui-menu-item') as HTMLLIElement | null
-        const target = (li?.querySelector('a') as HTMLElement) || (li as unknown as HTMLElement)
-        target?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))
-        target?.click()
-      }, addrResult.listId)
+      // 1) Set location with optimized caching
+      const addressResult = await setupAddressOptimized(page, locationName)
+      actualCity = addressResult.actualCity
+      usedFallbackCity = addressResult.usedFallback
 
-      await withTimeout(
-        page.waitForFunction(() => {
-          const city = document.querySelector<HTMLInputElement>('#shopping_address_city_id')
-          const street = document.querySelector<HTMLInputElement>('#shopping_address_street_id')
-          return !!((city && city.value && city.value !== '0') || (street && street.value && street.value !== '0'))
-        }),
-        5_000,
-        'Address selection timed out'
-      )
-
-      // 2) Open product autocomplete & select by barcode OR name - with timeout
+      // 2) Open product autocomplete & select by barcode OR name
       const productResult = await withTimeout(
-        openWidgetAndGetListId(page, PRODUCT_SEL, productName.trim()),
-        10_000,
+        openWidgetAndGetListId(page, PRODUCT_SEL, productName.trim(), 6_000),
+        7_000,
         'Product search timed out'
       )
-      
+
       await withTimeout(
         selectProductByBarcodeOrName(page, productResult.listId, productName.trim(), barcode),
-        5_000,
+        3_000,  // Reduced from 5s
         'Product selection timed out'
       )
 
-      // 3) Render results - with timeout
+      // 3) Render results
       await page.click(SUBMIT_BTN)
-      
+
       await withTimeout(
         page.waitForFunction((sel: string) => {
           const table = document.querySelector<HTMLTableElement>(sel)
           return !!table && table.querySelectorAll('tbody > tr').length > 0
         }, {}, RESULTS_SEL),
-        15_000,
+        12_000,  // Reduced from 15s
         'Results loading timed out'
       )
 
@@ -812,9 +838,9 @@ export async function POST(req: Request) {
       await releasePage(keepAliveMs)
 
       const duration = Date.now() - startTime
-      const result = { 
-        ok: true, 
-        count: rows.length, 
+      const result = {
+        ok: true,
+        count: rows.length,
         rows,
         metadata,
         duration,
@@ -827,25 +853,26 @@ export async function POST(req: Request) {
     }
     catch (err: any) {
       // Retry logic for certain errors
-      const isRetryable = err?.message?.includes('timeout') || 
+      const isRetryable = err?.message?.includes('timeout') ||
                           err?.message?.includes('net::') ||
                           err?.message?.includes('disconnected')
-      
+
       if (isRetryable && retryCount < SCRAPER_CONFIG.MAX_RETRIES) {
         retryCount++
         console.log(`[get-product-prices] Retry ${retryCount}/${SCRAPER_CONFIG.MAX_RETRIES}`)
-        
+
         // Force cleanup before retry
         try { await warmPage?.close() } catch {}
         warmPage = null
-        
+        lastInitializedCity = null
+
         if (release) release()
         lock = null
-        
+
         await new Promise(r => setTimeout(r, SCRAPER_CONFIG.RETRY_DELAY_MS))
         return executePricesFetch()
       }
-      
+
       throw err
     }
   }
@@ -859,19 +886,19 @@ export async function POST(req: Request) {
   } catch (err: any) {
     activeRequests = Math.max(0, activeRequests - 1)
     console.error('[get-product-prices] Error:', err?.message || err)
-    
+
     // Categorize errors for better user feedback
     const isTimeout = err?.message?.includes('timeout') || err?.name === 'TimeoutError'
     const isNetwork = err?.message?.includes('net::') || err?.code === 'ENOTFOUND'
     const isDisconnected = err?.message?.includes('disconnected')
     const isNoResults = err?.message?.includes('failed to select')
-    
+
     let errorCode = 'UNKNOWN_ERROR'
     let message = 'Failed to fetch prices. Please try again.'
-    
+
     if (isTimeout) {
       errorCode = 'TIMEOUT'
-      message = 'Price lookup timed out. The service may be slow - please try again.'
+      message = 'Price lookup timed out. Please try again.'
     } else if (isNetwork) {
       errorCode = 'NETWORK_ERROR'
       message = 'Network error. Please check your connection.'
@@ -882,20 +909,21 @@ export async function POST(req: Request) {
       errorCode = 'PRODUCT_NOT_FOUND'
       message = 'Product not found. Try a different search term.'
     }
-    
+
     // Force cleanup on error
     try { await warmPage?.close() } catch {}
     warmPage = null
-    
+    lastInitializedCity = null
+
     try { await browser?.close() } catch {}
     browser = null
-    
+
     if (release) release()
     lock = null
-    
-    return NextResponse.json({ 
-      ok: false, 
-      error: message, 
+
+    return NextResponse.json({
+      ok: false,
+      error: message,
       errorCode,
       retries: retryCount,
       duration: Date.now() - startTime

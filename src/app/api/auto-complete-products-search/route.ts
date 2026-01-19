@@ -4,7 +4,8 @@ import puppeteer, { Browser, Page } from 'puppeteer-core'
 import chromium from '@sparticuz/chromium'
 import fs from 'node:fs'
 import path from 'node:path'
-import { SCRAPER_CONFIG, SCRAPER_URLS } from '@/lib/scraper-config'
+import { SCRAPER_CONFIG, SCRAPER_URLS, validateScraperUrl } from '@/lib/scraper-config'
+import { checkRateLimit, getClientIp, rateLimitResponse, RATE_LIMITS } from '@/lib/rate-limit'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -27,6 +28,9 @@ export type AutocompleteSuggestion = {
 }
 
 const { HOME, ADDRESS_SEL, PRODUCT_SEL } = SCRAPER_URLS
+
+// Validate scraper URL at startup (defense-in-depth against SSRF)
+validateScraperUrl(HOME)
 
 // Cache implementation with better structure
 const cache = new Map<string, { data: any, expiry: number, timestamp: number }>()
@@ -53,6 +57,27 @@ function setCache(key: string, data: any, ttlMs = SCRAPER_CONFIG.CACHE_TTL_MS) {
   }
   cache.set(key, { data, expiry: Date.now() + ttlMs, timestamp: Date.now() })
 }
+
+// City cache - remember which cities work/fail to avoid repeated lookups
+const cityCache = new Map<string, { resolved: string, expiry: number }>()
+const CITY_CACHE_TTL = 30 * 60_000 // 30 minutes
+
+function getCachedCity(city: string): string | null {
+  const entry = cityCache.get(city.toLowerCase())
+  if (entry && Date.now() < entry.expiry) return entry.resolved
+  cityCache.delete(city.toLowerCase())
+  return null
+}
+
+function setCachedCity(original: string, resolved: string) {
+  cityCache.set(original.toLowerCase(), {
+    resolved,
+    expiry: Date.now() + CITY_CACHE_TTL
+  })
+}
+
+// Track if page is already initialized with a city
+let lastInitializedCity: string | null = null
 
 // ---------- resolve a Chrome/Chromium executable path cross-platform ----------
 function exists(p: string) {
@@ -527,23 +552,92 @@ function withTimeout<T>(promise: Promise<T>, ms: number, errorMsg: string): Prom
   })
 }
 
+// ---------- Optimized search with fast path ----------
+async function quickProductSearch(page: Page, itemName: string, maxResults: number): Promise<AutocompleteSuggestion[]> {
+  // Fast path: directly search product without address setup
+  const productResult = await withTimeout(
+    openWidgetAndGetListId(page, PRODUCT_SEL, itemName.trim(), SCRAPER_CONFIG.FAST_PRODUCT_TIMEOUT_MS),
+    SCRAPER_CONFIG.FAST_PRODUCT_TIMEOUT_MS + 500,
+    'Quick product search timed out'
+  )
+  return await page.evaluate(buildScrapeFn(), productResult.listId, maxResults)
+}
+
+async function setupAddressIfNeeded(page: Page, locationName: string): Promise<{ actualCity: string, usedFallback: boolean }> {
+  // Check if we already have a cached resolved city
+  const cachedCity = getCachedCity(locationName)
+  const cityToUse = cachedCity || locationName
+
+  // Check if page is already initialized with this city
+  if (lastInitializedCity === cityToUse) {
+    return { actualCity: cityToUse, usedFallback: cachedCity !== null && cachedCity !== locationName }
+  }
+
+  let actualCity = cityToUse
+  let usedFallback = false
+
+  // Try the city (or cached resolved city)
+  let addrResult = await withTimeout(
+    openWidgetAndGetListId(page, ADDRESS_SEL, actualCity, SCRAPER_CONFIG.FAST_ADDRESS_TIMEOUT_MS),
+    SCRAPER_CONFIG.FAST_ADDRESS_TIMEOUT_MS + 500,
+    'Address lookup timed out'
+  )
+
+  // If no results and no cache, try fallback
+  if (!addrResult.hasResults && !cachedCity) {
+    const fallbackCity = findCityInMap(locationName, CITY_FALLBACK) || SCRAPER_CONFIG.DEFAULT_CITY
+    console.log(`[auto-complete] City "${locationName}" not found, using "${fallbackCity}"`)
+
+    addrResult = await withTimeout(
+      openWidgetAndGetListId(page, ADDRESS_SEL, fallbackCity, SCRAPER_CONFIG.FAST_ADDRESS_TIMEOUT_MS),
+      SCRAPER_CONFIG.FAST_ADDRESS_TIMEOUT_MS + 500,
+      'Fallback address lookup timed out'
+    )
+    actualCity = fallbackCity
+    usedFallback = true
+  }
+
+  if (addrResult.hasResults) {
+    await clickFirstByListId(page, addrResult.listId)
+    // Quick wait for address to register (reduced from 5s)
+    await page.waitForFunction(() => {
+      const city = document.querySelector<HTMLInputElement>('#shopping_address_city_id')
+      return !!(city && city.value && city.value !== '0')
+    }, { timeout: 2000 }).catch(() => {}) // Ignore timeout, proceed anyway
+
+    // Cache the successful resolution
+    setCachedCity(locationName, actualCity)
+    lastInitializedCity = actualCity
+  }
+
+  return { actualCity, usedFallback }
+}
+
 // ---------- route ----------
 export async function POST(req: Request) {
+  // Rate limiting
+  const clientIp = getClientIp(req)
+  const rateLimitResult = checkRateLimit(clientIp, RATE_LIMITS.scraper)
+  const rateLimitError = rateLimitResponse(rateLimitResult)
+  if (rateLimitError) {
+    return rateLimitError
+  }
+
   const startTime = Date.now()
-  
-  const { 
-    itemName, 
-    maxResults = SCRAPER_CONFIG.AUTOCOMPLETE_MAX_RESULTS, 
-    locationName = SCRAPER_CONFIG.DEFAULT_CITY, 
-    keepAliveMs = SCRAPER_CONFIG.BROWSER_KEEP_ALIVE_MS 
+
+  const {
+    itemName,
+    maxResults = SCRAPER_CONFIG.AUTOCOMPLETE_MAX_RESULTS,
+    locationName = SCRAPER_CONFIG.DEFAULT_CITY,
+    keepAliveMs = SCRAPER_CONFIG.BROWSER_KEEP_ALIVE_MS
   } = await req.json() as RequestBody
 
   if (!itemName || itemName.trim().length < 2) {
     return NextResponse.json({ ok: false, error: 'itemName too short', errorCode: 'INVALID_INPUT' }, { status: 400 })
   }
 
-  // Check cache first
-  const cacheKey = `autocomplete:${itemName.trim().toLowerCase()}:${locationName}`
+  // Check cache first (location-independent for autocomplete)
+  const cacheKey = `autocomplete:${itemName.trim().toLowerCase()}`
   const cached = getCached(cacheKey)
   if (cached) {
     return NextResponse.json({ ...cached, fromCache: true }, { status: 200 })
@@ -551,136 +645,102 @@ export async function POST(req: Request) {
 
   let page: Page | null = null
   let retryCount = 0
-  let usedFallbackCity = false
-  let actualCity = locationName
-  
-  const executeSearch = async (): Promise<any> => {
+
+  const executeSearch = async (): Promise<NextResponse> => {
     try {
       page = await withTimeout(
         acquirePage(),
-        10_000,
+        8_000,  // Reduced from 10s
         'Browser initialization timed out'
       )
-      
+
       await withTimeout(
         ensureJQueryUI(page),
-        5_000,
+        3_000,  // Reduced from 5s
         'Page initialization timed out'
       )
 
-      // 1) Address - with timeout and alternate spelling support
-      let addrResult = await withTimeout(
-        openWidgetAndGetListId(page, ADDRESS_SEL, actualCity),
-        8_000,
-        'Address lookup timed out'
-      )
-      
-      // If no results, try alternate spellings of the same city
-      if (!addrResult.hasResults) {
-        const alternates = generateAlternateSpellings(actualCity)
-        for (const altCity of alternates.slice(1)) { // Skip first (original)
-          console.log(`[auto-complete] Trying alternate spelling "${altCity}"`)
-          try {
-            addrResult = await withTimeout(
-              openWidgetAndGetListId(page, ADDRESS_SEL, altCity),
-              8_000,
-              'Address lookup timed out (alternate)'
-            )
-            if (addrResult.hasResults) {
-              actualCity = altCity
-              console.log(`[auto-complete] Found city with alternate spelling: "${altCity}"`)
-              break
-            }
-          } catch {
-            continue
-          }
-        }
-      }
-      
-      // If still no results, try a fallback major city
-      if (!addrResult.hasResults) {
-        const fallbackCity = findCityInMap(actualCity, CITY_FALLBACK)
-        if (fallbackCity) {
-          console.log(`[auto-complete] City "${actualCity}" not found, falling back to "${fallbackCity}"`)
-          
-          addrResult = await withTimeout(
-            openWidgetAndGetListId(page, ADDRESS_SEL, fallbackCity),
-            8_000,
-            'Address lookup timed out (fallback)'
-          )
-          usedFallbackCity = true
-          actualCity = fallbackCity
-        }
-      }
-      
-      // If still no results, use default city
-      if (!addrResult.hasResults) {
-        console.log(`[auto-complete] All attempts failed, using default "${SCRAPER_CONFIG.DEFAULT_CITY}"`)
-        addrResult = await withTimeout(
-          openWidgetAndGetListId(page, ADDRESS_SEL, SCRAPER_CONFIG.DEFAULT_CITY),
-          8_000,
-          'Address lookup timed out (default)'
-        )
-        usedFallbackCity = true
-        actualCity = SCRAPER_CONFIG.DEFAULT_CITY
-      }
-      
-      await clickFirstByListId(page, addrResult.listId)
-      
-      await withTimeout(
-        page.waitForFunction(() => {
-          const city = document.querySelector<HTMLInputElement>('#shopping_address_city_id')
-          const street = document.querySelector<HTMLInputElement>('#shopping_address_street_id')
-          return !!((city && city.value && city.value !== '0') || (street && street.value && street.value !== '0'))
-        }),
-        5_000,
-        'Address selection timed out'
-      )
+      // OPTIMIZATION: Try fast path first - direct product search without address
+      // This works because autocomplete doesn't strictly need location
+      let suggestions: AutocompleteSuggestion[] = []
+      let usedFallbackCity = false
+      let actualCity = locationName
 
-      // 2) Product - with timeout
+      try {
+        // Fast path: Try direct product search (skip address entirely)
+        suggestions = await quickProductSearch(page, itemName, maxResults)
+
+        // If we got results, we're done!
+        if (suggestions.length > 0) {
+          await releasePage(keepAliveMs)
+
+          const duration = Date.now() - startTime
+          const result = {
+            ok: true,
+            count: suggestions.length,
+            suggestions,
+            duration,
+            fastPath: true
+          }
+          setCache(cacheKey, result)
+
+          return NextResponse.json(result, { status: 200 })
+        }
+      } catch (fastErr) {
+        // Fast path failed, continue to full flow
+        console.log('[auto-complete] Fast path failed, trying full flow')
+      }
+
+      // Full flow: Set up address first, then search
+      const addressResult = await setupAddressIfNeeded(page, locationName)
+      actualCity = addressResult.actualCity
+      usedFallbackCity = addressResult.usedFallback
+
+      // Now search for product
       const productResult = await withTimeout(
-        openWidgetAndGetListId(page, PRODUCT_SEL, itemName.trim()),
-        10_000,
+        openWidgetAndGetListId(page, PRODUCT_SEL, itemName.trim(), 6_000),
+        7_000,
         'Product search timed out'
       )
-      const suggestions = await page.evaluate(buildScrapeFn(), productResult.listId, maxResults)
+      suggestions = await page.evaluate(buildScrapeFn(), productResult.listId, maxResults)
 
       await releasePage(keepAliveMs)
-      
+
       const duration = Date.now() - startTime
-      const result = { 
-        ok: true, 
-        count: suggestions.length, 
-        suggestions, 
+      const result = {
+        ok: true,
+        count: suggestions.length,
+        suggestions,
         duration,
         usedFallbackCity,
         actualCity: usedFallbackCity ? actualCity : undefined
       }
       setCache(cacheKey, result)
-      
+
       return NextResponse.json(result, { status: 200 })
-    } 
+    }
     catch (err: any) {
       // Retry logic for certain errors
-      const isRetryable = err?.message?.includes('timeout') || 
+      const isRetryable = err?.message?.includes('timeout') ||
                           err?.message?.includes('net::') ||
                           err?.message?.includes('disconnected')
-      
+
       if (isRetryable && retryCount < SCRAPER_CONFIG.MAX_RETRIES) {
         retryCount++
         console.log(`[auto-complete-products-search] Retry ${retryCount}/${SCRAPER_CONFIG.MAX_RETRIES}`)
-        
+
         // Force cleanup before retry
         try { await warmPage?.close() } catch {}
         warmPage = null
-        
+        lastInitializedCity = null
+
         if (release) release()
         lock = null
-        
+
         await new Promise(r => setTimeout(r, SCRAPER_CONFIG.RETRY_DELAY_MS))
         return executeSearch()
       }
-      
+
       throw err
     }
   }
@@ -694,18 +754,18 @@ export async function POST(req: Request) {
   } catch (err: any) {
     activeRequests = Math.max(0, activeRequests - 1)
     console.error('[auto-complete-products-search] Error:', err?.message || err)
-    
+
     // Categorize errors for better user feedback
     const isTimeout = err?.message?.includes('timeout') || err?.name === 'TimeoutError'
     const isNetwork = err?.message?.includes('net::') || err?.code === 'ENOTFOUND'
     const isDisconnected = err?.message?.includes('disconnected')
-    
+
     let errorCode = 'UNKNOWN_ERROR'
     let message = 'Failed to fetch suggestions. Please try again.'
-    
+
     if (isTimeout) {
       errorCode = 'TIMEOUT'
-      message = 'Search timed out. The service may be slow - please try again.'
+      message = 'Search timed out. Please try again.'
     } else if (isNetwork) {
       errorCode = 'NETWORK_ERROR'
       message = 'Network error. Please check your connection.'
@@ -713,20 +773,21 @@ export async function POST(req: Request) {
       errorCode = 'BROWSER_DISCONNECTED'
       message = 'Connection lost. Please try again.'
     }
-    
+
     // Force cleanup on error
     try { await warmPage?.close() } catch {}
     warmPage = null
-    
+    lastInitializedCity = null
+
     try { await browser?.close() } catch {}
     browser = null
-    
+
     if (release) release()
     lock = null
-    
-    return NextResponse.json({ 
-      ok: false, 
-      error: message, 
+
+    return NextResponse.json({
+      ok: false,
+      error: message,
       errorCode,
       retries: retryCount,
       duration: Date.now() - startTime
