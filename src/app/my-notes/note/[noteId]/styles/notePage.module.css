@@ -1702,11 +1702,15 @@
 
 .tiptapEditor div[data-youtube-video] {
     position: relative;
-    display: block;
+    display: inline-block;
     margin: 1em 0;
     cursor: default;
     transition: box-shadow 0.2s ease;
     max-width: 100%;
+    resize: both;
+    overflow: hidden;
+    min-width: 320px;
+    min-height: 180px;
 }
 
 .tiptapEditor div[data-youtube-video]:hover {
@@ -1722,6 +1726,28 @@
     width: 100%;
     height: 100%;
     border-radius: 8px;
+    pointer-events: auto;
+}
+
+/* Resize handle indicator for YouTube */
+.tiptapEditor div[data-youtube-video]::after {
+    content: '';
+    position: absolute;
+    right: 2px;
+    bottom: 2px;
+    width: 0;
+    height: 0;
+    border-style: solid;
+    border-width: 0 0 16px 16px;
+    border-color: transparent transparent var(--secondary-color) transparent;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    pointer-events: none;
+    border-bottom-right-radius: 8px;
+}
+
+.tiptapEditor div[data-youtube-video]:hover::after {
+    opacity: 0.6;
 }
 
 /* ===== Code Block with Syntax Highlighting ===== */

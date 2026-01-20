@@ -417,20 +417,59 @@ export default function NoteBook({noteEntries, noteId}: {noteEntries: Entry[] | 
 
         const url = mediaUrl.trim()
 
+        // Get current selection
+        const { from, to } = editor.state.selection
+        const isNodeSelection = from === to - 1 // Node is selected (like an image)
+
         if (mediaType === 'image') {
-            // Insert image at current cursor position
-            editor.chain().focus().setImage({
-                src: url,
-                alt: 'Image',
-            }).run()
+            if (isNodeSelection) {
+                // If a node is selected, move cursor after it and insert
+                editor.chain()
+                    .focus()
+                    .setTextSelection(to)
+                    .insertContent('<p></p>') // Add a paragraph
+                    .setImage({
+                        src: url,
+                        alt: 'Image',
+                    })
+                    .run()
+            } else {
+                // Normal insertion at cursor
+                editor.chain()
+                    .focus()
+                    .setImage({
+                        src: url,
+                        alt: 'Image',
+                    })
+                    .run()
+            }
         } else {
-            // Insert YouTube video at current cursor position with specified width
+            // Insert YouTube video
             const height = Math.round(youtubeWidth * 9 / 16) // Maintain 16:9 aspect ratio
-            editor.chain().focus().setYoutubeVideo({
-                src: url,
-                width: youtubeWidth,
-                height: height,
-            }).run()
+
+            if (isNodeSelection) {
+                // If a node is selected, move cursor after it and insert
+                editor.chain()
+                    .focus()
+                    .setTextSelection(to)
+                    .insertContent('<p></p>') // Add a paragraph
+                    .setYoutubeVideo({
+                        src: url,
+                        width: youtubeWidth,
+                        height: height,
+                    })
+                    .run()
+            } else {
+                // Normal insertion at cursor
+                editor.chain()
+                    .focus()
+                    .setYoutubeVideo({
+                        src: url,
+                        width: youtubeWidth,
+                        height: height,
+                    })
+                    .run()
+            }
         }
 
         setMediaPopoverAnchor(null)
