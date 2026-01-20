@@ -40,6 +40,16 @@ import { common, createLowlight } from 'lowlight'
 // Create lowlight instance with common languages
 const lowlight = createLowlight(common)
 
+// Custom Link extension to avoid duplicate warnings
+const CustomLink = Link.extend({
+    name: 'customLink',
+})
+
+// Custom Underline extension to avoid duplicate warnings
+const CustomUnderline = Underline.extend({
+    name: 'customUnderline',
+})
+
 // Create extensions array ONCE at module level to prevent duplicates in React StrictMode
 // This ensures the exact same extension instances are used across all renders
 const EDITOR_EXTENSIONS = [
@@ -47,8 +57,8 @@ const EDITOR_EXTENSIONS = [
         heading: { levels: [1, 2, 3] },
         codeBlock: false, // Using CodeBlockLowlight instead for syntax highlighting
     }),
-    Underline,
-    Link.configure({
+    CustomUnderline,
+    CustomLink.configure({
         openOnClick: true,
         HTMLAttributes: {
             class: styles.editorLink,
@@ -343,7 +353,7 @@ export default function NoteBook({noteEntries, noteId}: {noteEntries: Entry[] | 
 
         const { from, to } = editor.state.selection
         const selectedText = editor.state.doc.textBetween(from, to, '')
-        const existingUrl = editor.getAttributes('link').href || ''
+        const existingUrl = editor.getAttributes('customLink').href || ''
 
         setLinkText(selectedText)
         setLinkUrl(existingUrl)
@@ -356,7 +366,7 @@ export default function NoteBook({noteEntries, noteId}: {noteEntries: Entry[] | 
         const url = ensureProtocol(linkUrl.trim())
 
         if (!url) {
-            editor.chain().focus().extendMarkRange('link').unsetLink().run()
+            editor.chain().focus().extendMarkRange('customLink').unsetLink().run()
         } else {
             const { from, to } = editor.state.selection
             const hasSelection = from !== to
@@ -385,7 +395,7 @@ export default function NoteBook({noteEntries, noteId}: {noteEntries: Entry[] | 
 
     const removeLink = useCallback(() => {
         if (!editor) return
-        editor.chain().focus().extendMarkRange('link').unsetLink().run()
+        editor.chain().focus().extendMarkRange('customLink').unsetLink().run()
         setLinkPopoverAnchor(null)
     }, [editor])
 
@@ -612,7 +622,7 @@ export default function NoteBook({noteEntries, noteId}: {noteEntries: Entry[] | 
                         tooltip="Underline"
                         onClick={() => editor.chain().focus().toggleUnderline().run()}
                         shortcut={`${modKey}U`}
-                        isActive={editor.isActive('underline')}
+                        isActive={editor.isActive('customUnderline')}
                     />
                     <ToolbarButton
                         icon={<MdFormatStrikethrough />}
@@ -734,7 +744,7 @@ export default function NoteBook({noteEntries, noteId}: {noteEntries: Entry[] | 
                         icon={<MdLink />}
                         tooltip="Insert Link"
                         onClick={openLinkPopover}
-                        isActive={editor.isActive('link')}
+                        isActive={editor.isActive('customLink')}
                     />
                     <ToolbarButton
                         icon={<MdImage />}
@@ -836,7 +846,7 @@ export default function NoteBook({noteEntries, noteId}: {noteEntries: Entry[] | 
                         }}
                     />
                     <div className={styles.popoverActions}>
-                        {editor.isActive('link') && (
+                        {editor.isActive('customLink') && (
                             <Button
                                 size="small"
                                 color="error"
@@ -857,7 +867,7 @@ export default function NoteBook({noteEntries, noteId}: {noteEntries: Entry[] | 
                                 '&:hover': { backgroundColor: 'var(--secondary-color)', opacity: 0.9 }
                             }}
                         >
-                            {editor.isActive('link') ? 'Update Link' : 'Insert Link'}
+                            {editor.isActive('customLink') ? 'Update Link' : 'Insert Link'}
                         </Button>
                     </div>
                 </div>
