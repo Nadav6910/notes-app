@@ -2,11 +2,11 @@
 
 import styles from "../../app/my-notes/note/[noteId]/styles/notePage.module.css"
 import { useState, useEffect, useRef, useCallback } from "react"
-import { CircularProgress, Snackbar, Alert, Tooltip, Divider, Popover, TextField, Button, IconButton } from "@mui/material"
+import { CircularProgress, Snackbar, Alert, Divider, Popover, TextField, Button, IconButton } from "@mui/material"
 import { formatDate } from "@/lib/utils"
 import { AiFillSave } from "react-icons/ai"
 import {
-    MdCloudDone, MdEdit, MdError, MdFormatBold, MdFormatItalic, MdFormatUnderlined,
+    MdEdit, MdFormatBold, MdFormatItalic, MdFormatUnderlined,
     MdFormatStrikethrough, MdFormatQuote, MdCode, MdFormatListBulleted, MdFormatListNumbered,
     MdLink, MdHorizontalRule, MdTitle, MdUndo, MdRedo, MdFormatAlignLeft, MdFormatAlignCenter,
     MdFormatAlignRight, MdImage, MdCheckBox, MdHighlight,
@@ -16,7 +16,12 @@ import {
 import { Entry } from "../../../types"
 import { useScroll, AnimatePresence } from 'framer-motion'
 import MotionWrap from "@/wrappers/MotionWrap"
-import { useAutoSave, SaveStatus } from "@/app/hooks/useAutoSave"
+import { useAutoSave } from "@/app/hooks/useAutoSave"
+
+// Optimized: Extracted memoized components to prevent unnecessary re-renders
+import { SaveStatusIndicator } from './editor/SaveStatusIndicator'
+import { ToolbarButton } from './editor/ToolbarButton'
+import { ColorPicker } from './editor/ColorPicker'
 
 // TipTap imports
 import { useEditor, EditorContent } from '@tiptap/react'
@@ -150,152 +155,6 @@ function ensureProtocol(url: string): string {
     return `https://${url}`
 }
 
-// Save Status Indicator component
-function SaveStatusIndicator({ status, lastSaved }: { status: SaveStatus; lastSaved: Date | null }) {
-    const getConfig = () => {
-        switch (status) {
-            case 'saved':
-                return { icon: <MdCloudDone />, text: 'Saved', color: 'var(--secondary-color)' }
-            case 'saving':
-                return { icon: <CircularProgress size={14} sx={{ color: 'var(--primary-color)' }} />, text: 'Saving...', color: 'var(--primary-color)' }
-            case 'unsaved':
-                return { icon: <MdEdit />, text: 'Unsaved', color: '#f59e0b' }
-            case 'error':
-                return { icon: <MdError />, text: 'Error', color: '#ef4444' }
-        }
-    }
-
-    const config = getConfig()
-
-    return (
-        <MotionWrap
-            className={styles.saveStatus}
-            style={{ color: config.color }}
-            initial={{ opacity: 0, y: -5 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.2 }}
-        >
-            {config.icon}
-            <span>{config.text}</span>
-            {status === 'saved' && lastSaved && (
-                <span className={styles.lastSavedTime}>
-                    at {lastSaved.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                </span>
-            )}
-        </MotionWrap>
-    )
-}
-
-// Toolbar button component with fixed tooltip
-function ToolbarButton({
-    icon,
-    tooltip,
-    onClick,
-    shortcut,
-    isActive = false,
-    disabled = false
-}: {
-    icon: React.ReactNode
-    tooltip: string
-    onClick: (e: React.MouseEvent<HTMLButtonElement>) => void
-    shortcut?: string
-    isActive?: boolean
-    disabled?: boolean
-}) {
-    const [showTooltip, setShowTooltip] = useState(false)
-
-    return (
-        <Tooltip
-            title={shortcut ? `${tooltip} (${shortcut})` : tooltip}
-            arrow
-            placement="top"
-            open={showTooltip && !disabled}
-            onOpen={() => setShowTooltip(true)}
-            onClose={() => setShowTooltip(false)}
-            disableInteractive
-            enterDelay={300}
-            leaveDelay={0}
-        >
-            <span>
-                <button
-                    type="button"
-                    className={`${styles.toolbarButton} ${isActive ? styles.toolbarButtonActive : ''}`}
-                    onClick={(e) => {
-                        setShowTooltip(false)
-                        onClick(e)
-                    }}
-                    onMouseDown={(e) => e.preventDefault()}
-                    onMouseLeave={() => setShowTooltip(false)}
-                    disabled={disabled}
-                >
-                    {icon}
-                </button>
-            </span>
-        </Tooltip>
-    )
-}
-
-// Color picker dropdown
-function ColorPicker({
-    colors,
-    onSelect,
-    currentColor,
-    icon,
-    tooltip
-}: {
-    colors: { name: string; value: string }[]
-    onSelect: (color: string) => void
-    currentColor?: string
-    icon: React.ReactNode
-    tooltip: string
-}) {
-    const [anchorEl, setAnchorEl] = useState<HTMLButtonElement | null>(null)
-
-    return (
-        <>
-            <Tooltip title={tooltip} arrow placement="top" disableInteractive enterDelay={300} leaveDelay={0}>
-                <button
-                    type="button"
-                    className={`${styles.toolbarButton} ${currentColor ? styles.toolbarButtonActive : ''}`}
-                    onClick={(e) => setAnchorEl(e.currentTarget)}
-                    onMouseDown={(e) => e.preventDefault()}
-                >
-                    {icon}
-                </button>
-            </Tooltip>
-            <Popover
-                open={Boolean(anchorEl)}
-                anchorEl={anchorEl}
-                onClose={() => setAnchorEl(null)}
-                anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
-                transformOrigin={{ vertical: 'top', horizontal: 'left' }}
-                slotProps={{
-                    paper: {
-                        className: styles.colorPickerPopover
-                    }
-                }}
-            >
-                <div className={styles.colorPickerGrid}>
-                    {colors.map((color) => (
-                        <button
-                            key={color.name}
-                            className={`${styles.colorPickerItem} ${currentColor === color.value ? styles.colorPickerItemActive : ''}`}
-                            style={{ backgroundColor: color.value || 'var(--note-card-background-card-item)' }}
-                            onClick={() => {
-                                onSelect(color.value)
-                                setAnchorEl(null)
-                            }}
-                            title={color.name}
-                        >
-                            {!color.value && <MdClose size={12} />}
-                        </button>
-                    ))}
-                </div>
-            </Popover>
-        </>
-    )
-}
-
 export default function NoteBook({noteEntries, noteId}: {noteEntries: Entry[] | undefined, noteId: string}) {
 
     const { scrollY } = useScroll()
@@ -349,12 +208,14 @@ export default function NoteBook({noteEntries, noteId}: {noteEntries: Entry[] | 
         immediatelyRender: false,
     })
 
-    // Save YouTube video resize dimensions
+    // Save YouTube video resize dimensions - Optimized with MutationObserver
     useEffect(() => {
         if (!editor) return
 
         const editorElement = document.querySelector('.tiptapEditor')
         if (!editorElement) return
+
+        const observedElements = new Set<Element>()
 
         const resizeObserver = new ResizeObserver((entries) => {
             entries.forEach((entry) => {
@@ -371,18 +232,28 @@ export default function NoteBook({noteEntries, noteId}: {noteEntries: Entry[] | 
         const observeVideos = () => {
             const videos = editorElement.querySelectorAll('[data-youtube-video]')
             videos.forEach((video) => {
-                resizeObserver.observe(video)
+                if (!observedElements.has(video)) {
+                    resizeObserver.observe(video)
+                    observedElements.add(video)
+                }
             })
         }
 
         observeVideos()
 
-        // Re-observe when content changes
-        const interval = setInterval(observeVideos, 1000)
+        // ✅ Use MutationObserver instead of setInterval to watch for new videos
+        const mutationObserver = new MutationObserver(() => {
+            observeVideos()
+        })
+
+        mutationObserver.observe(editorElement, {
+            childList: true,
+            subtree: true
+        })
 
         return () => {
             resizeObserver.disconnect()
-            clearInterval(interval)
+            mutationObserver.disconnect()
         }
     }, [editor])
 

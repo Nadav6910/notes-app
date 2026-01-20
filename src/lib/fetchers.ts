@@ -1,6 +1,9 @@
+import { cache } from 'react'
 import { prisma } from '@/prisma'
 
-export const getNotes = async (userId: string | undefined) => {
+// React.cache() deduplicates identical requests during a single server render
+// This prevents duplicate database queries when multiple components fetch the same data
+export const getNotes = cache(async (userId: string | undefined) => {
 
     return await prisma.user.findUnique({
         where: {
@@ -25,10 +28,10 @@ export const getNotes = async (userId: string | undefined) => {
             }
         }
     })
-}
+})
 
-export const getUserNotesView = async (userId: string | undefined) => {
-    
+export const getUserNotesView = cache(async (userId: string | undefined) => {
+
     return await prisma.user.findUnique({
         where: {
             id: userId
@@ -37,10 +40,10 @@ export const getUserNotesView = async (userId: string | undefined) => {
             notesView: true
         }
     })
-}
+})
 
-export const getNoteEntries = async (noteId: string | undefined) => {
-    
+export const getNoteEntries = cache(async (noteId: string | undefined) => {
+
     return await prisma.note.findUnique({
         where: {
             noteId: noteId
@@ -56,10 +59,10 @@ export const getNoteEntries = async (noteId: string | undefined) => {
             }
         }
     })
-}
+})
 
-export const getUserDetails = async (userId: string) => {
-        
+export const getUserDetails = cache(async (userId: string) => {
+
     return await prisma.user.findUnique({
         where: {
             id: userId
@@ -76,4 +79,4 @@ export const getUserDetails = async (userId: string) => {
             }
         }
     })
-}
+})

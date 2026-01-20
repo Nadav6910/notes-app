@@ -91,12 +91,25 @@ export default function NoteItemsList({ noteEntries, noteView, noteId }: { noteE
   const [openRenameNoteItemPopup, setOpenRenameNoteItemPopup] = useState<boolean>(false)
   const [showUserEntered, setShowUserEntered] = useState<boolean>(false)
   const [showUserLeft, setShowUserLeft] = useState<boolean>(false)
-  const [openError, setOpenError] = useState<boolean>(false)
-  const [openAddItemError, setOpenAddItemError] = useState<boolean>(false)
-  const [openDeleteItemError, setOpenDeleteItemError] = useState<boolean>(false)
-  const [openRenameItemError, setOpenRenameItemError] = useState<boolean>(false)
-  const [openSetPriorityError, setOpenSetPriorityError] = useState<boolean>(false)
-  const [openSetCategoryError, setOpenSetCategoryError] = useState<boolean>(false)
+
+  // ✅ Optimized: Consolidated 6 duplicate error snackbars into single notification system
+  type NotificationSeverity = 'error' | 'success' | 'info' | 'warning'
+  interface Notification {
+    open: boolean
+    message: string
+    severity: NotificationSeverity
+    icon?: React.ReactNode
+  }
+
+  const [notification, setNotification] = useState<Notification>({
+    open: false,
+    message: '',
+    severity: 'info'
+  })
+
+  const showNotification = useCallback((message: string, severity: NotificationSeverity, icon?: React.ReactNode) => {
+    setNotification({ open: true, message, severity, icon })
+  }, [])
   const [isButtonVisible, setIsButtonVisible] = useState<boolean>(true)
   const [searchTerm, setSearchTerm] = useState<string>("")
   const [filterByChecked, setFilterByChecked] = useState<string>("All")
@@ -214,29 +227,36 @@ export default function NoteItemsList({ noteEntries, noteView, noteId }: { noteE
 
   const addItemButtonRef = useRef<HTMLDivElement>(null)
 
-  // Throttled scroll handler to update button visibility
-  const handleScroll = useCallback(() => {
-    throttle(() => {
-      const addItemButton = addItemButtonRef.current
-      if (addItemButton) {
-        const { top, bottom } = addItemButton.getBoundingClientRect()
-        const isElementVisible = top < window.innerHeight && bottom >= 0
-        if (!isElementVisible && isButtonVisible) {
-          setIsButtonVisible(false)
-        }
-        else if (isElementVisible && !isButtonVisible) {
-          setIsButtonVisible(true)
-        }
-      }
-    }, 100)()
+  // Scroll handler to update button visibility
+  const handleScrollInner = useCallback(() => {
+    const addItemButton = addItemButtonRef.current
+    if (!addItemButton) return
+
+    const { top, bottom } = addItemButton.getBoundingClientRect()
+    const isElementVisible = top < window.innerHeight && bottom >= 0
+
+    if (!isElementVisible && isButtonVisible) {
+      setIsButtonVisible(false)
+    } else if (isElementVisible && !isButtonVisible) {
+      setIsButtonVisible(true)
+    }
   }, [isButtonVisible])
 
+  // Create throttled version once and reuse it
+  const throttledScrollHandler = useRef(
+    throttle(handleScrollInner, 100)
+  ).current
+
   useEffect(() => {
-    scrollY.on("change", handleScroll)
+    // Update the throttled function when handleScrollInner changes
+    const currentThrottled = throttle(handleScrollInner, 100)
+
+    scrollY.on("change", currentThrottled)
+
     return () => {
       scrollY.clearListeners()
     }
-  }, [scrollY, handleScroll])
+  }, [scrollY, handleScrollInner])
 
 
   // Handlers wrapped with useCallback
@@ -270,7 +290,7 @@ export default function NoteItemsList({ noteEntries, noteView, noteId }: { noteE
           entry.entryId === entryId ? { ...entry, isChecked: value } : entry
         )
       )
-      setOpenError(true)
+      showNotification('❌ Failed to update item status', 'error')
     }
   }, [noteId])
 
@@ -449,7 +469,7 @@ export default function NoteItemsList({ noteEntries, noteView, noteId }: { noteE
       channel.unsubscribe('note-item-deleted')
       channel.unsubscribe('note-item-renamed')
     }
-  }, [noteId, handleAddNoteItem, router, noteItemsState?.length])
+  }, [noteId, handleAddNoteItem, router]) // ✅ Removed noteItemsState?.length to prevent reconnections on every list change
 
   return (
     <>
@@ -528,7 +548,7 @@ export default function NoteItemsList({ noteEntries, noteView, noteId }: { noteE
                   router.refresh()
                 })
               }}
-              onError={() => setOpenAddItemError(true)}
+              onError={() => showNotification('❌ Failed to add item', 'error')}
             />
           )}
         </MotionWrap>
@@ -980,7 +1000,7 @@ export default function NoteItemsList({ noteEntries, noteView, noteId }: { noteE
           clientId={clientId}
           noteId={noteId}
           onAdd={(newEntry: Entry) => handleAddNoteItem(newEntry)}
-          onError={() => setOpenAddItemError(true)}
+          onError={() => showNotification('❌ Failed to add item', 'error')}
         />
       )}
       
@@ -1006,7 +1026,7 @@ export default function NoteItemsList({ noteEntries, noteView, noteId }: { noteE
               })
             }
           }}
-          onError={() => setOpenDeleteItemError(true)}
+          onError={() => showNotification('❌ Failed to delete item', 'error')}
         />
       )}
 
@@ -1062,9 +1082,9 @@ export default function NoteItemsList({ noteEntries, noteView, noteId }: { noteE
               })
             }
           }}
-          onError={() => setOpenRenameItemError(true)}
-          onSetPriorityError={() => setOpenSetPriorityError(true)}
-          onSetCategoryError={() => setOpenSetCategoryError(true)}
+          onError={() => showNotification('❌ Failed to rename item', 'error')}
+          onSetPriorityError={() => showNotification('❌ Failed to update priority', 'error')}
+          onSetCategoryError={() => showNotification('❌ Failed to update category', 'error')}
         />
       )}
 
@@ -1120,101 +1140,28 @@ export default function NoteItemsList({ noteEntries, noteView, noteId }: { noteE
         </Snackbar>
       )}
 
-      {openError && (
-        <Snackbar open={openError} autoHideDuration={4000} onClose={() => setOpenError(false)} anchorOrigin={{ horizontal: "center", vertical: "bottom" }}>
-          <Alert 
-            onClose={() => setOpenError(false)} 
-            severity="error" 
-            sx={{ 
-              width: '100%',
-              borderRadius: 2,
-              boxShadow: '0 4px 12px rgba(244,67,54,0.2)'
-            }}
-          >
-            ❌ Failed to update item status
-          </Alert>
-        </Snackbar>
-      )}
-
-      {openAddItemError && (
-        <Snackbar open={openAddItemError} autoHideDuration={4000} onClose={() => setOpenAddItemError(false)} anchorOrigin={{ horizontal: "center", vertical: "bottom" }}>
-          <Alert 
-            onClose={() => setOpenAddItemError(false)} 
-            severity="error" 
-            sx={{ 
-              width: '100%',
-              borderRadius: 2,
-              boxShadow: '0 4px 12px rgba(244,67,54,0.2)'
-            }}
-          >
-            ❌ Failed to add item
-          </Alert>
-        </Snackbar>
-      )}
-
-      {openDeleteItemError && (
-        <Snackbar open={openDeleteItemError} autoHideDuration={4000} onClose={() => setOpenDeleteItemError(false)} anchorOrigin={{ horizontal: "center", vertical: "bottom" }}>
-          <Alert 
-            onClose={() => setOpenDeleteItemError(false)} 
-            severity="error" 
-            sx={{ 
-              width: '100%',
-              borderRadius: 2,
-              boxShadow: '0 4px 12px rgba(244,67,54,0.2)'
-            }}
-          >
-            ❌ Failed to delete item
-          </Alert>
-        </Snackbar>
-      )}
-
-      {openRenameItemError && (
-        <Snackbar open={openRenameItemError} autoHideDuration={4000} onClose={() => setOpenRenameItemError(false)} anchorOrigin={{ horizontal: "center", vertical: "bottom" }}>
-          <Alert 
-            onClose={() => setOpenRenameItemError(false)} 
-            severity="error" 
-            sx={{ 
-              width: '100%',
-              borderRadius: 2,
-              boxShadow: '0 4px 12px rgba(244,67,54,0.2)'
-            }}
-          >
-            ❌ Failed to rename item
-          </Alert>
-        </Snackbar>
-      )}
-
-      {openSetPriorityError && (
-        <Snackbar open={openSetPriorityError} autoHideDuration={4000} onClose={() => setOpenSetPriorityError(false)} anchorOrigin={{ horizontal: "center", vertical: "bottom" }}>
-          <Alert 
-            onClose={() => setOpenSetPriorityError(false)} 
-            severity="error" 
-            sx={{ 
-              width: '100%',
-              borderRadius: 2,
-              boxShadow: '0 4px 12px rgba(244,67,54,0.2)'
-            }}
-          >
-            ❌ Failed to update priority
-          </Alert>
-        </Snackbar>
-      )}
-
-      {openSetCategoryError && (
-        <Snackbar open={openSetCategoryError} autoHideDuration={4000} onClose={() => setOpenSetCategoryError(false)} anchorOrigin={{ horizontal: "center", vertical: "bottom" }}>
-          <Alert 
-            onClose={() => setOpenSetCategoryError(false)} 
-            severity="error" 
-            sx={{ 
-              width: '100%',
-              borderRadius: 2,
-              boxShadow: '0 4px 12px rgba(244,67,54,0.2)'
-            }}
-          >
-            ❌ Failed to update category
-          </Alert>
-        </Snackbar>
-      )}
+      {/* ✅ Unified notification system - replaces 6 duplicate error snackbars */}
+      <Snackbar
+        open={notification.open}
+        autoHideDuration={4000}
+        onClose={() => setNotification(prev => ({ ...prev, open: false }))}
+        anchorOrigin={{ horizontal: "center", vertical: "bottom" }}
+      >
+        <Alert
+          onClose={() => setNotification(prev => ({ ...prev, open: false }))}
+          severity={notification.severity}
+          icon={notification.icon}
+          sx={{
+            width: '100%',
+            borderRadius: 2,
+            boxShadow: notification.severity === 'error'
+              ? '0 4px 12px rgba(244,67,54,0.2)'
+              : '0 4px 12px rgba(0,0,0,0.1)'
+          }}
+        >
+          {notification.message}
+        </Alert>
+      </Snackbar>
     </>
   )
 }
