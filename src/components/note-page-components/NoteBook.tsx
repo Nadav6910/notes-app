@@ -29,7 +29,7 @@ import Highlight from '@tiptap/extension-highlight'
 import { TextStyle } from '@tiptap/extension-text-style'
 import { Color } from '@tiptap/extension-color'
 import TextAlign from '@tiptap/extension-text-align'
-import Image from '@tiptap/extension-image'
+import ImageResize from 'tiptap-extension-resize-image'
 import { Table, TableRow, TableCell, TableHeader } from '@tiptap/extension-table'
 import Placeholder from '@tiptap/extension-placeholder'
 import Typography from '@tiptap/extension-typography'
@@ -78,10 +78,11 @@ const EDITOR_EXTENSIONS = [
     TextAlign.configure({
         types: ['heading', 'paragraph'],
     }),
-    Image.configure({
+    ImageResize.configure({
         HTMLAttributes: {
             class: styles.editorImage,
         },
+        allowBase64: true,
     }),
     Table.configure({
         resizable: true,
