@@ -1609,29 +1609,32 @@
 
 /* Image resize wrapper from tiptap-extension-resize-image */
 .tiptapEditor .image-resizer {
-    display: inline-flex;
+    display: inline-block;
     position: relative;
-    flex-grow: 0;
     margin: 1em 0;
+    max-width: 100%;
 }
 
 .tiptapEditor .image-resizer img {
     margin: 0;
+    display: block;
 }
 
+/* Main resize handle (bottom-right corner - proportional) */
 .tiptapEditor .image-resizer .resize-trigger {
     position: absolute;
     right: -6px;
     bottom: -6px;
-    width: 14px;
-    height: 14px;
+    width: 16px;
+    height: 16px;
     background-color: var(--secondary-color);
     border: 2px solid white;
     border-radius: 50%;
     cursor: nwse-resize;
     opacity: 0;
     transition: opacity 0.2s ease;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+    z-index: 10;
 }
 
 .tiptapEditor .image-resizer:hover .resize-trigger,
@@ -1639,34 +1642,46 @@
     opacity: 1;
 }
 
-/* Additional resize handles for corners */
+/* Edge resize handles for independent width/height */
 .tiptapEditor .image-resizer::before,
 .tiptapEditor .image-resizer::after {
     content: '';
     position: absolute;
-    width: 10px;
-    height: 10px;
     background-color: var(--secondary-color);
     border: 2px solid white;
-    border-radius: 2px;
     opacity: 0;
     transition: opacity 0.2s ease;
-    pointer-events: none;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    z-index: 10;
+}
+
+/* Right edge handle (width only) */
+.tiptapEditor .image-resizer::before {
+    right: -6px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 8px;
+    height: 24px;
+    border-radius: 4px;
+    cursor: ew-resize;
+}
+
+/* Bottom edge handle (height only) */
+.tiptapEditor .image-resizer::after {
+    bottom: -6px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 24px;
+    height: 8px;
+    border-radius: 4px;
+    cursor: ns-resize;
 }
 
 .tiptapEditor .image-resizer:hover::before,
-.tiptapEditor .image-resizer:hover::after {
-    opacity: 0.5;
-}
-
-.tiptapEditor .image-resizer::before {
-    top: -5px;
-    left: -5px;
-}
-
-.tiptapEditor .image-resizer::after {
-    top: -5px;
-    right: -5px;
+.tiptapEditor .image-resizer:hover::after,
+.tiptapEditor .image-resizer.resizing::before,
+.tiptapEditor .image-resizer.resizing::after {
+    opacity: 1;
 }
 
 .tiptapEditor img.ProseMirror-selectednode {
@@ -1676,8 +1691,6 @@
 
 /* ===== YouTube Embed Styles ===== */
 .editorYoutube {
-    width: 100%;
-    aspect-ratio: 16 / 9;
     border-radius: 8px;
     margin: 1em 0;
 }
@@ -1689,16 +1702,11 @@
 
 .tiptapEditor div[data-youtube-video] {
     position: relative;
-    display: inline-block;
-    width: 100%;
-    max-width: 640px;
+    display: block;
     margin: 1em 0;
-    cursor: pointer;
+    cursor: default;
     transition: box-shadow 0.2s ease;
-    resize: both;
-    overflow: hidden;
-    min-width: 280px;
-    min-height: 157px;
+    max-width: 100%;
 }
 
 .tiptapEditor div[data-youtube-video]:hover {
@@ -1712,32 +1720,8 @@
 
 .tiptapEditor div[data-youtube-video] iframe {
     width: 100%;
-    aspect-ratio: 16 / 9;
+    height: 100%;
     border-radius: 8px;
-    pointer-events: none;
-}
-
-.tiptapEditor div[data-youtube-video]:hover iframe {
-    pointer-events: auto;
-}
-
-/* Resize handle indicator for YouTube */
-.tiptapEditor div[data-youtube-video]::after {
-    content: '';
-    position: absolute;
-    right: 4px;
-    bottom: 4px;
-    width: 12px;
-    height: 12px;
-    background: linear-gradient(135deg, transparent 50%, var(--secondary-color) 50%);
-    border-radius: 0 0 6px 0;
-    opacity: 0;
-    transition: opacity 0.2s ease;
-    pointer-events: none;
-}
-
-.tiptapEditor div[data-youtube-video]:hover::after {
-    opacity: 0.7;
 }
 
 /* ===== Code Block with Syntax Highlighting ===== */

@@ -101,6 +101,10 @@ const EDITOR_EXTENSIONS = [
         HTMLAttributes: {
             class: styles.editorYoutube,
         },
+        inline: false,
+        allowFullscreen: true,
+        controls: true,
+        nocookie: true,
     }),
     CodeBlockLowlight.configure({
         lowlight,
@@ -316,6 +320,7 @@ export default function NoteBook({noteEntries, noteId}: {noteEntries: Entry[] | 
     const [mediaPopoverAnchor, setMediaPopoverAnchor] = useState<HTMLButtonElement | null>(null)
     const [mediaType, setMediaType] = useState<'image' | 'youtube'>('image')
     const [mediaUrl, setMediaUrl] = useState('')
+    const [youtubeWidth, setYoutubeWidth] = useState(640)
 
     // Table menu
     const [tableMenuAnchor, setTableMenuAnchor] = useState<HTMLButtonElement | null>(null)
@@ -410,15 +415,28 @@ export default function NoteBook({noteEntries, noteId}: {noteEntries: Entry[] | 
     const handleMediaSubmit = useCallback(() => {
         if (!editor || !mediaUrl.trim()) return
 
+        const url = mediaUrl.trim()
+
         if (mediaType === 'image') {
-            editor.chain().focus().setImage({ src: mediaUrl.trim() }).run()
+            // Insert image at current cursor position
+            editor.chain().focus().setImage({
+                src: url,
+                alt: 'Image',
+            }).run()
         } else {
-            editor.chain().focus().setYoutubeVideo({ src: mediaUrl.trim() }).run()
+            // Insert YouTube video at current cursor position with specified width
+            const height = Math.round(youtubeWidth * 9 / 16) // Maintain 16:9 aspect ratio
+            editor.chain().focus().setYoutubeVideo({
+                src: url,
+                width: youtubeWidth,
+                height: height,
+            }).run()
         }
 
         setMediaPopoverAnchor(null)
         setMediaUrl('')
-    }, [editor, mediaType, mediaUrl])
+        setYoutubeWidth(640) // Reset to default
+    }, [editor, mediaType, mediaUrl, youtubeWidth])
 
     // Table handlers
     const openTableMenu = useCallback((e: React.MouseEvent<HTMLButtonElement>) => {
@@ -958,6 +976,30 @@ export default function NoteBook({noteEntries, noteId}: {noteEntries: Entry[] | 
                             '& .MuiInputLabel-root': { color: 'var(--primary-color)', opacity: 0.7 },
                         }}
                     />
+                    {mediaType === 'youtube' && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5em' }}>
+                            <label style={{ fontSize: '0.85rem', color: 'var(--primary-color)', opacity: 0.8 }}>
+                                Video Width: {youtubeWidth}px
+                            </label>
+                            <input
+                                type="range"
+                                min="320"
+                                max="1280"
+                                step="80"
+                                value={youtubeWidth}
+                                onChange={(e) => setYoutubeWidth(Number(e.target.value))}
+                                style={{
+                                    width: '100%',
+                                    accentColor: 'var(--secondary-color)',
+                                }}
+                            />
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', opacity: 0.6 }}>
+                                <span>320px</span>
+                                <span>640px</span>
+                                <span>1280px</span>
+                            </div>
+                        </div>
+                    )}
                     <div className={styles.popoverActions}>
                         <Button
                             size="small"
