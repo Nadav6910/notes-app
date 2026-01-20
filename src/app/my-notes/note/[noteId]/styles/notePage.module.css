@@ -1708,7 +1708,7 @@
     transition: box-shadow 0.2s ease;
     max-width: 100%;
     resize: both;
-    overflow: hidden;
+    overflow: visible;
     min-width: 320px;
     min-height: 180px;
 }
@@ -1724,12 +1724,13 @@
 
 .tiptapEditor div[data-youtube-video] iframe {
     width: 100%;
-    height: 100%;
+    aspect-ratio: 16 / 9;
     border-radius: 8px;
     pointer-events: auto;
+    display: block;
 }
 
-/* Resize handle indicator for YouTube */
+/* Resize handle indicator for YouTube - Desktop */
 .tiptapEditor div[data-youtube-video]::after {
     content: '';
     position: absolute;
@@ -1744,10 +1745,37 @@
     transition: opacity 0.2s ease;
     pointer-events: none;
     border-bottom-right-radius: 8px;
+    z-index: 1;
 }
 
 .tiptapEditor div[data-youtube-video]:hover::after {
     opacity: 0.6;
+}
+
+/* Mobile touch-friendly resize handle */
+@media (pointer: coarse) {
+    .tiptapEditor div[data-youtube-video] {
+        resize: horizontal;
+    }
+
+    .tiptapEditor div[data-youtube-video]::after {
+        opacity: 1;
+        border-width: 0 0 20px 20px;
+        right: 0;
+        bottom: 0;
+    }
+
+    .tiptapEditor div[data-youtube-video]::before {
+        content: '';
+        position: absolute;
+        right: 0;
+        bottom: 0;
+        width: 32px;
+        height: 32px;
+        background: transparent;
+        z-index: 2;
+        cursor: nwse-resize;
+    }
 }
 
 /* ===== Code Block with Syntax Highlighting ===== */
