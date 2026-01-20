@@ -594,7 +594,7 @@
 
     .noteBookTextArea {
         padding: 1em;
-        font-size: 0.95rem;
+        font-size: 1rem;
         min-height: 50vh;
     }
 
@@ -1337,7 +1337,7 @@
 @media screen and (max-width: 600px) {
     .tiptapEditor {
         padding: 1em;
-        font-size: 0.95rem;
+        font-size: 1rem;
         min-height: 50vh;
     }
 
@@ -1705,21 +1705,23 @@
     display: inline-block;
     margin: 1em 0;
     cursor: default;
-    transition: box-shadow 0.2s ease;
+    transition: all 0.2s ease;
     max-width: 100%;
     resize: both;
-    overflow: visible;
+    overflow: hidden;
+    background-color: #000;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     min-width: 320px;
-    min-height: 180px;
 }
 
 .tiptapEditor div[data-youtube-video]:hover {
-    box-shadow: 0 0 0 2px var(--secondary-color-faded);
+    box-shadow: 0 0 0 3px var(--secondary-color-faded), 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 .tiptapEditor div[data-youtube-video].ProseMirror-selectednode {
     outline: 3px solid var(--secondary-color);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 0 0 3px var(--secondary-color), 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
 .tiptapEditor div[data-youtube-video] iframe {
@@ -1730,7 +1732,7 @@
     display: block;
 }
 
-/* Resize handle indicator for YouTube - Desktop */
+/* Visual resize indicator */
 .tiptapEditor div[data-youtube-video]::after {
     content: '';
     position: absolute;
@@ -1739,42 +1741,28 @@
     width: 0;
     height: 0;
     border-style: solid;
-    border-width: 0 0 16px 16px;
+    border-width: 0 0 18px 18px;
     border-color: transparent transparent var(--secondary-color) transparent;
     opacity: 0;
     transition: opacity 0.2s ease;
     pointer-events: none;
-    border-bottom-right-radius: 8px;
-    z-index: 1;
+    z-index: 10;
 }
 
 .tiptapEditor div[data-youtube-video]:hover::after {
-    opacity: 0.6;
+    opacity: 0.7;
 }
 
-/* Mobile touch-friendly resize handle */
-@media (pointer: coarse) {
+/* Mobile-specific styles */
+@media (max-width: 768px) {
     .tiptapEditor div[data-youtube-video] {
-        resize: horizontal;
+        width: 100% !important;
+        max-width: 100%;
+        resize: none;
     }
 
     .tiptapEditor div[data-youtube-video]::after {
-        opacity: 1;
-        border-width: 0 0 20px 20px;
-        right: 0;
-        bottom: 0;
-    }
-
-    .tiptapEditor div[data-youtube-video]::before {
-        content: '';
-        position: absolute;
-        right: 0;
-        bottom: 0;
-        width: 32px;
-        height: 32px;
-        background: transparent;
-        z-index: 2;
-        cursor: nwse-resize;
+        display: none;
     }
 }
 
@@ -1846,15 +1834,6 @@
 .tiptapEditor pre .hljs-type,
 .tiptapEditor pre .hljs-class {
     color: #4ec9b0;
-}
-
-/* ===== Focus Mode ===== */
-.hasFocus {
-    /* Subtle highlight for focused paragraph */
-}
-
-.tiptapEditor:not(:focus-within) .hasFocus {
-    /* Optional: dim other content when not focused */
 }
 
 /* ===== Placeholder ===== */

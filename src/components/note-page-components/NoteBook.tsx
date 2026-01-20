@@ -349,6 +349,43 @@ export default function NoteBook({noteEntries, noteId}: {noteEntries: Entry[] | 
         immediatelyRender: false,
     })
 
+    // Save YouTube video resize dimensions
+    useEffect(() => {
+        if (!editor) return
+
+        const editorElement = document.querySelector('.tiptapEditor')
+        if (!editorElement) return
+
+        const resizeObserver = new ResizeObserver((entries) => {
+            entries.forEach((entry) => {
+                const target = entry.target as HTMLElement
+                if (target.hasAttribute('data-youtube-video')) {
+                    const width = Math.round(entry.contentRect.width)
+                    // Update the inline style to persist the width
+                    target.style.width = `${width}px`
+                }
+            })
+        })
+
+        // Observe all YouTube video elements
+        const observeVideos = () => {
+            const videos = editorElement.querySelectorAll('[data-youtube-video]')
+            videos.forEach((video) => {
+                resizeObserver.observe(video)
+            })
+        }
+
+        observeVideos()
+
+        // Re-observe when content changes
+        const interval = setInterval(observeVideos, 1000)
+
+        return () => {
+            resizeObserver.disconnect()
+            clearInterval(interval)
+        }
+    }, [editor])
+
     // Detect platform for shortcut display
     const isMac = typeof navigator !== 'undefined' && navigator.platform.includes('Mac')
     const modKey = isMac ? '⌘' : 'Ctrl+'
