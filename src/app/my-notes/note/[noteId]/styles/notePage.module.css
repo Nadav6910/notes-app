@@ -381,22 +381,226 @@
     }
 }
 
+/* ===== NoteBook Header ===== */
+.notebookHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    margin-bottom: 1.5em;
+    padding-bottom: 1em;
+    border-bottom: 1px solid var(--borders-color);
+}
+
+.notebookMetadata {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5em;
+}
+
+.lastUpdated {
+    font-size: 0.75rem;
+    color: var(--primary-color);
+    opacity: 0.7;
+}
+
+.saveStatus {
+    display: flex;
+    align-items: center;
+    gap: 0.35em;
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+.lastSavedTime {
+    opacity: 0.6;
+    font-size: 0.7rem;
+    margin-left: 0.3em;
+}
+
+.textStats {
+    display: flex;
+    align-items: center;
+    gap: 0.5em;
+    font-size: 0.75rem;
+    color: var(--primary-color);
+    opacity: 0.6;
+}
+
+.statDivider {
+    opacity: 0.4;
+}
+
+/* ===== Save Button ===== */
+.saveButton {
+    display: flex;
+    align-items: center;
+    align-self: flex-start;
+    border: 1px solid var(--borders-color);
+    padding: 0.8em 1.2em;
+    border-radius: 10px;
+    gap: 0.5em;
+    cursor: pointer;
+    margin-bottom: 1em;
+    background-color: transparent;
+    color: var(--primary-color);
+    transition: all 0.2s ease;
+}
+
+.saveButton:hover {
+    border-color: var(--secondary-color);
+    color: var(--secondary-color);
+}
+
+.saveButtonActive {
+    border-color: var(--secondary-color);
+    background-color: var(--secondary-color-faded);
+}
+
+.shortcutHint {
+    font-size: 0.7rem;
+    opacity: 0.5;
+    margin-left: 0.5em;
+    padding: 0.2em 0.5em;
+    border-radius: 4px;
+    background-color: var(--note-card-background-card-item);
+    font-family: monospace;
+}
+
+/* ===== Floating Save Button ===== */
+.floatingSaveButton {
+    position: fixed;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    cursor: pointer;
+    border-radius: 50%;
+    width: 3.5em;
+    height: 3.5em;
+    background-color: var(--secondary-color);
+    color: white;
+    bottom: 1.5em;
+    left: 1.5em;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.floatingSaveButton:hover {
+    transform: scale(1.1);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25);
+}
+
+.floatingSaveButtonActive {
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    }
+    50% {
+        box-shadow: 0 4px 20px var(--secondary-color);
+    }
+}
+
+.unsavedDot {
+    position: absolute;
+    top: 0.4em;
+    right: 0.4em;
+    width: 0.5em;
+    height: 0.5em;
+    border-radius: 50%;
+    background-color: #f59e0b;
+    animation: blink 1.5s infinite;
+}
+
+@keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+/* ===== Textarea Container ===== */
+.textareaContainer {
+    position: relative;
+    width: 100%;
+}
+
 .noteBookTextArea {
     resize: none;
     width: 100%;
+    min-height: 60vh;
     font-size: 1rem;
+    line-height: 1.8;
     background-color: var(--note-card-background-card-item);
-    padding: 1em;
+    padding: 1.5em;
     border-radius: 12px;
+    border: 2px solid transparent;
+    color: var(--primary-color);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    overflow: hidden;
+    tab-size: 4;
+    -moz-tab-size: 4;
+    letter-spacing: 0.01em;
 }
 
 .noteBookTextArea:focus {
     outline: none;
-    border: 1px solid var(--secondary-color);
+    border-color: var(--secondary-color);
+    box-shadow: 0 0 0 3px var(--secondary-color-faded);
+}
+
+.noteBookTextArea::placeholder {
+    color: var(--primary-color);
+    opacity: 0.4;
+    font-style: italic;
+}
+
+.noteBookTextArea::selection {
+    background-color: var(--secondary-color-faded);
+}
+
+.unsavedIndicator {
+    position: absolute;
+    top: 1em;
+    right: 1em;
+    color: #f59e0b;
+    opacity: 0.7;
+}
+
+.unsavedIcon {
+    width: 1.2em;
+    height: 1.2em;
 }
 
 .floatingSaveBtn svg {
     color: white !important;
+}
+
+/* ===== Responsive NoteBook ===== */
+@media screen and (max-width: 600px) {
+    .notebookHeader {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.75em;
+    }
+
+    .floatingSaveButton {
+        width: 3em;
+        height: 3em;
+        bottom: 1em;
+        left: 1em;
+    }
+
+    .noteBookTextArea {
+        padding: 1em;
+        font-size: 0.95rem;
+        min-height: 50vh;
+    }
+
+    .shortcutHint {
+        display: none;
+    }
 }
 
 .switchNotesViewBtnContainer {
@@ -616,4 +820,827 @@
     backdrop-filter: blur(5px);
     /* give radius to box shadow */
     border-radius: 10px;
+}
+
+/* ===== Formatting Toolbar ===== */
+.toolbar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.25em;
+    padding: 0.5em 0.75em;
+    background-color: var(--note-card-background-card-item);
+    border: 1px solid var(--borders-color);
+    border-bottom: none;
+    border-radius: 12px 12px 0 0;
+    width: 100%;
+}
+
+.toolbarGroup {
+    display: flex;
+    align-items: center;
+    gap: 0.15em;
+}
+
+.toolbarButton {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2em;
+    height: 2em;
+    padding: 0;
+    border: none;
+    border-radius: 6px;
+    background-color: transparent;
+    color: var(--primary-color);
+    cursor: pointer;
+    transition: all 0.15s ease;
+    opacity: 0.7;
+}
+
+.toolbarButton:hover {
+    background-color: var(--secondary-color-faded);
+    color: var(--secondary-color);
+    opacity: 1;
+}
+
+.toolbarButton:active {
+    transform: scale(0.92);
+}
+
+.toolbarButton:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+.toolbarButton:disabled:hover {
+    background-color: transparent;
+    color: var(--primary-color);
+    transform: none;
+}
+
+.toolbarDivider {
+    width: 1px;
+    height: 1.5em;
+    background-color: var(--borders-color);
+    margin: 0 0.4em;
+}
+
+.toolbarSpacer {
+    flex: 1;
+}
+
+.toolbarSaveButton {
+    display: flex;
+    align-items: center;
+    gap: 0.4em;
+    padding: 0.4em 0.8em;
+    border: 1px solid var(--borders-color);
+    border-radius: 6px;
+    background-color: transparent;
+    color: var(--primary-color);
+    cursor: pointer;
+    font-size: 0.8rem;
+    transition: all 0.2s ease;
+}
+
+.toolbarSaveButton:hover {
+    border-color: var(--secondary-color);
+    color: var(--secondary-color);
+}
+
+.toolbarSaveButtonActive {
+    border-color: var(--secondary-color);
+    background-color: var(--secondary-color-faded);
+    color: var(--secondary-color);
+}
+
+/* Connect toolbar to textarea */
+.textareaWithToolbar {
+    border-radius: 0 0 12px 12px !important;
+    border-top: 1px solid var(--borders-color) !important;
+}
+
+/* ===== Toolbar Button Active State ===== */
+.toolbarButtonActive {
+    background-color: var(--secondary-color-faded) !important;
+    color: var(--secondary-color) !important;
+    opacity: 1 !important;
+}
+
+/* ===== Save Button Text ===== */
+.saveButtonText {
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+/* ===== Responsive Toolbar ===== */
+@media screen and (max-width: 768px) {
+    .toolbar {
+        padding: 0.4em 0.5em;
+        gap: 0.2em;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: thin;
+    }
+
+    .toolbarButton {
+        width: 1.9em;
+        height: 1.9em;
+        flex-shrink: 0;
+    }
+
+    .toolbarDivider {
+        margin: 0 0.2em;
+        height: 1.2em;
+    }
+
+    .toolbarSaveButton {
+        padding: 0.35em 0.7em;
+        font-size: 0.8rem;
+        flex-shrink: 0;
+    }
+}
+
+@media screen and (max-width: 600px) {
+    .toolbar {
+        padding: 0.35em 0.4em;
+        gap: 0.15em;
+    }
+
+    .toolbarButton {
+        width: 1.8em;
+        height: 1.8em;
+    }
+
+    .toolbarDivider {
+        display: none;
+    }
+
+    .toolbarSaveButton {
+        padding: 0.3em 0.5em;
+        font-size: 0.75rem;
+    }
+
+    .saveButtonText {
+        display: none;
+    }
+
+    .toolbarSpacer {
+        flex: 0;
+        min-width: 0.5em;
+    }
+}
+
+/* ===== TipTap Editor Container ===== */
+.editorContainer {
+    position: relative;
+    width: 100%;
+}
+
+/* ===== TipTap Editor Styling ===== */
+.tiptapEditor {
+    min-height: 60vh;
+    font-size: 1rem;
+    line-height: 1.8;
+    background-color: var(--note-card-background-card-item);
+    padding: 1.5em;
+    border-radius: 0 0 12px 12px;
+    border: 1px solid var(--borders-color);
+    border-top: 1px solid var(--borders-color);
+    color: var(--primary-color);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    outline: none;
+    letter-spacing: 0.01em;
+}
+
+.tiptapEditor:focus {
+    border-color: var(--secondary-color);
+    box-shadow: 0 0 0 3px var(--secondary-color-faded);
+}
+
+/* TipTap placeholder */
+.tiptapEditor p.is-editor-empty:first-child::before {
+    content: 'Start writing your thoughts...';
+    color: var(--primary-color);
+    opacity: 0.4;
+    font-style: italic;
+    float: left;
+    height: 0;
+    pointer-events: none;
+}
+
+/* TipTap selection */
+.tiptapEditor ::selection {
+    background-color: var(--secondary-color-faded);
+}
+
+/* ===== TipTap Content Elements ===== */
+
+/* Headings */
+.tiptapEditor h1,
+.tiptapEditor h2,
+.tiptapEditor h3 {
+    font-weight: 600;
+    line-height: 1.3;
+    margin-top: 1em;
+    margin-bottom: 0.5em;
+    color: var(--primary-color);
+}
+
+.tiptapEditor h1 {
+    font-size: 1.8em;
+}
+
+.tiptapEditor h2 {
+    font-size: 1.4em;
+}
+
+.tiptapEditor h3 {
+    font-size: 1.2em;
+}
+
+/* Paragraphs */
+.tiptapEditor p {
+    margin-bottom: 0.75em;
+}
+
+/* Bold, Italic, etc */
+.tiptapEditor strong {
+    font-weight: 700;
+}
+
+.tiptapEditor em {
+    font-style: italic;
+}
+
+.tiptapEditor u {
+    text-decoration: underline;
+}
+
+.tiptapEditor s {
+    text-decoration: line-through;
+}
+
+/* Inline code */
+.tiptapEditor code {
+    background-color: var(--secondary-color-faded);
+    border-radius: 4px;
+    padding: 0.15em 0.4em;
+    font-family: 'Fira Code', 'Consolas', monospace;
+    font-size: 0.9em;
+    color: var(--secondary-color);
+}
+
+/* Code blocks */
+.tiptapEditor pre {
+    background-color: var(--note-card-background-card-item);
+    border: 1px solid var(--borders-color);
+    border-radius: 8px;
+    padding: 1em;
+    margin: 1em 0;
+    overflow-x: auto;
+}
+
+.tiptapEditor pre code {
+    background: none;
+    padding: 0;
+    color: var(--primary-color);
+}
+
+/* Blockquotes */
+.tiptapEditor blockquote {
+    border-left: 4px solid var(--secondary-color);
+    margin: 1em 0;
+    padding-left: 1em;
+    color: var(--primary-color);
+    opacity: 0.85;
+    font-style: italic;
+}
+
+/* Lists */
+.tiptapEditor ul,
+.tiptapEditor ol {
+    padding-left: 1.5em;
+    margin: 0.75em 0;
+}
+
+.tiptapEditor li {
+    margin-bottom: 0.3em;
+}
+
+.tiptapEditor ul {
+    list-style-type: disc;
+}
+
+.tiptapEditor ol {
+    list-style-type: decimal;
+}
+
+.tiptapEditor li p {
+    margin-bottom: 0;
+}
+
+/* Horizontal rule */
+.tiptapEditor hr {
+    border: none;
+    border-top: 2px solid var(--borders-color);
+    margin: 1.5em 0;
+}
+
+/* Links */
+.editorLink {
+    color: var(--secondary-color);
+    text-decoration: underline;
+    cursor: pointer;
+    transition: opacity 0.2s ease;
+}
+
+.editorLink:hover {
+    opacity: 0.7;
+}
+
+/* ===== Responsive TipTap Editor ===== */
+@media screen and (max-width: 600px) {
+    .tiptapEditor {
+        padding: 1em;
+        font-size: 0.95rem;
+        min-height: 50vh;
+    }
+
+    .tiptapEditor h1 {
+        font-size: 1.5em;
+    }
+
+    .tiptapEditor h2 {
+        font-size: 1.25em;
+    }
+
+    .tiptapEditor h3 {
+        font-size: 1.1em;
+    }
+}
+
+/* ===== Color Picker ===== */
+.colorPickerPopover {
+    background: var(--note-card-background-card-item) !important;
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
+    border: 1px solid var(--secondary-color-faded) !important;
+    border-radius: 12px !important;
+    padding: 0.75em !important;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25), 0 2px 8px rgba(0, 0, 0, 0.1) !important;
+}
+
+.colorPickerGrid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.4em;
+}
+
+.colorPickerItem {
+    width: 32px;
+    height: 32px;
+    border: 2px solid var(--borders-color);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--primary-color);
+}
+
+.colorPickerItem:hover {
+    transform: scale(1.15);
+    border-color: var(--secondary-color);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.colorPickerItemActive {
+    border-color: var(--secondary-color) !important;
+    box-shadow: 0 0 0 3px var(--secondary-color-faded), 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* ===== Popover Styles ===== */
+.popoverPaper {
+    background: var(--note-card-background-card-item) !important;
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
+    border: 1px solid var(--secondary-color-faded) !important;
+    border-radius: 14px !important;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3), 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+    overflow: hidden !important;
+}
+
+.popoverContent {
+    padding: 1.25em;
+    display: flex;
+    flex-direction: column;
+    gap: 0.85em;
+    min-width: 300px;
+    background: var(--note-card-background-card-item);
+}
+
+.popoverHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5em;
+    padding-bottom: 0.5em;
+    border-bottom: 1px solid var(--borders-color);
+}
+
+.popoverTitle {
+    font-weight: 600;
+    font-size: 1rem;
+    color: var(--secondary-color);
+    letter-spacing: 0.01em;
+}
+
+.popoverInput {
+    background-color: transparent;
+}
+
+.popoverActions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.75em;
+    margin-top: 0.75em;
+    padding-top: 0.75em;
+    border-top: 1px solid var(--borders-color);
+}
+
+.tableMenuGrid {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6em;
+}
+
+/* ===== Bubble Menu ===== */
+.bubbleMenu {
+    display: flex;
+    align-items: center;
+    gap: 0.15em;
+    padding: 0.3em 0.5em;
+    background-color: var(--note-card-background-card-item);
+    border: 1px solid var(--borders-color);
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* ===== Floating Menu ===== */
+.floatingMenu {
+    display: flex;
+    align-items: center;
+    gap: 0.15em;
+    padding: 0.3em 0.5em;
+    background-color: var(--note-card-background-card-item);
+    border: 1px solid var(--borders-color);
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* ===== Task List Styles ===== */
+.tiptapEditor ul[data-type="taskList"] {
+    list-style: none;
+    padding-left: 0;
+    margin: 0.75em 0;
+}
+
+.tiptapEditor ul[data-type="taskList"] li {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5em;
+    margin-bottom: 0.3em;
+}
+
+.tiptapEditor ul[data-type="taskList"] li > label {
+    flex-shrink: 0;
+    margin-top: 0.15em;
+}
+
+.tiptapEditor ul[data-type="taskList"] li > label input[type="checkbox"] {
+    width: 1.1em;
+    height: 1.1em;
+    accent-color: var(--secondary-color);
+    cursor: pointer;
+}
+
+.tiptapEditor ul[data-type="taskList"] li > div {
+    flex: 1;
+}
+
+.tiptapEditor ul[data-type="taskList"] li[data-checked="true"] > div {
+    text-decoration: line-through;
+    opacity: 0.6;
+}
+
+/* ===== Table Styles ===== */
+.editorTable {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 1em 0;
+    overflow: hidden;
+    border-radius: 8px;
+    border: 1px solid var(--borders-color);
+}
+
+.tiptapEditor table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 1em 0;
+    table-layout: fixed;
+    overflow: hidden;
+}
+
+.tiptapEditor th,
+.tiptapEditor td {
+    border: 1px solid var(--borders-color);
+    padding: 0.75em;
+    position: relative;
+    min-width: 100px;
+    vertical-align: top;
+    box-sizing: border-box;
+}
+
+.tiptapEditor th {
+    background-color: var(--secondary-color-faded);
+    font-weight: 600;
+    text-align: left;
+}
+
+.tiptapEditor td {
+    background-color: transparent;
+}
+
+.tiptapEditor .selectedCell:after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    background: var(--secondary-color-faded);
+    pointer-events: none;
+    z-index: 2;
+}
+
+.tiptapEditor .column-resize-handle {
+    position: absolute;
+    right: -2px;
+    top: 0;
+    bottom: -2px;
+    width: 4px;
+    background-color: var(--secondary-color);
+    cursor: col-resize;
+}
+
+.tiptapEditor .tableWrapper {
+    overflow-x: auto;
+    margin: 1em 0;
+}
+
+.tiptapEditor .resize-cursor {
+    cursor: col-resize;
+}
+
+/* ===== Image Styles ===== */
+.editorImage {
+    max-width: 100%;
+    height: auto;
+    border-radius: 8px;
+    margin: 1em 0;
+    display: block;
+}
+
+.tiptapEditor img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 8px;
+    margin: 1em 0;
+    display: block;
+}
+
+.tiptapEditor img.ProseMirror-selectednode {
+    outline: 3px solid var(--secondary-color);
+    outline-offset: 2px;
+}
+
+/* ===== YouTube Embed Styles ===== */
+.editorYoutube {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    border-radius: 8px;
+    margin: 1em 0;
+}
+
+.tiptapEditor iframe {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    border-radius: 8px;
+    margin: 1em 0;
+    border: none;
+}
+
+.tiptapEditor div[data-youtube-video] {
+    position: relative;
+    width: 100%;
+    padding-bottom: 56.25%;
+    margin: 1em 0;
+}
+
+.tiptapEditor div[data-youtube-video] iframe {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border-radius: 8px;
+}
+
+/* ===== Code Block with Syntax Highlighting ===== */
+.editorCodeBlock {
+    background-color: #1e1e1e !important;
+    border-radius: 8px;
+    padding: 1em;
+    margin: 1em 0;
+    overflow-x: auto;
+    font-family: 'Fira Code', 'Consolas', 'Monaco', monospace;
+    font-size: 0.9em;
+    line-height: 1.5;
+}
+
+.tiptapEditor pre {
+    background-color: #1e1e1e;
+    color: #d4d4d4;
+    border-radius: 8px;
+    padding: 1em;
+    margin: 1em 0;
+    overflow-x: auto;
+    font-family: 'Fira Code', 'Consolas', 'Monaco', monospace;
+    font-size: 0.9em;
+    line-height: 1.5;
+}
+
+.tiptapEditor pre code {
+    background: none !important;
+    padding: 0 !important;
+    color: inherit;
+    font-size: inherit;
+}
+
+/* Syntax highlighting colors */
+.tiptapEditor pre .hljs-comment,
+.tiptapEditor pre .hljs-quote {
+    color: #6a9955;
+    font-style: italic;
+}
+
+.tiptapEditor pre .hljs-keyword,
+.tiptapEditor pre .hljs-selector-tag,
+.tiptapEditor pre .hljs-built_in {
+    color: #569cd6;
+}
+
+.tiptapEditor pre .hljs-string,
+.tiptapEditor pre .hljs-title,
+.tiptap pre .hljs-section {
+    color: #ce9178;
+}
+
+.tiptapEditor pre .hljs-number,
+.tiptapEditor pre .hljs-literal {
+    color: #b5cea8;
+}
+
+.tiptapEditor pre .hljs-function,
+.tiptapEditor pre .hljs-title.function_ {
+    color: #dcdcaa;
+}
+
+.tiptapEditor pre .hljs-variable,
+.tiptapEditor pre .hljs-attr {
+    color: #9cdcfe;
+}
+
+.tiptapEditor pre .hljs-type,
+.tiptapEditor pre .hljs-class {
+    color: #4ec9b0;
+}
+
+/* ===== Focus Mode ===== */
+.hasFocus {
+    /* Subtle highlight for focused paragraph */
+}
+
+.tiptapEditor:not(:focus-within) .hasFocus {
+    /* Optional: dim other content when not focused */
+}
+
+/* ===== Placeholder ===== */
+.tiptapEditor p.is-editor-empty:first-child::before {
+    content: attr(data-placeholder);
+    color: var(--primary-color);
+    opacity: 0.4;
+    font-style: italic;
+    float: left;
+    height: 0;
+    pointer-events: none;
+}
+
+/* ===== Highlight Colors ===== */
+.tiptapEditor mark {
+    border-radius: 0.25em;
+    padding: 0.1em 0.2em;
+    box-decoration-break: clone;
+}
+
+/* ===== Text Alignment ===== */
+.tiptapEditor [style*="text-align: center"] {
+    text-align: center;
+}
+
+.tiptapEditor [style*="text-align: right"] {
+    text-align: right;
+}
+
+.tiptapEditor [style*="text-align: justify"] {
+    text-align: justify;
+}
+
+/* ===== Responsive Adjustments ===== */
+@media screen and (max-width: 768px) {
+    .toolbarGroup {
+        flex-wrap: nowrap;
+    }
+
+    .bubbleMenu,
+    .floatingMenu {
+        flex-wrap: wrap;
+        max-width: 200px;
+    }
+
+    .popoverContent {
+        min-width: 280px;
+        padding: 0.85em;
+    }
+
+    .popoverTitle {
+        font-size: 0.9rem;
+    }
+}
+
+@media screen and (max-width: 480px) {
+    .colorPickerGrid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+
+    .tiptapEditor table {
+        font-size: 0.85em;
+    }
+
+    .tiptapEditor th,
+    .tiptapEditor td {
+        padding: 0.5em;
+        min-width: 60px;
+    }
+
+    .popoverContent {
+        min-width: 260px;
+        padding: 0.75em;
+        gap: 0.6em;
+    }
+
+    .popoverHeader {
+        margin-bottom: 0.15em;
+    }
+
+    .popoverActions {
+        flex-direction: column;
+        gap: 0.5em;
+    }
+
+    .popoverActions button {
+        width: 100%;
+    }
+
+    .tableMenuGrid {
+        gap: 0.4em;
+    }
+
+    /* Notebook header mobile */
+    .notebookHeader {
+        gap: 0.5em;
+        padding-bottom: 0.75em;
+        margin-bottom: 1em;
+    }
+
+    .textStats {
+        font-size: 0.7rem;
+    }
+
+    .lastUpdated {
+        font-size: 0.7rem;
+    }
 }

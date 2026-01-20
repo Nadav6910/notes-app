@@ -709,18 +709,40 @@ async function setupAddressOptimized(
     'Address lookup timed out'
   )
 
-  // If no results and no cache, try fallback directly (skip alternate spellings for speed)
+  // If no results and no cache, try alternate spellings first, then fallback
   if (!addrResult.hasResults && !cachedCity) {
-    const fallbackCity = findCityInMap(locationName, CITY_FALLBACK) || SCRAPER_CONFIG.DEFAULT_CITY
-    console.log(`[get-product-prices] City "${locationName}" not found, using "${fallbackCity}"`)
+    // Try alternate spellings (e.g., קריית ים -> קרית ים)
+    const alternates = generateAlternateSpellings(locationName)
+    for (const alt of alternates) {
+      if (alt === locationName) continue // Skip the original we already tried
 
-    addrResult = await withTimeout(
-      openWidgetAndGetListId(page, ADDRESS_SEL, fallbackCity, SCRAPER_CONFIG.FAST_ADDRESS_TIMEOUT_MS),
-      SCRAPER_CONFIG.FAST_ADDRESS_TIMEOUT_MS + 500,
-      'Fallback address lookup timed out'
-    )
-    actualCity = fallbackCity
-    usedFallback = true
+      console.log(`[get-product-prices] Trying alternate spelling: "${alt}"`)
+      addrResult = await withTimeout(
+        openWidgetAndGetListId(page, ADDRESS_SEL, alt, SCRAPER_CONFIG.FAST_ADDRESS_TIMEOUT_MS),
+        SCRAPER_CONFIG.FAST_ADDRESS_TIMEOUT_MS + 500,
+        'Alternate address lookup timed out'
+      ).catch(() => ({ listId: '', hasResults: false }))
+
+      if (addrResult.hasResults) {
+        actualCity = alt
+        console.log(`[get-product-prices] Found city with alternate spelling: "${alt}"`)
+        break
+      }
+    }
+
+    // If still no results, fall back to major city
+    if (!addrResult.hasResults) {
+      const fallbackCity = findCityInMap(locationName, CITY_FALLBACK) || SCRAPER_CONFIG.DEFAULT_CITY
+      console.log(`[get-product-prices] City "${locationName}" not found, using fallback "${fallbackCity}"`)
+
+      addrResult = await withTimeout(
+        openWidgetAndGetListId(page, ADDRESS_SEL, fallbackCity, SCRAPER_CONFIG.FAST_ADDRESS_TIMEOUT_MS),
+        SCRAPER_CONFIG.FAST_ADDRESS_TIMEOUT_MS + 500,
+        'Fallback address lookup timed out'
+      )
+      actualCity = fallbackCity
+      usedFallback = true
+    }
   }
 
   // Click to select the address

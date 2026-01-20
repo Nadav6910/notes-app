@@ -63,22 +63,197 @@
 }
 
 
+/* ===== Card Container ===== */
 .cardContainer {
-    background-color: var( --note-card-background-card-item) !important;
+    background-color: var(--note-card-background-card-item) !important;
     max-width: 32em;
+    border-radius: 12px;
+    overflow: hidden;
+    position: relative;
+    border: 1px solid transparent;
+    transition: border-color 0.3s ease;
 }
 
-.cardContainerListView {
-    background-color: var( --note-card-background-card-item) !important;
-    max-width: 100%;
-
+.cardContainer:hover {
+    border-color: var(--secondary-color-faded);
 }
 
+/* ===== Card Accent Bar ===== */
+.cardAccent {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    z-index: 1;
+    background: linear-gradient(90deg, var(--secondary-color), var(--secondary-color));
+}
+
+.cardAccent[data-note-type="Items list"] {
+    background: linear-gradient(90deg, #19a29b, #2dd4c8);
+}
+
+.cardAccent[data-note-type="Notebook"] {
+    background: linear-gradient(90deg, #8b5cf6, #a78bfa);
+}
+
+/* ===== SVG Container ===== */
 .svgContainer {
     display: flex;
     align-items: center;
     justify-content: center;
     height: 13em;
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(180deg, transparent 0%, var(--secondary-color-faded) 100%);
+}
+
+.svgContainer::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: radial-gradient(circle at center, var(--secondary-color-faded) 0%, transparent 70%);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.cardContainer:hover .svgContainer::before {
+    opacity: 1;
+}
+
+/* ===== Card Content ===== */
+.cardContent {
+    padding-bottom: 0.5em !important;
+}
+
+.cardFooter {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 16px 16px 16px;
+}
+
+.cardMetadata {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3em;
+}
+
+.cardActions {
+    padding: 0 !important;
+}
+
+/* ===== List View Card ===== */
+.cardContainerListView {
+    background-color: var(--note-card-background-card-item) !important;
+    max-width: 100%;
+    border-radius: 10px;
+    border-left: 4px solid var(--secondary-color);
+    transition: border-color 0.2s ease;
+}
+
+.cardContainerListView:hover {
+    border-left-color: var(--secondary-color);
+}
+
+.cardWrapListView {
+    border-radius: 10px;
+}
+
+.listViewContent {
+    display: flex;
+    align-items: center;
+    gap: 1em;
+    padding: 1em 1.2em;
+}
+
+/* ===== Note Type Icon ===== */
+.noteTypeIcon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.8em;
+    height: 2.8em;
+    min-width: 2.8em;
+    border-radius: 10px;
+    background-color: var(--secondary-color-faded);
+    color: var(--secondary-color);
+    font-size: 1rem;
+    transition: transform 0.2s ease, background-color 0.2s ease;
+}
+
+.noteTypeIcon[data-note-type="Items list"] {
+    background-color: rgba(25, 162, 155, 0.15);
+    color: #19a29b;
+}
+
+.noteTypeIcon[data-note-type="Notebook"] {
+    background-color: rgba(139, 92, 246, 0.15);
+    color: #8b5cf6;
+}
+
+.cardContainerListView:hover .noteTypeIcon {
+    transform: scale(1.05);
+}
+
+/* ===== List View Info ===== */
+.listViewInfo {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3em;
+    min-width: 0;
+}
+
+.listViewMain {
+    display: flex;
+    align-items: center;
+    gap: 0.75em;
+    flex-wrap: wrap;
+}
+
+.noteTypeLabel {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--secondary-color);
+    opacity: 0.8;
+    font-weight: 500;
+}
+
+.listViewMetadata {
+    display: flex;
+    align-items: center;
+    gap: 1em;
+}
+
+.entriesCountListView {
+    font-size: 0.75rem;
+    color: var(--primary-color);
+    opacity: 0.7;
+}
+
+.createdAtListView {
+    font-size: 0.75rem;
+    color: var(--primary-color);
+    opacity: 0.6;
+}
+
+.listViewActions {
+    padding: 0 !important;
+    margin-left: auto;
+}
+
+/* ===== Icon Button View ===== */
+.iconButtonView {
+    color: var(--primary-color) !important;
+}
+
+.iconButtonView:hover {
+    background-color: var(--secondary-color-faded) !important;
 }
 
 @media (max-width: 530px) {
@@ -97,6 +272,7 @@
     height: 100%;
     padding: 1.2em;
     cursor: pointer;
+    transition: transform 0.3s ease;
 }
 
 .notebookCardDrawing {
@@ -104,36 +280,81 @@
     height: 100%;
     padding: 2.5em;
     cursor: pointer;
+    transition: transform 0.3s ease;
+}
+
+.cardContainer:hover .listCardDrawing,
+.cardContainer:hover .notebookCardDrawing {
+    transform: scale(1.05);
+}
+
+/* ===== Responsive List View ===== */
+@media screen and (max-width: 600px) {
+    .listViewContent {
+        flex-wrap: wrap;
+        gap: 0.75em;
+    }
+
+    .noteTypeIcon {
+        width: 2.4em;
+        height: 2.4em;
+        min-width: 2.4em;
+    }
+
+    .listViewInfo {
+        flex: 1 1 calc(100% - 4em);
+    }
+
+    .listViewActions {
+        width: 100%;
+        justify-content: flex-end;
+        padding-top: 0.5em !important;
+        border-top: 1px solid var(--borders-color);
+        margin-top: 0.5em;
+    }
+
+    .listViewMetadata {
+        flex-wrap: wrap;
+        gap: 0.5em;
+    }
 }
 
 .noteName {
-    font-weight: bolder;
+    font-weight: 700;
+    font-size: 1.05rem;
     color: var(--primary-color);
-    margin-bottom: 0.25em;
+    margin-bottom: 0.3em;
     cursor: pointer;
     width: fit-content;
-}
-
-.entriesCount {
-    font-size: 0.7rem;
-    color: var(--primary-color);
-    padding-left: 16px;
-}
-
-.createdAt {
-    font-size: 0.7rem;
-    color: var(--primary-color);
-    padding-left: 16px;
-}
-
-.noteType {
-    font-size: 0.8em;
-    margin-bottom: 1em;
-    color: var(--primary-color);
+    line-height: 1.3;
+    transition: color 0.2s ease;
 }
 
 .noteName:hover {
-    text-decoration: underline;
+    color: var(--secondary-color);
+    text-decoration: none;
+}
+
+.entriesCount {
+    font-size: 0.75rem;
+    color: var(--primary-color);
+    opacity: 0.7;
+}
+
+.createdAt {
+    font-size: 0.75rem;
+    color: var(--primary-color);
+    opacity: 0.6;
+}
+
+.noteType {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 0.5em;
+    color: var(--secondary-color);
+    opacity: 0.9;
+    font-weight: 500;
 }
 
 .iconButton {

@@ -2,12 +2,11 @@
 
 import styles from "../../app/my-notes/styles/myNotes.module.css"
 import { useState, useEffect } from "react";
-import { 
-    Card, 
-    CardContent, 
-    CardActions, 
-    IconButton, 
-    Tooltip, 
+import {
+    Card,
+    CardActions,
+    IconButton,
+    Tooltip,
     Snackbar,
     Alert,
     Backdrop,
@@ -15,9 +14,10 @@ import {
 } from '@mui/material';
 import dynamic from 'next/dynamic'
 import { formatDate } from "@/lib/utils"
-import { FaArrowRight } from "react-icons/fa6"
+import { IoChevronForward } from 'react-icons/io5'
 import { MdDelete } from 'react-icons/md'
 import { MdModeEditOutline } from 'react-icons/md'
+import { FaBook, FaListUl } from 'react-icons/fa'
 import MotionWrap from "../../wrappers/MotionWrap"
 import { useRouter } from "next/navigation";
 import { NoteCardProps } from "../../../types";
@@ -30,7 +30,7 @@ const RenameNotePopupPopup = dynamic(() => import('../my-notes-page-components/R
     loading: () => <Backdrop open={true}><CircularProgress className={styles.backDropLoader} /></Backdrop>,
 })
 
-export default function NoteCard({noteName, noteType, createdAt, noteId, entriesCount}: NoteCardProps) {
+export default function NoteCardListView({noteName, noteType, createdAt, noteId, entriesCount}: NoteCardProps) {
 
     const router = useRouter()
 
@@ -52,93 +52,117 @@ export default function NoteCard({noteName, noteType, createdAt, noteId, entries
         setPageNavLoading(true)
         router.push(`/my-notes/note/${noteId}`)
     }
-    
+
     return (
         <>
-            {pageNavLoading && 
+            {pageNavLoading &&
                 <Backdrop sx={{zIndex: 999}} open={true}>
                     <CircularProgress className={styles.backDropLoader} />
                 </Backdrop>
             }
 
             <MotionWrap
-                className={styles.cardWrap}
-                style={{display: "block"}}
-                whileHover={{y: -5, boxShadow: "0px 0px 7px 0px rgba(0,0,0,0.65)"}}
-                transition={{ type: "spring", stiffness: 200, damping: 20, duration: 0.2 }}
+                className={styles.cardWrapListView}
+                style={{display: "block", width: "100%"}}
+                whileHover={{
+                    y: -4,
+                    boxShadow: "0px 8px 20px -6px rgba(0,0,0,0.2)",
+                    scale: 1.01
+                }}
+                transition={{ type: "spring", stiffness: 300, damping: 20 }}
             >
-                <Card className={styles.cardContainerListView} style={{width: "100%"}} >
-                    <CardContent 
-                        style={{
-                            display: "flex", 
-                            justifyContent: "space-between", 
-                            alignItems: "flex-start"
-                        }}
-                    >
-                        <div style={{display: "flex", flexDirection: "column"}}>
-                            <p onClick={moveToNotePage} className={styles.noteName}>
-                                {noteName}
-                            </p>
-                            <p className={styles.noteType}>
-                                {noteType}
-                            </p>
-                        </div>
-                        <div>
-                            <Tooltip title="View">
-                                <IconButton
-                                    className={styles.iconButtonRename}
-                                    onClick={moveToNotePage} 
-                                    aria-label="View note"
-                                >
-                                    <FaArrowRight className={styles.iconButton} />
-                                </IconButton>
-                            </Tooltip>
-                        </div>
-                    </CardContent>
-                    <div 
-                        style={{display: "flex", alignItems: "center", justifyContent: "space-between"}}
-                    >   
-                        <div style={{display: "flex", flexDirection: "column", gap: "0.3em"}}>
-                            {noteType === "Items list" ? 
-                                <p className={styles.entriesCount}>
-                                    {
-                                    entriesCount === 0 ?
-                                    'No Items' :
-                                    entriesCount === 1 ? 
-                                    '1 Item' : 
-                                    `${entriesCount} Items`
-                                    }
-                                </p> : null
+                <Card className={styles.cardContainerListView}>
+                    {/* Left accent border is added via CSS */}
+                    <div className={styles.listViewContent}>
+                        {/* Note type icon */}
+                        <div className={styles.noteTypeIcon} data-note-type={noteType}>
+                            {noteType === "Items list" ?
+                                <FaListUl /> :
+                                <FaBook />
                             }
-                            <p className={styles.createdAt}>{formatDate(createdAt)}</p>
                         </div>
 
-                        <CardActions disableSpacing>
-                            <Tooltip title="Edit note">
-                                <IconButton
-                                    className={styles.iconButtonRename}
-                                    onClick={() => setOpenRename(true)} 
-                                    aria-label="Delete"
-                                >
-                                    <MdModeEditOutline className={styles.iconButton} />
-                                </IconButton>
-                            </Tooltip>
-                            <Tooltip title="Delete note">
-                                <IconButton 
-                                    className={styles.iconButtonDelete}
-                                    onClick={() => setOpenConfirmDelete(true)} 
-                                    color="error" 
-                                    aria-label="Edit name"
-                                >
-                                    <MdDelete />
-                                </IconButton>
-                            </Tooltip>
+                        {/* Note info */}
+                        <div className={styles.listViewInfo}>
+                            <div className={styles.listViewMain}>
+                                <p onClick={moveToNotePage} className={styles.noteName}>
+                                    {noteName}
+                                </p>
+                                <span className={styles.noteTypeLabel}>
+                                    {noteType}
+                                </span>
+                            </div>
+
+                            <div className={styles.listViewMetadata}>
+                                {noteType === "Items list" && (
+                                    <span className={styles.entriesCountListView}>
+                                        {
+                                        entriesCount === 0 ?
+                                        'No Items' :
+                                        entriesCount === 1 ?
+                                        '1 Item' :
+                                        `${entriesCount} Items`
+                                        }
+                                    </span>
+                                )}
+                                <span className={styles.createdAtListView}>{formatDate(createdAt)}</span>
+                            </div>
+                        </div>
+
+                        {/* Actions */}
+                        <CardActions disableSpacing className={styles.listViewActions}>
+                            <MotionWrap
+                                whileHover={{ scale: 1.15 }}
+                                whileTap={{ scale: 0.95 }}
+                                transition={{ type: "spring", stiffness: 400, damping: 12 }}
+                            >
+                                <Tooltip title="Edit note">
+                                    <IconButton
+                                        className={styles.iconButtonRename}
+                                        onClick={() => setOpenRename(true)}
+                                        aria-label="Edit"
+                                    >
+                                        <MdModeEditOutline className={styles.iconButton} />
+                                    </IconButton>
+                                </Tooltip>
+                            </MotionWrap>
+                            <MotionWrap
+                                whileHover={{ scale: 1.15 }}
+                                whileTap={{ scale: 0.95 }}
+                                transition={{ type: "spring", stiffness: 400, damping: 12 }}
+                            >
+                                <Tooltip title="Delete note">
+                                    <IconButton
+                                        className={styles.iconButtonDelete}
+                                        onClick={() => setOpenConfirmDelete(true)}
+                                        color="error"
+                                        aria-label="Delete"
+                                    >
+                                        <MdDelete />
+                                    </IconButton>
+                                </Tooltip>
+                            </MotionWrap>
+                            <MotionWrap
+                                whileHover={{ scale: 1.15, x: 3 }}
+                                whileTap={{ scale: 0.95 }}
+                                transition={{ type: "spring", stiffness: 400, damping: 12 }}
+                            >
+                                <Tooltip title="Open note">
+                                    <IconButton
+                                        className={styles.iconButtonView}
+                                        onClick={moveToNotePage}
+                                        aria-label="View"
+                                    >
+                                        <IoChevronForward className={styles.iconButton} />
+                                    </IconButton>
+                                </Tooltip>
+                            </MotionWrap>
                         </CardActions>
                     </div>
                 </Card>
             </MotionWrap>
 
-            {openConfirmDelete && 
+            {openConfirmDelete &&
                 <ConfirmDeleteNotePopup
                     isOpen={openConfirmDelete}
                     setIsOpen={() => setOpenConfirmDelete(false)}
@@ -149,7 +173,7 @@ export default function NoteCard({noteName, noteType, createdAt, noteId, entries
                 />
             }
 
-            {openRename && 
+            {openRename &&
                 <RenameNotePopupPopup
                     isOpen={openRename}
                     setIsOpen={() => setOpenRename(false)}
@@ -160,7 +184,7 @@ export default function NoteCard({noteName, noteType, createdAt, noteId, entries
                 />
             }
 
-            {openSuccess && 
+            {openSuccess &&
                 <Snackbar
                     open={openSuccess}
                     autoHideDuration={2500}
@@ -173,7 +197,7 @@ export default function NoteCard({noteName, noteType, createdAt, noteId, entries
                 </Snackbar>
             }
 
-            {openSuccessRename && 
+            {openSuccessRename &&
                 <Snackbar
                     open={openSuccessRename}
                     autoHideDuration={2500}
@@ -186,7 +210,7 @@ export default function NoteCard({noteName, noteType, createdAt, noteId, entries
                 </Snackbar>
             }
 
-            {openError && 
+            {openError &&
                 <Snackbar
                     open={openError}
                     autoHideDuration={2500}
@@ -199,7 +223,7 @@ export default function NoteCard({noteName, noteType, createdAt, noteId, entries
                 </Snackbar>
             }
 
-            {openErrorRename && 
+            {openErrorRename &&
                 <Snackbar
                     open={openErrorRename}
                     autoHideDuration={2500}
