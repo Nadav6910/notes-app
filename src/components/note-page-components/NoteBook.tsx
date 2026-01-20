@@ -551,8 +551,51 @@ export default function NoteBook({noteEntries, noteId}: {noteEntries: Entry[] | 
 
     if (!editor) {
         return (
-            <div style={{ display: 'flex', justifyContent: 'center', padding: '2em' }}>
-                <CircularProgress sx={{ color: 'var(--secondary-color)' }} />
+            <div className={styles.notebookSkeleton}>
+                {/* Skeleton Header */}
+                <div className={styles.skeletonHeader}>
+                    <div className={styles.skeletonHeaderLeft}>
+                        <div className={styles.skeletonText} style={{ width: '10em' }} />
+                        <div className={styles.skeletonText} style={{ width: '6em' }} />
+                    </div>
+                    <div className={styles.skeletonText} style={{ width: '8em' }} />
+                </div>
+
+                {/* Skeleton Toolbar */}
+                <div className={styles.skeletonToolbar}>
+                    <div className={styles.skeletonToolbarGroup}>
+                        <div className={styles.skeletonButton} />
+                        <div className={styles.skeletonButton} />
+                    </div>
+                    <div className={styles.skeletonToolbarGroup}>
+                        <div className={styles.skeletonButton} />
+                        <div className={styles.skeletonButton} />
+                        <div className={styles.skeletonButton} />
+                        <div className={styles.skeletonButton} />
+                    </div>
+                    <div className={styles.skeletonToolbarGroup}>
+                        <div className={styles.skeletonButton} />
+                        <div className={styles.skeletonButton} />
+                    </div>
+                    <div className={styles.skeletonToolbarGroup}>
+                        <div className={styles.skeletonButton} />
+                        <div className={styles.skeletonButton} />
+                        <div className={styles.skeletonButton} />
+                    </div>
+                </div>
+
+                {/* Skeleton Editor */}
+                <div className={styles.skeletonEditor}>
+                    <div className={`${styles.skeletonLine} ${styles.skeletonLineMedium}`} />
+                    <div className={`${styles.skeletonLine} ${styles.skeletonLineLong}`} />
+                    <div className={`${styles.skeletonLine} ${styles.skeletonLineShort}`} />
+                    <div className={`${styles.skeletonLine} ${styles.skeletonLineLong}`} />
+                    <div className={`${styles.skeletonLine} ${styles.skeletonLineMedium}`} />
+                    <div style={{ height: '1.5em' }} />
+                    <div className={`${styles.skeletonLine} ${styles.skeletonLineLong}`} />
+                    <div className={`${styles.skeletonLine} ${styles.skeletonLineShort}`} />
+                    <div className={`${styles.skeletonLine} ${styles.skeletonLineMedium}`} />
+                </div>
             </div>
         )
     }

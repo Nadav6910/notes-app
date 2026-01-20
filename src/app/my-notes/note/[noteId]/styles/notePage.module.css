@@ -822,6 +822,117 @@
     border-radius: 10px;
 }
 
+/* ===== NoteBook Skeleton Loading ===== */
+.notebookSkeleton {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    gap: 0;
+}
+
+.skeletonHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    margin-bottom: 1.5em;
+    padding-bottom: 1em;
+    border-bottom: 1px solid var(--borders-color);
+}
+
+.skeletonHeaderLeft {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5em;
+}
+
+.skeletonToolbar {
+    display: flex;
+    align-items: center;
+    gap: 0.5em;
+    padding: 0.75em;
+    background-color: var(--note-card-background-card-item);
+    border: 1px solid var(--borders-color);
+    border-bottom: none;
+    border-radius: 12px 12px 0 0;
+    overflow: hidden;
+}
+
+.skeletonToolbarGroup {
+    display: flex;
+    gap: 0.25em;
+}
+
+.skeletonEditor {
+    background-color: var(--note-card-background-card-item);
+    border: 1px solid var(--borders-color);
+    border-radius: 0 0 12px 12px;
+    padding: 1.5em;
+    min-height: 50vh;
+}
+
+.skeletonLine {
+    height: 1em;
+    background: linear-gradient(
+        90deg,
+        var(--borders-color) 25%,
+        var(--secondary-color-faded) 50%,
+        var(--borders-color) 75%
+    );
+    background-size: 200% 100%;
+    animation: skeletonShimmer 1.5s ease-in-out infinite;
+    border-radius: 4px;
+    margin-bottom: 0.75em;
+}
+
+.skeletonLineShort {
+    width: 60%;
+}
+
+.skeletonLineMedium {
+    width: 80%;
+}
+
+.skeletonLineLong {
+    width: 95%;
+}
+
+.skeletonButton {
+    width: 2em;
+    height: 2em;
+    background: linear-gradient(
+        90deg,
+        var(--borders-color) 25%,
+        var(--secondary-color-faded) 50%,
+        var(--borders-color) 75%
+    );
+    background-size: 200% 100%;
+    animation: skeletonShimmer 1.5s ease-in-out infinite;
+    border-radius: 6px;
+}
+
+.skeletonText {
+    height: 0.75em;
+    background: linear-gradient(
+        90deg,
+        var(--borders-color) 25%,
+        var(--secondary-color-faded) 50%,
+        var(--borders-color) 75%
+    );
+    background-size: 200% 100%;
+    animation: skeletonShimmer 1.5s ease-in-out infinite;
+    border-radius: 4px;
+}
+
+@keyframes skeletonShimmer {
+    0% {
+        background-position: 200% 0;
+    }
+    100% {
+        background-position: -200% 0;
+    }
+}
+
 /* ===== Formatting Toolbar ===== */
 .toolbar {
     display: flex;
@@ -937,43 +1048,64 @@
 /* ===== Responsive Toolbar ===== */
 @media screen and (max-width: 768px) {
     .toolbar {
-        padding: 0.5em 0.6em;
-        gap: 0.25em;
+        padding: 0.6em 0.75em;
+        gap: 0.35em;
         overflow-x: auto;
         -webkit-overflow-scrolling: touch;
-        scrollbar-width: thin;
+        scrollbar-width: none;
+        flex-wrap: nowrap;
+    }
+
+    .toolbar::-webkit-scrollbar {
+        display: none;
     }
 
     .toolbarButton {
-        width: 2.4em;
-        height: 2.4em;
+        width: 2.5em;
+        height: 2.5em;
         flex-shrink: 0;
         font-size: 1.1rem;
     }
 
     .toolbarDivider {
-        margin: 0 0.3em;
-        height: 1.5em;
+        margin: 0 0.4em;
+        height: 1.8em;
+        flex-shrink: 0;
     }
 
     .toolbarSaveButton {
-        padding: 0.5em 0.8em;
+        padding: 0.6em 1em;
         font-size: 0.85rem;
         flex-shrink: 0;
+    }
+
+    .toolbarGroup {
+        flex-shrink: 0;
+        background-color: var(--secondary-color-faded);
+        padding: 0.25em;
+        border-radius: 8px;
+        gap: 0.2em;
     }
 }
 
 @media screen and (max-width: 600px) {
     .toolbar {
-        padding: 0.5em;
-        gap: 0.2em;
+        padding: 0.5em 0.6em;
+        gap: 0.4em;
+        border-radius: 10px 10px 0 0;
     }
 
     .toolbarButton {
-        width: 2.6em;
-        height: 2.6em;
-        font-size: 1.15rem;
+        width: 2.5em;
+        height: 2.5em;
+        font-size: 1.1rem;
         border-radius: 8px;
+        opacity: 0.85;
+    }
+
+    .toolbarButton:active {
+        transform: scale(0.9);
+        opacity: 1;
     }
 
     .toolbarDivider {
@@ -981,9 +1113,23 @@
     }
 
     .toolbarSaveButton {
-        padding: 0.5em 0.7em;
-        font-size: 0.8rem;
-        height: 2.6em;
+        padding: 0.5em 0.75em;
+        font-size: 0.85rem;
+        height: 2.5em;
+        border-radius: 8px;
+        background-color: var(--secondary-color);
+        color: white;
+        border: none;
+    }
+
+    .toolbarSaveButton:hover {
+        background-color: var(--secondary-color);
+        color: white;
+    }
+
+    .toolbarSaveButtonActive {
+        background-color: var(--secondary-color);
+        animation: pulse 2s infinite;
     }
 
     .saveButtonText {
@@ -992,11 +1138,30 @@
 
     .toolbarSpacer {
         flex: 0;
-        min-width: 0.3em;
+        min-width: 0.2em;
     }
 
     .toolbarGroup {
+        flex-shrink: 0;
+        background-color: var(--secondary-color-faded);
+        padding: 0.3em;
+        border-radius: 10px;
         gap: 0.15em;
+    }
+
+    /* Skeleton responsive */
+    .skeletonToolbar {
+        padding: 0.5em;
+    }
+
+    .skeletonButton {
+        width: 2.5em;
+        height: 2.5em;
+    }
+
+    .skeletonEditor {
+        min-height: 40vh;
+        padding: 1em;
     }
 }
 
