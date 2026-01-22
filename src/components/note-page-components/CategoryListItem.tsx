@@ -59,7 +59,7 @@ const CategoryListItem = memo(function CategoryListItem({
   }
 
   // Priority colors for glow effect
-  const getPriorityStyles = () => {
+  const getPriorityStyles = (): { color?: string; shadow?: string } => {
     if (!entry.priority || entry.priority === 'none') return {}
 
     const colors = {
