@@ -16,12 +16,13 @@ import {
   Tooltip,
   LinearProgress,
   Box,
-  Typography
+  Typography,
+  Button
 } from '@mui/material'
 import { useRouter } from "next/navigation"
 import { useTheme } from 'next-themes'
 import { AiOutlineSearch } from 'react-icons/ai'
-import { MdOutlineCancel, MdCheckCircle, MdRadioButtonUnchecked } from 'react-icons/md'
+import { MdOutlineCancel, MdCheckCircle, MdRadioButtonUnchecked, MdUndo } from 'react-icons/md'
 import { HiUsers, HiUser } from 'react-icons/hi2'
 import NoNoteItemsDrawing from "@/SvgDrawings/NoNoteItemsDrawing"
 import { Entry } from "../../../types"
@@ -35,6 +36,7 @@ import CategoriesSelector from "./CategoriesSelector"
 import FilterByCheckedSelector from "./FilterByCheckedSelector"
 import NoteListItem from "./NoteListItem"
 import CategoryListItem from "./CategoryListItem"
+import ProgressRing from "./ProgressRing"
 import { ably, clientId } from "@/lib/Ably/Ably"
 import FlipNumbers from 'react-flip-numbers'
 import useChannelOccupancy from '../../app/hooks/useChannelOccupancy'
@@ -54,6 +56,12 @@ const RenameNoteItemPopup = dynamic(() => import('./RenameNoteItemPopup'), {
 interface GroupedData {
   category: string
   data: Entry[]
+}
+
+// Deleted item type for undo functionality
+interface DeletedItem {
+  entry: Entry
+  timeoutId: NodeJS.Timeout
 }
 
 // A simple throttle utility to avoid too frequent updates
@@ -116,6 +124,10 @@ export default function NoteItemsList({ noteEntries, noteView, noteId }: { noteE
   const [filterByCategory, setFilterByCategory] = useState<string>("empty")
   const [sortMethod, setSortMethod] = useState<string>("newToOld")
   const [noteViewSelect, setNoteViewSelect] = useState<string>(noteView)
+
+  // Undo delete state
+  const [deletedItem, setDeletedItem] = useState<DeletedItem | null>(null)
+  const [showUndoSnackbar, setShowUndoSnackbar] = useState(false)
 
   // Use deferred values for filters to prevent UI blocking during filtering
   const deferredSearchTerm = useDeferredValue(searchTerm)
@@ -258,14 +270,16 @@ export default function NoteItemsList({ noteEntries, noteView, noteId }: { noteE
 
 
   // Handlers wrapped with useCallback
-  const handleToggle = useCallback(async (value: boolean | null | undefined, entryId: string) => {
+  const handleToggle = useCallback(async (value: boolean | null | undefined, entryId: string, category?: string) => {
     const newValue = !value
+    
     // Optimistic update
     setNoteItemsState(prevEntries =>
       prevEntries?.map(entry =>
         entry.entryId === entryId ? { ...entry, isChecked: newValue } : entry
       )
     )
+    
     try {
       const response = await fetch('/api/change-note-item-is-checked', {
         method: 'POST',
@@ -337,6 +351,110 @@ export default function NoteItemsList({ noteEntries, noteView, noteId }: { noteE
       router.refresh()
     })
   }, [router])
+
+  // Soft delete with undo capability (for swipe delete)
+  const handleSoftDelete = useCallback((entryId: string, entryName: string) => {
+    // Find the entry to delete
+    const entryToDelete = noteItemsState?.find(entry => entry.entryId === entryId)
+    if (!entryToDelete) return
+
+    // Clear any existing undo timeout
+    if (deletedItem?.timeoutId) {
+      clearTimeout(deletedItem.timeoutId)
+    }
+
+    // Remove from UI immediately
+    setNoteItemsState(prevEntries => 
+      prevEntries?.filter(entry => entry.entryId !== entryId)
+    )
+
+    // Set up undo timeout - actually delete after 5 seconds
+    const timeoutId = setTimeout(async () => {
+      try {
+        await fetch('/api/delete-note-item', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            clientId,
+            noteId,
+            entryId
+          })
+        })
+        startTransition(() => {
+          router.refresh()
+        })
+      } catch (error) {
+        console.error('Failed to delete item:', error)
+        // Restore item on error
+        setNoteItemsState(prevEntries => [...(prevEntries ?? []), entryToDelete])
+        showNotification('❌ Failed to delete item', 'error')
+      }
+      setDeletedItem(null)
+      setShowUndoSnackbar(false)
+    }, 5000)
+
+    // Store deleted item for potential undo
+    setDeletedItem({ entry: entryToDelete, timeoutId })
+    setShowUndoSnackbar(true)
+  }, [noteItemsState, deletedItem, noteId, router, showNotification])
+
+  // Undo delete handler - recreates the item
+  const handleUndoDelete = useCallback(async () => {
+    if (deletedItem) {
+      // Clear the timeout
+      clearTimeout(deletedItem.timeoutId)
+      
+      // Store entry data before clearing state
+      const entryToRestore = deletedItem.entry
+      
+      // Clear undo state immediately
+      setDeletedItem(null)
+      setShowUndoSnackbar(false)
+      
+      // Recreate the item via API (use correct parameter names)
+      try {
+        const response = await fetch('/api/create-note-item', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            clientId,
+            noteId,
+            itemName: entryToRestore.item,
+            selectedPriorityColor: entryToRestore.priority || 'none',
+            selectedCategory: entryToRestore.category || 'none'
+          })
+        })
+        
+        if (response.ok) {
+          const data = await response.json()
+          // Use the NEW entry from API response with the correct new ID
+          // Prisma returns 'entryId' as the field name (mapped from _id in MongoDB)
+          const newEntry: Entry = {
+            entryId: data.createdEntry.entryId,
+            noteId: data.createdEntry.noteId,
+            item: data.createdEntry.item,
+            isChecked: data.createdEntry.isChecked,
+            priority: data.createdEntry.priority,
+            category: data.createdEntry.category,
+            createdAt: new Date(data.createdEntry.createdAt)
+          }
+          // Add the new entry with correct ID to state
+          setNoteItemsState(prevEntries => [...(prevEntries ?? []), newEntry])
+          showNotification('✅ Item restored', 'success')
+          startTransition(() => {
+            router.refresh()
+          })
+        } else {
+          const errorData = await response.json()
+          console.error('Restore failed:', errorData)
+          throw new Error('Failed to restore')
+        }
+      } catch (error) {
+        console.error('Failed to restore item:', error)
+        showNotification('❌ Failed to restore item', 'error')
+      }
+    }
+  }, [deletedItem, noteId, router, showNotification])
 
   const openConfirmDeleteItem = useCallback((entryId: string, entryName: string) => {
     setSelectedEntryId(entryId)
@@ -652,27 +770,16 @@ export default function NoteItemsList({ noteEntries, noteView, noteId }: { noteE
                 />
               </Box>
               
-              {/* Progress indicator */}
+              {/* Progress indicator - Animated Ring */}
               {filteredNoteItems.length > 0 && (
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Typography variant="caption" sx={{ color: 'var(--primary-color)', opacity: 0.7 }}>
-                    {Math.round((ChecksCount / filteredNoteItems.length) * 100)}% complete
-                  </Typography>
-                  <Box sx={{ width: 60 }}>
-                    <LinearProgress 
-                      variant="determinate" 
-                      value={(ChecksCount / filteredNoteItems.length) * 100}
-                      sx={{
-                        height: 6,
-                        borderRadius: 3,
-                        bgcolor: 'var(--borders-color)',
-                        '& .MuiLinearProgress-bar': {
-                          bgcolor: ChecksCount === filteredNoteItems.length ? '#4caf50' : 'var(--secondary-color)',
-                          borderRadius: 3
-                        }
-                      }}
-                    />
-                  </Box>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                  <ProgressRing
+                    progress={(ChecksCount / filteredNoteItems.length) * 100}
+                    size={65}
+                    strokeWidth={6}
+                    checkedCount={ChecksCount}
+                    totalCount={filteredNoteItems.length}
+                  />
                 </Box>
               )}
             </Box>
@@ -852,6 +959,7 @@ export default function NoteItemsList({ noteEntries, noteView, noteId }: { noteE
                     onToggle={handleToggle}
                     onRename={openConfirmRenameItem}
                     onDelete={openConfirmDeleteItem}
+                    resolvedTheme={resolvedTheme}
                   />
                 ))}
               </List>
@@ -996,7 +1104,7 @@ export default function NoteItemsList({ noteEntries, noteView, noteId }: { noteE
                         </Box>
                       </Box>
                     </AccordionSummary>
-                    <AccordionDetails sx={{ padding: 0 }}>
+                    <AccordionDetails sx={{ padding: 0, position: 'relative' }}>
                       <List className={styles.noteListContainer} sx={{ width: '100%', padding: 0 }}>
                         {group.data.map((entry, index) => (
                           <CategoryListItem
@@ -1004,6 +1112,7 @@ export default function NoteItemsList({ noteEntries, noteView, noteId }: { noteE
                             entry={entry}
                             index={index}
                             totalItems={group.data.length}
+                            category={group.category}
                             onToggle={handleToggle}
                             onRename={openConfirmRenameItem}
                             onDelete={openConfirmDeleteItem}
@@ -1045,9 +1154,31 @@ export default function NoteItemsList({ noteEntries, noteView, noteId }: { noteE
           entryName={selectedEntryName}
           OnDelete={(isDeleted: boolean) => {
             if (isDeleted) {
+              // Find the entry before removing
+              const entryToDelete = noteItemsState?.find(entry => entry.entryId === selectedEntryId)
+              
+              // Remove from UI
               setNoteItemsState(prevEntries =>
                 prevEntries?.filter(entry => entry.entryId !== selectedEntryId)
               )
+              
+              // Show undo snackbar if we have the entry
+              if (entryToDelete) {
+                // Clear any existing undo timeout
+                if (deletedItem?.timeoutId) {
+                  clearTimeout(deletedItem.timeoutId)
+                }
+                
+                // Set up auto-clear after 5 seconds (item already deleted via API)
+                const timeoutId = setTimeout(() => {
+                  setDeletedItem(null)
+                  setShowUndoSnackbar(false)
+                }, 5000)
+                
+                setDeletedItem({ entry: entryToDelete, timeoutId })
+                setShowUndoSnackbar(true)
+              }
+              
               startTransition(() => {
                 router.refresh()
               })
@@ -1187,6 +1318,63 @@ export default function NoteItemsList({ noteEntries, noteView, noteId }: { noteE
           }}
         >
           {notification.message}
+        </Alert>
+      </Snackbar>
+
+      {/* Undo delete snackbar */}
+      <Snackbar
+        open={showUndoSnackbar}
+        autoHideDuration={5000}
+        onClose={() => setShowUndoSnackbar(false)}
+        anchorOrigin={{ horizontal: "center", vertical: "bottom" }}
+      >
+        <Alert
+          severity="info"
+          icon={<MdUndo style={{ fontSize: '1.2rem' }} />}
+          action={
+            <Button
+              color="inherit"
+              size="small"
+              onClick={handleUndoDelete}
+              sx={{
+                fontWeight: 600,
+                textTransform: 'none',
+                '&:hover': {
+                  bgcolor: 'rgba(255, 255, 255, 0.1)'
+                }
+              }}
+            >
+              Undo
+            </Button>
+          }
+          sx={{
+            width: '100%',
+            bgcolor: '#323232',
+            color: '#fff',
+            '& .MuiAlert-icon': { color: '#fff' },
+            '& .MuiAlert-action': { color: '#90caf9' },
+            borderRadius: 2,
+            boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+            alignItems: 'center'
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <span>Item deleted</span>
+            {deletedItem && (
+              <Typography 
+                variant="caption" 
+                sx={{ 
+                  opacity: 0.7,
+                  maxWidth: 150,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                &ldquo;{deletedItem.entry.item}&rdquo;
+              </Typography>
+            )}
+          </Box>
         </Alert>
       </Snackbar>
     </>

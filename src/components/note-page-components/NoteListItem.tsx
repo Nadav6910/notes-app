@@ -1,18 +1,19 @@
 'use client'
 
-import { memo, useState } from 'react'
+import { memo, useMemo } from 'react'
 import {
   ListItem,
   ListItemButton,
   ListItemIcon,
   ListItemText,
-  Checkbox,
   IconButton,
   Box
 } from '@mui/material'
-import { MdDelete, MdModeEditOutline, MdCheckCircle } from 'react-icons/md'
+import { MdDelete, MdModeEditOutline } from 'react-icons/md'
+import { FaTrash, FaCheck } from 'react-icons/fa'
 import { formatDate } from "@/lib/utils"
 import { Entry } from "../../../types"
+import AnimatedCheckbox from "./AnimatedCheckbox"
 import styles from "../../app/my-notes/note/[noteId]/styles/notePage.module.css"
 import { motion, useMotionValue, useTransform, PanInfo } from 'framer-motion'
 
@@ -20,9 +21,10 @@ interface NoteListItemProps {
   entry: Entry
   index: number
   totalItems: number
-  onToggle: (isChecked: boolean | null | undefined, entryId: string) => void
+  onToggle: (isChecked: boolean | null | undefined, entryId: string, category?: string) => void
   onRename: (entryId: string, name: string, priority: string | undefined | null, category: string | undefined | null) => void
   onDelete: (entryId: string, name: string) => void
+  resolvedTheme?: string | undefined
 }
 
 const NoteListItem = memo(function NoteListItem({
@@ -31,14 +33,17 @@ const NoteListItem = memo(function NoteListItem({
   totalItems,
   onToggle,
   onRename,
-  onDelete
+  onDelete,
+  resolvedTheme
 }: NoteListItemProps) {
   const labelId = `checkbox-list-label-${entry.entryId}`
   const entryPriority = entry.priority
 
   // Swipe gesture state
   const x = useMotionValue(0)
-  const [swipeAction, setSwipeAction] = useState<'complete' | 'delete' | null>(null)
+
+  // Swipe threshold - lowered for easier activation
+  const SWIPE_THRESHOLD = 75
 
   const background = useTransform(
     x,
@@ -46,20 +51,25 @@ const NoteListItem = memo(function NoteListItem({
     ['#ef4444', '#ef444466', 'rgba(0, 0, 0, 0)', '#4caf5066', '#4caf50']
   )
 
+  // Transform for swipe action icons
+  const deleteIconOpacity = useTransform(x, [-150, -50, 0], [1, 0.5, 0])
+  const deleteIconScale = useTransform(x, [-150, -75, 0], [1.2, 1, 0.5])
+  const checkIconOpacity = useTransform(x, [0, 50, 150], [0, 0.5, 1])
+  const checkIconScale = useTransform(x, [0, 75, 150], [0.5, 1, 1.2])
+
   const handleDragEnd = (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
-    if (info.offset.x < -100) {
+    if (info.offset.x < -SWIPE_THRESHOLD) {
       // Swipe left to delete
       onDelete(entry.entryId, entry.item)
-    } else if (info.offset.x > 100) {
+    } else if (info.offset.x > SWIPE_THRESHOLD) {
       // Swipe right to complete
       onToggle(entry?.isChecked, entry.entryId)
     }
-    x.set(0)
   }
 
-  // Priority colors for glow effect
-  const getPriorityStyles = (): { color?: string; shadow?: string } => {
-    if (!entry.priority || entry.priority === 'none') return {}
+  // Memoize priority styles to avoid recalculation on every render
+  const priorityStyle = useMemo(() => {
+    if (!entry.priority || entry.priority === 'none') return null
 
     const colors = {
       red: { color: '#ef4444', shadow: '0 0 12px rgba(239, 68, 68, 0.5)' },
@@ -67,29 +77,77 @@ const NoteListItem = memo(function NoteListItem({
       green: { color: '#22c55e', shadow: '0 0 12px rgba(34, 197, 94, 0.5)' }
     }
 
-    return colors[entry.priority as keyof typeof colors] || {}
-  }
+    return colors[entry.priority as keyof typeof colors] || null
+  }, [entry.priority])
 
-  const priorityStyle = getPriorityStyles()
+  // Memoize icon container styles
+  const iconContainerStyle = useMemo(() => ({
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 40,
+    height: 40,
+    borderRadius: '50%'
+  }), [])
+
+  // Memoize flex container style
+  const flexContainerStyle = useMemo(() => ({ flex: 1 }), [])
+  const dateContainerStyle = useMemo(() => ({ display: "flex", alignItems: "center", gap: "0.5em" }), [])
+  const actionButtonsStyle = useMemo(() => ({ display: "flex", gap: "1em" }), [])
 
   return (
     <motion.div
       style={{
         position: 'relative',
         overflow: 'hidden',
-        background
-      }}
-      initial={{ opacity: 0, x: -20, scale: 0.95 }}
-      animate={{ opacity: 1, x: 0, scale: 1 }}
-      transition={{
-        delay: index * 0.05,
-        type: "spring",
-        stiffness: 300,
-        damping: 24
+        background,
+        contain: 'layout style paint'
       }}
     >
+      {/* Swipe action indicator - Delete (left swipe) */}
+      <motion.div
+        style={{
+          position: 'absolute',
+          right: 20,
+          top: 0,
+          bottom: 0,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          opacity: deleteIconOpacity,
+          scale: deleteIconScale,
+          zIndex: 0,
+          pointerEvents: 'none'
+        }}
+      >
+        <Box sx={{ ...iconContainerStyle, bgcolor: '#ef444420' }}>
+          <FaTrash style={{ fontSize: '1.1rem', color: '#ef4444' }} />
+        </Box>
+      </motion.div>
+
+      {/* Swipe action indicator - Complete (right swipe) */}
+      <motion.div
+        style={{
+          position: 'absolute',
+          left: 20,
+          top: 0,
+          bottom: 0,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          opacity: checkIconOpacity,
+          scale: checkIconScale,
+          zIndex: 0,
+          pointerEvents: 'none'
+        }}
+      >
+        <Box sx={{ ...iconContainerStyle, bgcolor: '#4caf5020' }}>
+          <FaCheck style={{ fontSize: '1.1rem', color: '#4caf50' }} />
+        </Box>
+      </motion.div>
+
       {/* Priority glow indicator on left edge */}
-      {entry.priority && entry.priority !== 'none' && (
+      {priorityStyle && (
         <Box
           sx={{
             position: 'absolute',
@@ -100,23 +158,25 @@ const NoteListItem = memo(function NoteListItem({
             bgcolor: priorityStyle.color,
             boxShadow: priorityStyle.shadow,
             borderRadius: '0 4px 4px 0',
-            zIndex: 1
+            zIndex: 2
           }}
         />
       )}
 
       <motion.div
         drag="x"
-        dragConstraints={{ left: 0, right: 0 }}
-        dragElastic={0.2}
+        dragConstraints={{ left: -150, right: 150 }}
+        dragElastic={0.1}
+        dragSnapToOrigin
         onDragEnd={handleDragEnd}
-        style={{ x }}
+        style={{ x, position: 'relative', zIndex: 1 }}
       >
         <ListItem
+          style={{ borderRadius: "unset" }}
           className={`${index === 0 ? styles.firstItem : index === totalItems - 1 ? styles.lastItem : ''} ${index % 2 === 0 ? styles.noteListItem : styles.noteListItemOdd}`}
           disablePadding
           secondaryAction={
-            <div style={{ display: "flex", gap: "1em" }}>
+            <div style={actionButtonsStyle}>
               <IconButton onClick={() => onRename(entry.entryId, entry.item, entry?.priority, entry?.category)} className={styles.iconButtonRename} edge="end" aria-label="edit">
                 <MdModeEditOutline className={styles.iconRename} />
               </IconButton>
@@ -128,77 +188,28 @@ const NoteListItem = memo(function NoteListItem({
         >
           <ListItemButton onClick={() => onToggle(entry?.isChecked, entry.entryId)} dense>
             <ListItemIcon sx={{ minWidth: "2em" }}>
-              <motion.div
-                animate={{
-                  scale: entry?.isChecked ? [1, 1.3, 1] : 1,
-                  rotate: entry?.isChecked ? [0, 10, -10, 0] : 0
-                }}
-                transition={{
-                  type: "spring",
-                  stiffness: 500,
-                  damping: 15,
-                  duration: 0.3
-                }}
-              >
-                <Checkbox
-                  className={styles.noteListCheckbox}
-                  edge="start"
-                  checked={entry?.isChecked ?? false}
-                  tabIndex={-1}
-                  disableRipple
-                  inputProps={{ 'aria-labelledby': labelId }}
-                  icon={<Box component="span" sx={{
-                    width: 20,
-                    height: 20,
-                    border: '2px solid',
-                    borderColor: 'var(--borders-color)',
-                    borderRadius: '4px',
-                    transition: 'all 0.2s ease'
-                  }} />}
-                  checkedIcon={<MdCheckCircle style={{ fontSize: 24, color: '#4caf50' }} />}
-                />
-              </motion.div>
+              <AnimatedCheckbox
+                className={styles.noteListCheckbox}
+                edge="start"
+                checked={entry?.isChecked ?? false}
+                tabIndex={-1}
+                disableRipple
+                inputProps={{ 'aria-labelledby': labelId }}
+                theme={resolvedTheme}
+              />
             </ListItemIcon>
-            <div style={{ flex: 1 }}>
-              <motion.div
-                animate={{
-                  opacity: entry?.isChecked ? 0.6 : 1
-                }}
-                transition={{ duration: 0.3 }}
-              >
-                <ListItemText
-                  className={styles.noteListItemText}
-                  sx={{
-                    paddingRight: "3em",
-                    lineBreak: "anywhere",
-                    '& .MuiTypography-root': {
-                      position: 'relative',
-                      '&::after': entry?.isChecked ? {
-                        content: '""',
-                        position: 'absolute',
-                        left: 0,
-                        top: '50%',
-                        width: '100%',
-                        height: '2px',
-                        background: 'var(--primary-color)',
-                        animation: 'strikethrough 0.3s ease-out forwards',
-                        transformOrigin: 'left',
-                        '@keyframes strikethrough': {
-                          from: {
-                            transform: 'scaleX(0)'
-                          },
-                          to: {
-                            transform: 'scaleX(1)'
-                          }
-                        }
-                      } : {}
-                    }
-                  }}
-                  id={labelId}
-                  primary={entry.item}
-                />
-              </motion.div>
-              <div style={{ display: "flex", alignItems: "center", gap: "0.5em" }}>
+            <div style={flexContainerStyle}>
+              <ListItemText
+                className={styles.noteListItemText}
+                sx={{ paddingRight: "3em", lineBreak: "anywhere" }}
+                id={labelId}
+                primary={
+                  <span className={`${styles.textWrapper} ${entry?.isChecked ? styles.lineActive : ''}`}>
+                    {entry.item}
+                  </span>
+                }
+              />
+              <div style={dateContainerStyle}>
                 <ListItemText className={styles.itemCreatedAt}>
                   {formatDate(entry.createdAt)}
                 </ListItemText>
