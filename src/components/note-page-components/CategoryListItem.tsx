@@ -100,8 +100,9 @@ const CategoryListItem = memo(function CategoryListItem({
 
       <motion.div
         drag="x"
-        dragConstraints={{ left: 0, right: 0 }}
-        dragElastic={0.2}
+        dragConstraints={{ left: -150, right: 150 }}
+        dragElastic={0.1}
+        dragSnapToOrigin
         onDragEnd={handleDragEnd}
         style={{ x }}
         initial={{ opacity: 0, x: -20, scale: 0.95 }}
