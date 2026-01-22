@@ -242,21 +242,19 @@ export default function NoteItemsList({ noteEntries, noteView, noteId }: { noteE
     }
   }, [isButtonVisible])
 
-  // Create throttled version once and reuse it
-  const throttledScrollHandler = useRef(
-    throttle(handleScrollInner, 100)
-  ).current
+  // Create throttled version once - memoized to prevent recreation
+  const throttledScrollHandler = useMemo(
+    () => throttle(handleScrollInner, 100),
+    [handleScrollInner]
+  )
 
   useEffect(() => {
-    // Update the throttled function when handleScrollInner changes
-    const currentThrottled = throttle(handleScrollInner, 100)
-
-    scrollY.on("change", currentThrottled)
+    scrollY.on("change", throttledScrollHandler)
 
     return () => {
       scrollY.clearListeners()
     }
-  }, [scrollY, handleScrollInner])
+  }, [scrollY, throttledScrollHandler])
 
 
   // Handlers wrapped with useCallback
@@ -292,13 +290,14 @@ export default function NoteItemsList({ noteEntries, noteView, noteId }: { noteE
       )
       showNotification('❌ Failed to update item status', 'error')
     }
-  }, [noteId])
+  }, [noteId, showNotification])
 
   const handleChangeView = useCallback(async (view: string, noteId: string) => {
     setNoteViewSelect(view)
     try {
       await fetch('/api/change-note-view', {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           noteId,
           view
@@ -906,7 +905,13 @@ export default function NoteItemsList({ noteEntries, noteView, noteId }: { noteE
           ) : (
             groupedNoteItems.map(group => (
               <AnimatePresence key={group.category}>
-                <MotionWrap initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} style={{ width: "100%" }} exit={{ opacity: 0, x: 20 }} transition={{ duration: 0.3, type: "spring", stiffness: 100, damping: 20 }} key={group.category}>
+                <MotionWrap 
+                  initial={{ opacity: 0, x: 20 }} 
+                  animate={{ opacity: 1, x: 0 }} style={{ width: "100%", marginBottom: "0.2em" }} 
+                  exit={{ opacity: 0, x: 20 }} 
+                  transition={{ duration: 0.3, type: "spring", stiffness: 100, damping: 20 }} 
+                  key={group.category}
+                >
                   <Accordion
                     className={styles.accordionContainer}
                     expanded={expendedCategory?.includes(group.category)}
@@ -918,6 +923,26 @@ export default function NoteItemsList({ noteEntries, noteView, noteId }: { noteE
                         return [...prevState, group.category]
                       }
                     })}
+                    sx={{
+                      background: 'rgba(255, 255, 255, 0.05)',
+                      backdropFilter: 'blur(10px)',
+                      border: '1px solid rgba(255, 255, 255, 0.1)',
+                      boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.1)',
+                      borderRadius: '12px !important',
+                      overflow: 'hidden',
+                      marginBottom: '1.5em',
+                      '&:before': {
+                        display: 'none'
+                      },
+                      '& .MuiAccordionSummary-root': {
+                        background: 'rgba(var(--secondary-color-rgb, 99, 102, 241), 0.05)',
+                        borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+                        transition: 'all 0.3s ease',
+                        '&:hover': {
+                          background: 'rgba(var(--secondary-color-rgb, 99, 102, 241), 0.1)',
+                        }
+                      }
+                    }}
                   >
                     <AccordionSummary expandIcon={<BsChevronDown className={styles.expandIcon} />} aria-controls="panel1a-content" id="panel1a-header">
                       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, width: '100%' }}>
@@ -925,18 +950,18 @@ export default function NoteItemsList({ noteEntries, noteView, noteId }: { noteE
                           <Typography variant="body1" sx={{ fontWeight: 500, color: 'var(--primary-color)' }}>
                             {group.category === "none" || group.category === null ? "No category" : group.category}
                           </Typography>
-                          {group.data.filter(entry => entry.isChecked).length === group.data.length && (
-                            <Chip 
+                          {filterByChecked === 'All' && group.data.filter(entry => entry.isChecked).length === group.data.length && (
+                            <Chip
                               icon={<BsCheckAll style={{ fontSize: '0.9rem' }} />}
-                              label="Complete" 
-                              size="small" 
-                              sx={{ 
+                              label="Complete"
+                              size="small"
+                              sx={{
                                 height: 20,
                                 fontSize: '0.65rem',
                                 bgcolor: '#4caf5020',
                                 color: '#4caf50',
                                 '& .MuiChip-icon': { color: '#4caf50' }
-                              }} 
+                              }}
                             />
                           )}
                         </Box>
@@ -944,28 +969,30 @@ export default function NoteItemsList({ noteEntries, noteView, noteId }: { noteE
                           <Typography variant="caption" sx={{ color: 'var(--primary-color)', opacity: 0.6 }}>
                             {group.data.length} {group.data.length === 1 ? 'item' : 'items'}
                           </Typography>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                            <Box sx={{ width: 40, mr: 0.5 }}>
-                              <LinearProgress 
-                                variant="determinate" 
-                                value={(group.data.filter(entry => entry.isChecked).length / group.data.length) * 100}
-                                sx={{
-                                  height: 4,
-                                  borderRadius: 2,
-                                  bgcolor: 'var(--borders-color)',
-                                  '& .MuiLinearProgress-bar': {
-                                    bgcolor: group.data.filter(entry => entry.isChecked).length === group.data.length 
-                                      ? '#4caf50' 
-                                      : 'var(--secondary-color)',
-                                    borderRadius: 2
-                                  }
-                                }}
-                              />
+                          {filterByChecked === 'All' && (
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                              <Box sx={{ width: 40, mr: 0.5 }}>
+                                <LinearProgress
+                                  variant="determinate"
+                                  value={(group.data.filter(entry => entry.isChecked).length / group.data.length) * 100}
+                                  sx={{
+                                    height: 4,
+                                    borderRadius: 2,
+                                    bgcolor: 'var(--borders-color)',
+                                    '& .MuiLinearProgress-bar': {
+                                      bgcolor: group.data.filter(entry => entry.isChecked).length === group.data.length
+                                        ? '#4caf50'
+                                        : 'var(--secondary-color)',
+                                      borderRadius: 2
+                                    }
+                                  }}
+                                />
+                              </Box>
+                              <Typography variant="caption" sx={{ color: 'var(--primary-color)', opacity: 0.5 }}>
+                                {group.data.filter(entry => entry.isChecked).length}/{group.data.length}
+                              </Typography>
                             </Box>
-                            <Typography variant="caption" sx={{ color: 'var(--primary-color)', opacity: 0.5 }}>
-                              {group.data.filter(entry => entry.isChecked).length}/{group.data.length}
-                            </Typography>
-                          </Box>
+                          )}
                         </Box>
                       </Box>
                     </AccordionSummary>

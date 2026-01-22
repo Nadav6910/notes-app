@@ -1,7 +1,7 @@
 'use client'
 
 import styles from "../../app/my-notes/styles/myNotes.module.css"
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import dynamic from 'next/dynamic'
 import { motion } from 'framer-motion'
 import CardLoadingSkeleton from "@/components/my-notes-page-components/CardLoadingSkeleton"
@@ -20,41 +20,41 @@ const NoteCardListView = dynamic(() => import('../../components/my-notes-page-co
     ssr: false
 })
 
-// Animation variants for staggered entry
-const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-        opacity: 1,
-        transition: {
-            staggerChildren: 0.08,
-            delayChildren: 0.1
-        }
-    }
-}
-
-const cardVariants = {
-    hidden: {
-        opacity: 0,
-        y: 20,
-        scale: 0.95
-    },
-    visible: {
-        opacity: 1,
-        y: 0,
-        scale: 1,
-        transition: {
-            type: "spring",
-            stiffness: 300,
-            damping: 25
-        }
-    }
-}
-
 export default function MyNotesList(
     {userNotes, notesViewSelect, userId}: {userNotes: any, notesViewSelect: string | undefined, userId: string}
 ) {
 
     const [notesView, setNotesView] = useState(notesViewSelect)
+
+    // Memoized animation variants to prevent unnecessary re-renders
+    const containerVariants = useMemo(() => ({
+        hidden: { opacity: 0 },
+        visible: {
+            opacity: 1,
+            transition: {
+                staggerChildren: 0.08,
+                delayChildren: 0.1
+            }
+        }
+    }), [])
+
+    const cardVariants = useMemo(() => ({
+        hidden: {
+            opacity: 0,
+            y: 20,
+            scale: 0.95
+        },
+        visible: {
+            opacity: 1,
+            y: 0,
+            scale: 1,
+            transition: {
+                type: "spring",
+                stiffness: 300,
+                damping: 25
+            }
+        }
+    }), [])
 
     const handleChangeView = async (view: string) => {
         setNotesView(view)
@@ -62,6 +62,7 @@ export default function MyNotesList(
         try {
             await fetch('/api/change-notes-view', {
                 method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                   userId,
                   view
