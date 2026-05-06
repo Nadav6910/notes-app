@@ -133,7 +133,6 @@ export default function AddNoteItemPopup (
       const response = await fetch('/api/create-note-item', {
         method: 'POST',
         body: JSON.stringify({ clientId, noteId, itemName, selectedPriorityColor, selectedCategory }),
-        cache: 'no-cache'
       })
       const data = await response.json()
 

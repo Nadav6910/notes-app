@@ -100,7 +100,6 @@ export default function RenameNoteItemPopup(
       const response = await fetch(`/api/rename-note-item`, {
         method: "POST",
         body: JSON.stringify({clientId, noteId, entryId, newName}),
-        cache: "no-cache",
       })
 
       const data = await response.json()
@@ -133,7 +132,6 @@ export default function RenameNoteItemPopup(
         const response = await fetch(`/api/change-note-item-priority`, {
           method: "POST",
           body: JSON.stringify({entryId, selectedPriorityColor}),
-          cache: "no-cache",
         })
         const data = await response.json()
     
@@ -164,7 +162,6 @@ export default function RenameNoteItemPopup(
       const response = await fetch(`/api/change-note-item-category`, {
         method: "POST",
         body: JSON.stringify({entryId, selectedCategory}),
-        cache: "no-cache",
       })
       const data = await response.json()
   

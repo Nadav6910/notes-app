@@ -346,11 +346,7 @@ export default function NoteItemsList({ noteEntries, noteView, noteId }: { noteE
 
   const handleAddNoteItem = useCallback((newEntry: Entry) => {
     setNoteItemsState(prevEntries => [newEntry, ...prevEntries ?? []])
-    // Defer the refresh to avoid blocking UI - ensures data persists on navigation
-    startTransition(() => {
-      router.refresh()
-    })
-  }, [router])
+  }, [])
 
   // Soft delete with undo capability (for swipe delete)
   const handleSoftDelete = useCallback((entryId: string, entryName: string) => {
@@ -379,9 +375,6 @@ export default function NoteItemsList({ noteEntries, noteView, noteId }: { noteE
             noteId,
             entryId
           })
-        })
-        startTransition(() => {
-          router.refresh()
         })
       } catch (error) {
         console.error('Failed to delete item:', error)
@@ -441,9 +434,6 @@ export default function NoteItemsList({ noteEntries, noteView, noteId }: { noteE
           // Add the new entry with correct ID to state
           setNoteItemsState(prevEntries => [...(prevEntries ?? []), newEntry])
           showNotification('✅ Item restored', 'success')
-          startTransition(() => {
-            router.refresh()
-          })
         } else {
           const errorData = await response.json()
           console.error('Restore failed:', errorData)
@@ -556,10 +546,6 @@ export default function NoteItemsList({ noteEntries, noteView, noteId }: { noteE
       setNoteItemsState(prevEntries =>
         prevEntries?.filter(entry => entry.entryId !== deletedEntryId)
       )
-      // Deferred refresh for data persistence
-      startTransition(() => {
-        router.refresh()
-      })
     })
 
     channel.subscribe('note-item-renamed', message => {
@@ -574,10 +560,6 @@ export default function NoteItemsList({ noteEntries, noteView, noteId }: { noteE
           entry.entryId === renamedEntryId ? { ...entry, item: newName } : entry
         )
       )
-      // Deferred refresh for data persistence
-      startTransition(() => {
-        router.refresh()
-      })
     })
 
     return () => {
@@ -661,9 +643,6 @@ export default function NoteItemsList({ noteEntries, noteView, noteId }: { noteE
               noteId={noteId}
               onAdd={(newEntry: Entry) => {
                 setNoteItemsState(prevEntries => [...prevEntries ?? [], newEntry])
-                startTransition(() => {
-                  router.refresh()
-                })
               }}
               onError={() => showNotification('❌ Failed to add item', 'error')}
             />

@@ -32,6 +32,8 @@ model Note {
   noteView  String
   createdAt DateTime @default(now())
   user      User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
 }
 
 model Entry {
@@ -44,4 +46,16 @@ model Entry {
   createdAt DateTime  @default(now())
   lastEdit  DateTime? @updatedAt
   note      Note      @relation(fields: [noteId], references: [noteId], onDelete: Cascade)
+
+  @@index([noteId])
+}
+
+model PriceCache {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  cacheKey  String   @unique
+  payload   Json
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+
+  @@index([expiresAt])
 }

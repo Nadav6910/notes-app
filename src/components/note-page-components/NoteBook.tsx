@@ -439,7 +439,6 @@ export default function NoteBook({noteEntries, noteId}: {noteEntries: Entry[] | 
                     itemName: content,
                     entryId: noteEntries?.[0]?.entryId
                 }),
-                cache: "no-cache",
             })
 
             if (!response.ok) {

@@ -58,7 +58,6 @@ export default function RenameNotePopup(
       const response = await fetch(`/api/rename-note`, {
         method: "POST",
         body: JSON.stringify({noteId, newName}),
-        cache: "no-cache",
       })
 
       const data = await response.json()

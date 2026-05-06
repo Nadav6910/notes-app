@@ -45,7 +45,6 @@ export default function ConfirmDeleteNotePopup(
       const response = await fetch(`/api/delete-note`, {
         method: "POST",
         body: JSON.stringify({noteId}),
-        cache: "no-cache",
       })
 
       const data = await response.json()

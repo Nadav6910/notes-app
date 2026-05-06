@@ -41,7 +41,6 @@ export default function DeleteNoteItemPopup(
       const response = await fetch(`/api/delete-note-item`, {
         method: "POST",
         body: JSON.stringify({clientId, noteId, entryId}),
-        cache: "no-cache",
       })
       
       const data = await response.json()
