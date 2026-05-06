@@ -389,7 +389,7 @@ export default function NoteItemsList({ noteEntries, noteView, noteId }: { noteE
     // Store deleted item for potential undo
     setDeletedItem({ entry: entryToDelete, timeoutId })
     setShowUndoSnackbar(true)
-  }, [noteItemsState, deletedItem, noteId, router, showNotification])
+  }, [noteItemsState, deletedItem, noteId, showNotification])
 
   // Undo delete handler - recreates the item
   const handleUndoDelete = useCallback(async () => {
@@ -444,7 +444,7 @@ export default function NoteItemsList({ noteEntries, noteView, noteId }: { noteE
         showNotification('❌ Failed to restore item', 'error')
       }
     }
-  }, [deletedItem, noteId, router, showNotification])
+  }, [deletedItem, noteId, showNotification])
 
   const openConfirmDeleteItem = useCallback((entryId: string, entryName: string) => {
     setSelectedEntryId(entryId)
