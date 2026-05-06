@@ -10,33 +10,44 @@ export const SCRAPER_CONFIG = {
   // Price Scraping
   PRICES_MAX_ROWS: 50,  // Reduced for faster loading
 
-  // Browser Management
-  BROWSER_KEEP_ALIVE_MS: 60_000,  // 1 minute - keep browser warm longer
-  PAGE_NAVIGATION_TIMEOUT: 15_000,  // Reduced for faster failures
-  PAGE_DEFAULT_TIMEOUT: 10_000,  // Reduced
+  // Browser Management — adaptive keep-alive: short on cold idle so we don't
+  // burn memory in serverless, long after a successful scrape so the next
+  // request reuses the warm page.
+  BROWSER_KEEP_ALIVE_MS: 60_000,            // base (cold idle)
+  BROWSER_KEEP_ALIVE_AFTER_HIT_MS: 5 * 60_000,  // 5 min after a successful scrape
+  PAGE_NAVIGATION_TIMEOUT: 15_000,
+  PAGE_DEFAULT_TIMEOUT: 10_000,
 
   // Request timeouts - OPTIMIZED for speed
-  AUTOCOMPLETE_TIMEOUT_MS: 12_000,  // Reduced from 20s - fail fast
-  PRICES_TIMEOUT_MS: 25_000,  // Reduced from 30s
+  AUTOCOMPLETE_TIMEOUT_MS: 12_000,
+  PRICES_TIMEOUT_MS: 25_000,
 
   // Fast path timeouts (for optimistic quick attempts)
-  FAST_AUTOCOMPLETE_TIMEOUT_MS: 4_000,  // Quick first attempt
-  FAST_ADDRESS_TIMEOUT_MS: 3_000,  // Quick address lookup
-  FAST_PRODUCT_TIMEOUT_MS: 4_000,  // Quick product search
+  FAST_AUTOCOMPLETE_TIMEOUT_MS: 4_000,
+  FAST_ADDRESS_TIMEOUT_MS: 3_000,
+  FAST_PRODUCT_TIMEOUT_MS: 4_000,
+
+  // Misc internal timeouts
+  JQUERY_READY_TIMEOUT_MS: 5_000,
+  EVALUATE_HARD_TIMEOUT_MS: 8_000,
 
   // Geolocation
   GEOLOCATION_TIMEOUT: 6_000,
 
   // Caching
-  CACHE_TTL_MS: 10 * 60_000, // 10 minutes - longer cache for better hit rate
-  CACHE_MAX_ENTRIES: 500,  // More cache entries
+  CACHE_TTL_MS: 10 * 60_000,
+  CACHE_MAX_ENTRIES: 500,
 
   // Default Values
   DEFAULT_CITY: 'תל אביב',
 
-  // Retry settings
-  MAX_RETRIES: 1,  // Reduced from 2 - fail faster, let user retry
-  RETRY_DELAY_MS: 300,  // Reduced from 500
+  // Retry settings — exponential backoff: base * 3^attempt -> 300, 900, 2700
+  MAX_RETRIES: 2,
+  RETRY_BASE_DELAY_MS: 300,
+  RETRY_BACKOFF_FACTOR: 3,
+
+  // Per-IP in-flight queue (queue depth on top of rate-limit)
+  PER_IP_QUEUE_DEPTH: 2,
 } as const
 
 // Scraper URLs
@@ -53,6 +64,29 @@ export const ALLOWED_SCRAPER_HOSTS = [
   'chp.co.il',
   'www.chp.co.il',
 ] as const
+
+// Hosts blocked at the request-interception layer (analytics/ads/social).
+export const BLOCKED_SCRAPER_HOSTS = [
+  'facebook.com', 'staticxx.facebook.com', 'connect.facebook.net',
+  'google-analytics.com', 'googletagmanager.com', 'g.doubleclick.net',
+  'doubleclick.net',
+  'hotjar.com', 'static.hotjar.com',
+  'fullstory.com',
+  'clarity.ms',
+  'sentry.io',
+] as const
+
+// Resource types we actively block to keep the page light. Fonts and media
+// are always safe; stylesheets and images we keep allowed because jQuery UI
+// autocomplete positioning and the product-image metadata both need them.
+export const BLOCKED_RESOURCE_TYPES = new Set<string>([
+  'font',
+  'media',
+  'eventsource',
+  'websocket',
+  'manifest',
+  'other',
+])
 
 /**
  * Validate that a URL is safe to navigate to with Puppeteer

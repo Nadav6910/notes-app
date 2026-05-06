@@ -4,8 +4,23 @@ import puppeteer, { Browser, Page } from 'puppeteer-core'
 import chromium from '@sparticuz/chromium'
 import fs from 'node:fs'
 import path from 'node:path'
-import { SCRAPER_CONFIG, SCRAPER_URLS, validateScraperUrl } from '@/lib/scraper-config'
+import {
+  SCRAPER_CONFIG,
+  SCRAPER_URLS,
+  validateScraperUrl,
+  BLOCKED_SCRAPER_HOSTS,
+  BLOCKED_RESOURCE_TYPES,
+} from '@/lib/scraper-config'
 import { checkRateLimit, getClientIp, rateLimitResponse, RATE_LIMITS } from '@/lib/rate-limit'
+import {
+  ScraperError,
+  ScraperTimeoutError,
+  ProductNotFoundError,
+  toScraperError,
+  userMessageFor,
+} from '@/lib/scraper-errors'
+import { logScraperError, logScraperEvent, recordError, recordRequest } from '@/lib/scraper-logger'
+import { buildCacheKey, getCachedPrices, setCachedPrices, type Staleness } from '@/lib/price-cache'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -41,31 +56,9 @@ const { HOME, ADDRESS_SEL, PRODUCT_SEL, SUBMIT_BTN, RESULTS_SEL } = SCRAPER_URLS
 // Validate scraper URL at startup (defense-in-depth against SSRF)
 validateScraperUrl(HOME)
 
-// Cache implementation with better LRU
-const cache = new Map<string, { data: any, expiry: number, timestamp: number }>()
-
-function getCached(key: string) {
-  const entry = cache.get(key)
-  if (entry && Date.now() < entry.expiry) return entry.data
-  cache.delete(key)
-  return null
-}
-
-function setCache(key: string, data: any, ttlMs = SCRAPER_CONFIG.CACHE_TTL_MS) {
-  // Implement simple LRU: if cache is full, delete oldest
-  if (cache.size >= SCRAPER_CONFIG.CACHE_MAX_ENTRIES) {
-    let oldestKey: string | null = null
-    let oldestTime = Infinity
-    for (const [k, v] of cache.entries()) {
-      if (v.timestamp < oldestTime) {
-        oldestTime = v.timestamp
-        oldestKey = k
-      }
-    }
-    if (oldestKey) cache.delete(oldestKey)
-  }
-  cache.set(key, { data, expiry: Date.now() + ttlMs, timestamp: Date.now() })
-}
+// Per-IP in-flight queue: caps concurrent live scrapes per IP so impatient
+// users stacking calls don't overwhelm the warm browser.
+const inFlightByIp = new Map<string, number>()
 
 // City cache - remember which cities work/fail to avoid repeated lookups
 const cityCache = new Map<string, { resolved: string, expiry: number }>()
@@ -319,18 +312,11 @@ async function hardenPage(page: Page) {
   await page.setViewport({ width: 1280, height: 900 })
 
   await page.setRequestInterception(true)
-  const blockedHosts = [
-    'facebook.com', 'staticxx.facebook.com', 'connect.facebook.net',
-    'google-analytics.com', 'googletagmanager.com', 'g.doubleclick.net',
-    'hotjar.com', 'fullstory.com'
-  ]
   page.on('request', req => {
     const t = req.resourceType()
     const url = req.url()
-    // Allow images in results area for product images, block others
-    if (t === 'media') return req.abort()
-    // Block tracking/analytics
-    if (blockedHosts.some(h => url.includes(h))) return req.abort()
+    if (BLOCKED_RESOURCE_TYPES.has(t)) return req.abort()
+    if (BLOCKED_SCRAPER_HOSTS.some(h => url.includes(h))) return req.abort()
     req.continue()
   })
 
@@ -377,23 +363,27 @@ async function releasePage(keepAliveMs: number) {
       const results = document.querySelector<HTMLElement>('#compare_results')
       if (results) results.innerHTML = ''
     })
-  } catch {}
-  
+  } catch (err) {
+    logScraperEvent('warn', 'release-page', 'page reset failed', { errMsg: (err as any)?.message })
+  }
+
   // Only start keep-alive timer if no active requests
   if (activeRequests === 0) {
     keepAlive(keepAliveMs)
   }
-  
+
   if (release) release()
   lock = null
 }
 
 // ---------- jQuery UI helpers (with "stamp" to avoid stale results) ----------
 async function ensureJQueryUI(page: Page) {
+  // jQuery / jQuery UI may never load if a script blocked or the page is broken.
+  // Cap the wait so we don't hang the whole request.
   await page.waitForFunction(() => {
     const $ = (window as any).jQuery
     return !!$ && !!$.fn && typeof $.fn.autocomplete === 'function'
-  })
+  }, { timeout: SCRAPER_CONFIG.JQUERY_READY_TIMEOUT_MS })
 
   // speed up autocomplete
   await page.evaluate((addrSel, prodSel) => {
@@ -716,16 +706,21 @@ async function setupAddressOptimized(
     for (const alt of alternates) {
       if (alt === locationName) continue // Skip the original we already tried
 
-      console.log(`[get-product-prices] Trying alternate spelling: "${alt}"`)
-      addrResult = await withTimeout(
-        openWidgetAndGetListId(page, ADDRESS_SEL, alt, SCRAPER_CONFIG.FAST_ADDRESS_TIMEOUT_MS),
-        SCRAPER_CONFIG.FAST_ADDRESS_TIMEOUT_MS + 500,
-        'Alternate address lookup timed out'
-      ).catch(() => ({ listId: '', hasResults: false }))
+      logScraperEvent('info', 'address.alternate-spelling', `trying "${alt}"`, { from: locationName })
+      try {
+        addrResult = await withTimeout(
+          openWidgetAndGetListId(page, ADDRESS_SEL, alt, SCRAPER_CONFIG.FAST_ADDRESS_TIMEOUT_MS),
+          SCRAPER_CONFIG.FAST_ADDRESS_TIMEOUT_MS + 500,
+          'Alternate address lookup timed out'
+        )
+      } catch (err) {
+        logScraperEvent('warn', 'address.alternate-spelling-failed', (err as any)?.message ?? String(err), { tried: alt })
+        addrResult = { listId: '', hasResults: false }
+      }
 
       if (addrResult.hasResults) {
         actualCity = alt
-        console.log(`[get-product-prices] Found city with alternate spelling: "${alt}"`)
+        logScraperEvent('info', 'address.alternate-spelling-hit', `matched on "${alt}"`)
         break
       }
     }
@@ -733,7 +728,7 @@ async function setupAddressOptimized(
     // If still no results, fall back to major city
     if (!addrResult.hasResults) {
       const fallbackCity = findCityInMap(locationName, CITY_FALLBACK) || SCRAPER_CONFIG.DEFAULT_CITY
-      console.log(`[get-product-prices] City "${locationName}" not found, using fallback "${fallbackCity}"`)
+      logScraperEvent('info', 'address.fallback', `using "${fallbackCity}"`, { from: locationName })
 
       addrResult = await withTimeout(
         openWidgetAndGetListId(page, ADDRESS_SEL, fallbackCity, SCRAPER_CONFIG.FAST_ADDRESS_TIMEOUT_MS),
@@ -760,7 +755,9 @@ async function setupAddressOptimized(
     await page.waitForFunction(() => {
       const city = document.querySelector<HTMLInputElement>('#shopping_address_city_id')
       return !!(city && city.value && city.value !== '0')
-    }, { timeout: 2500 }).catch(() => {})
+    }, { timeout: 2500 }).catch(err => {
+      logScraperEvent('debug', 'address.register-wait-timeout', (err as any)?.message ?? String(err))
+    })
 
     // Cache the successful resolution
     setCachedCity(locationName, actualCity)
@@ -770,185 +767,347 @@ async function setupAddressOptimized(
   return { actualCity, usedFallback, listId: addrResult.listId }
 }
 
+// ---------- progress event shape ----------
+export type ScrapeProgressStep =
+  | 'launching'
+  | 'locating'
+  | 'searching-product'
+  | 'submitting'
+  | 'extracting'
+  | 'done'
+  | 'error'
+  | 'cache-hit'
+
+export interface ScrapeProgressEvent {
+  step: ScrapeProgressStep
+  label: string
+  progress: number
+  durationMs: number
+  partial?: { rows?: any[] }
+  error?: { code: string; message: string }
+  result?: any
+}
+
+const STEP_LABELS: Record<ScrapeProgressStep, string> = {
+  launching: 'Opening chp.co.il',
+  locating: 'Confirming your location',
+  'searching-product': 'Searching product',
+  submitting: 'Comparing stores',
+  extracting: 'Extracting prices',
+  done: 'Done',
+  error: 'Error',
+  'cache-hit': 'Using recent results',
+}
+
+// ---------- core scrape orchestration (streaming-aware) ----------
+async function runScrape(
+  args: { productName: string; barcode?: string; locationName: string; maxRows: number },
+  emit: (e: ScrapeProgressEvent) => void,
+  startTime: number,
+): Promise<{ rows: any[]; metadata: any; usedFallbackCity: boolean; actualCity: string }> {
+  let page: Page | null = null
+  let retryCount = 0
+  let usedFallbackCity = false
+  let actualCity = args.locationName
+
+  const send = (step: ScrapeProgressStep, progress: number, extra: Partial<ScrapeProgressEvent> = {}) => {
+    emit({
+      step,
+      label: STEP_LABELS[step],
+      progress,
+      durationMs: Date.now() - startTime,
+      ...extra,
+    })
+  }
+
+  const attempt = async (): Promise<{ rows: any[]; metadata: any }> => {
+    page = await withTimeout(acquirePage(), 8_000, 'Browser initialization timed out')
+    send('launching', 0.1)
+
+    await withTimeout(
+      ensureJQueryUI(page),
+      SCRAPER_CONFIG.JQUERY_READY_TIMEOUT_MS,
+      'Page initialization timed out',
+    )
+
+    send('locating', 0.25)
+    const addressResult = await setupAddressOptimized(page, args.locationName)
+    actualCity = addressResult.actualCity
+    usedFallbackCity = addressResult.usedFallback
+
+    send('searching-product', 0.45)
+    const productResult = await withTimeout(
+      openWidgetAndGetListId(page, PRODUCT_SEL, args.productName.trim(), 6_000),
+      7_000,
+      'Product search timed out',
+    )
+
+    if (!productResult.hasResults) {
+      throw new ProductNotFoundError(args.productName)
+    }
+
+    await withTimeout(
+      selectProductByBarcodeOrName(page, productResult.listId, args.productName.trim(), args.barcode),
+      3_000,
+      'Product selection timed out',
+    )
+
+    send('submitting', 0.6)
+    await page.click(SUBMIT_BTN)
+
+    await withTimeout(
+      page.waitForFunction(
+        (sel: string) => {
+          const table = document.querySelector<HTMLTableElement>(sel)
+          return !!table && table.querySelectorAll('tbody > tr').length > 0
+        },
+        {},
+        RESULTS_SEL,
+      ),
+      12_000,
+      'Results loading timed out',
+    )
+
+    send('extracting', 0.85)
+    const [rows, metadata] = await Promise.all([
+      withTimeout(
+        page.evaluate(buildScrapeTableFn(), RESULTS_SEL, args.maxRows),
+        SCRAPER_CONFIG.EVALUATE_HARD_TIMEOUT_MS,
+        'Table extraction timed out',
+      ),
+      withTimeout(
+        page.evaluate(buildScrapeMetadataFn()),
+        SCRAPER_CONFIG.EVALUATE_HARD_TIMEOUT_MS,
+        'Metadata extraction timed out',
+      ),
+    ])
+
+    return { rows, metadata }
+  }
+
+  // Retry loop with exponential backoff for retryable errors only.
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    try {
+      const { rows, metadata } = await attempt()
+      // adaptive keep-alive: extend after success
+      await releasePage(SCRAPER_CONFIG.BROWSER_KEEP_ALIVE_AFTER_HIT_MS)
+      return { rows, metadata, usedFallbackCity, actualCity }
+    } catch (rawErr) {
+      const sErr = toScraperError(rawErr)
+      const canRetry = sErr.retryable && retryCount < SCRAPER_CONFIG.MAX_RETRIES
+      logScraperEvent(canRetry ? 'warn' : 'error', 'scrape.attempt-failed', sErr.message, {
+        code: sErr.code,
+        attempt: retryCount + 1,
+        canRetry,
+      })
+
+      if (!canRetry) throw sErr
+
+      // restart browser only if it died; otherwise just reset the page
+      if (sErr.code === 'BROWSER_DISCONNECTED') {
+        try { await browser?.close() } catch {}
+        browser = null
+      }
+      try { await warmPage?.close() } catch {}
+      warmPage = null
+      lastInitializedCity = null
+      if (release) release()
+      lock = null
+
+      const delay = SCRAPER_CONFIG.RETRY_BASE_DELAY_MS *
+        Math.pow(SCRAPER_CONFIG.RETRY_BACKOFF_FACTOR, retryCount)
+      retryCount++
+      await new Promise(r => setTimeout(r, delay))
+    }
+  }
+}
+
+function buildPricesResult(args: {
+  rows: any[]
+  metadata: any
+  duration: number
+  usedFallbackCity: boolean
+  actualCity: string
+  staleness: Staleness
+  cacheCreatedAt?: Date
+}) {
+  return {
+    ok: true,
+    count: args.rows.length,
+    rows: args.rows,
+    metadata: args.metadata,
+    duration: args.duration,
+    usedFallbackCity: args.usedFallbackCity,
+    actualCity: args.usedFallbackCity ? args.actualCity : undefined,
+    staleness: args.staleness,
+    cacheCreatedAt: args.cacheCreatedAt?.toISOString(),
+  }
+}
+
 // ---------- route ----------
 export async function POST(req: Request) {
   // Rate limiting
   const clientIp = getClientIp(req)
   const rateLimitResult = checkRateLimit(clientIp, RATE_LIMITS.scraper)
   const rateLimitError = rateLimitResponse(rateLimitResult)
-  if (rateLimitError) {
-    return rateLimitError
-  }
+  if (rateLimitError) return rateLimitError
+
+  const url = new URL(req.url)
+  const wantsStream = url.searchParams.get('stream') === '1'
+  const force = url.searchParams.get('force') === '1'
 
   const startTime = Date.now()
 
-  const {
-    productName,
-    barcode,                               // optional
-    locationName = SCRAPER_CONFIG.DEFAULT_CITY,
-    maxRows = SCRAPER_CONFIG.PRICES_MAX_ROWS,
-    keepAliveMs = SCRAPER_CONFIG.BROWSER_KEEP_ALIVE_MS
-  } = await req.json() as RequestBody
+  const body = (await req.json()) as RequestBody
+  const productName = body.productName
+  const barcode = body.barcode
+  const locationName = body.locationName ?? SCRAPER_CONFIG.DEFAULT_CITY
+  const maxRows = body.maxRows ?? SCRAPER_CONFIG.PRICES_MAX_ROWS
 
   if (!productName || productName.trim().length < 2) {
-    return NextResponse.json({ ok: false, error: 'productName is required', errorCode: 'INVALID_INPUT' }, { status: 400 })
-  }
-
-  // Check cache first
-  const cacheKey = `prices:${productName.trim().toLowerCase()}:${barcode || ''}:${locationName}`
-  const cached = getCached(cacheKey)
-  if (cached) {
-    return NextResponse.json({ ...cached, fromCache: true }, { status: 200 })
-  }
-
-  let page: Page | null = null
-  let retryCount = 0
-
-  let usedFallbackCity = false
-  let actualCity = locationName
-
-  const executePricesFetch = async (): Promise<NextResponse> => {
-    try {
-      page = await withTimeout(
-        acquirePage(),
-        8_000,  // Reduced from 10s
-        'Browser initialization timed out'
-      )
-
-      await withTimeout(
-        ensureJQueryUI(page),
-        3_000,  // Reduced from 5s
-        'Page initialization timed out'
-      )
-
-      // 1) Set location with optimized caching
-      const addressResult = await setupAddressOptimized(page, locationName)
-      actualCity = addressResult.actualCity
-      usedFallbackCity = addressResult.usedFallback
-
-      // 2) Open product autocomplete & select by barcode OR name
-      const productResult = await withTimeout(
-        openWidgetAndGetListId(page, PRODUCT_SEL, productName.trim(), 6_000),
-        7_000,
-        'Product search timed out'
-      )
-
-      await withTimeout(
-        selectProductByBarcodeOrName(page, productResult.listId, productName.trim(), barcode),
-        3_000,  // Reduced from 5s
-        'Product selection timed out'
-      )
-
-      // 3) Render results
-      await page.click(SUBMIT_BTN)
-
-      await withTimeout(
-        page.waitForFunction((sel: string) => {
-          const table = document.querySelector<HTMLTableElement>(sel)
-          return !!table && table.querySelectorAll('tbody > tr').length > 0
-        }, {}, RESULTS_SEL),
-        12_000,  // Reduced from 15s
-        'Results loading timed out'
-      )
-
-      // Scrape both the table rows and the metadata
-      const [rows, metadata] = await Promise.all([
-        page.evaluate(buildScrapeTableFn(), RESULTS_SEL, maxRows),
-        page.evaluate(buildScrapeMetadataFn())
-      ])
-
-      await releasePage(keepAliveMs)
-
-      const duration = Date.now() - startTime
-      const result = {
-        ok: true,
-        count: rows.length,
-        rows,
-        metadata,
-        duration,
-        usedFallbackCity,
-        actualCity: usedFallbackCity ? actualCity : undefined
-      }
-      setCache(cacheKey, result)
-
-      return NextResponse.json(result, { status: 200 })
-    }
-    catch (err: any) {
-      // Retry logic for certain errors
-      const isRetryable = err?.message?.includes('timeout') ||
-                          err?.message?.includes('net::') ||
-                          err?.message?.includes('disconnected')
-
-      if (isRetryable && retryCount < SCRAPER_CONFIG.MAX_RETRIES) {
-        retryCount++
-        console.log(`[get-product-prices] Retry ${retryCount}/${SCRAPER_CONFIG.MAX_RETRIES}`)
-
-        // Force cleanup before retry
-        try { await warmPage?.close() } catch {}
-        warmPage = null
-        lastInitializedCity = null
-
-        if (release) release()
-        lock = null
-
-        await new Promise(r => setTimeout(r, SCRAPER_CONFIG.RETRY_DELAY_MS))
-        return executePricesFetch()
-      }
-
-      throw err
-    }
-  }
-
-  try {
-    return await withTimeout(
-      executePricesFetch(),
-      SCRAPER_CONFIG.PRICES_TIMEOUT_MS,
-      'Request timed out'
+    return NextResponse.json(
+      { ok: false, error: 'productName is required', errorCode: 'INVALID_INPUT' },
+      { status: 400 },
     )
-  } catch (err: any) {
-    activeRequests = Math.max(0, activeRequests - 1)
-    console.error('[get-product-prices] Error:', err?.message || err)
+  }
 
-    // Categorize errors for better user feedback
-    const isTimeout = err?.message?.includes('timeout') || err?.name === 'TimeoutError'
-    const isNetwork = err?.message?.includes('net::') || err?.code === 'ENOTFOUND'
-    const isDisconnected = err?.message?.includes('disconnected')
-    const isNoResults = err?.message?.includes('failed to select')
+  const cacheKey = buildCacheKey(productName, barcode, locationName)
 
-    let errorCode = 'UNKNOWN_ERROR'
-    let message = 'Failed to fetch prices. Please try again.'
-
-    if (isTimeout) {
-      errorCode = 'TIMEOUT'
-      message = 'Price lookup timed out. Please try again.'
-    } else if (isNetwork) {
-      errorCode = 'NETWORK_ERROR'
-      message = 'Network error. Please check your connection.'
-    } else if (isDisconnected) {
-      errorCode = 'BROWSER_DISCONNECTED'
-      message = 'Connection lost. Please try again.'
-    } else if (isNoResults) {
-      errorCode = 'PRODUCT_NOT_FOUND'
-      message = 'Product not found. Try a different search term.'
+  // Cache check (skipped if `?force=1`). On a hit, reply instantly with the
+  // single-shot JSON shape, regardless of `?stream=1` — there's nothing to
+  // stream when we already have the answer.
+  if (!force) {
+    const cached = await getCachedPrices<{ rows: any[]; metadata: any; usedFallbackCity: boolean; actualCity: string }>(
+      cacheKey,
+    )
+    if (cached) {
+      const result = buildPricesResult({
+        rows: cached.data.rows,
+        metadata: cached.data.metadata,
+        duration: Date.now() - startTime,
+        usedFallbackCity: cached.data.usedFallbackCity,
+        actualCity: cached.data.actualCity,
+        staleness: cached.staleness,
+        cacheCreatedAt: cached.createdAt,
+      })
+      return NextResponse.json({ ...result, fromCache: true }, { status: 200 })
     }
+  }
 
-    // Force cleanup on error
+  // Per-IP in-flight queue (lightweight)
+  const ipDepth = inFlightByIp.get(clientIp) ?? 0
+  if (ipDepth >= SCRAPER_CONFIG.PER_IP_QUEUE_DEPTH) {
+    recordError('RATE_LIMITED')
+    return NextResponse.json(
+      { ok: false, error: userMessageFor('RATE_LIMITED'), errorCode: 'RATE_LIMITED' },
+      { status: 429 },
+    )
+  }
+  inFlightByIp.set(clientIp, ipDepth + 1)
+
+  const cleanupOnError = async () => {
+    activeRequests = Math.max(0, activeRequests - 1)
     try { await warmPage?.close() } catch {}
     warmPage = null
     lastInitializedCity = null
-
-    try { await browser?.close() } catch {}
-    browser = null
-
     if (release) release()
     lock = null
+    inFlightByIp.set(clientIp, Math.max(0, (inFlightByIp.get(clientIp) ?? 1) - 1))
+    if ((inFlightByIp.get(clientIp) ?? 0) === 0) inFlightByIp.delete(clientIp)
+  }
 
-    return NextResponse.json({
-      ok: false,
-      error: message,
-      errorCode,
-      retries: retryCount,
-      duration: Date.now() - startTime
-    }, { status: 500 })
+  const decrementInFlight = () => {
+    const left = (inFlightByIp.get(clientIp) ?? 1) - 1
+    if (left <= 0) inFlightByIp.delete(clientIp)
+    else inFlightByIp.set(clientIp, left)
+  }
+
+  // ---- streaming path ----
+  if (wantsStream) {
+    const encoder = new TextEncoder()
+    const stream = new ReadableStream({
+      async start(controller) {
+        const writeEvent = (e: ScrapeProgressEvent) => {
+          try {
+            controller.enqueue(encoder.encode(JSON.stringify(e) + '\n'))
+          } catch (err) {
+            logScraperEvent('warn', 'stream.enqueue-failed', (err as any)?.message ?? String(err))
+          }
+        }
+        try {
+          const { rows, metadata, usedFallbackCity: ufc, actualCity: ac } = await runScrape(
+            { productName, barcode, locationName, maxRows },
+            writeEvent,
+            startTime,
+          )
+          const duration = Date.now() - startTime
+          const result = buildPricesResult({
+            rows, metadata, duration,
+            usedFallbackCity: ufc, actualCity: ac, staleness: 'live',
+          })
+          setCachedPrices(cacheKey, { rows, metadata, usedFallbackCity: ufc, actualCity: ac })
+            .catch(err => logScraperError('cache.set-fire-and-forget', err, { cacheKey }))
+          recordRequest(duration)
+          writeEvent({ step: 'done', label: STEP_LABELS.done, progress: 1, durationMs: duration, result })
+          controller.close()
+        } catch (rawErr) {
+          const sErr = rawErr instanceof ScraperError ? rawErr : toScraperError(rawErr)
+          const duration = Date.now() - startTime
+          recordError(sErr.code)
+          await cleanupOnError()
+          writeEvent({
+            step: 'error',
+            label: STEP_LABELS.error,
+            progress: 1,
+            durationMs: duration,
+            error: { code: sErr.code, message: userMessageFor(sErr.code) },
+          })
+          controller.close()
+          return
+        }
+        decrementInFlight()
+      },
+    })
+
+    return new Response(stream, {
+      headers: {
+        'Content-Type': 'application/x-ndjson; charset=utf-8',
+        'Cache-Control': 'no-store',
+        'X-Accel-Buffering': 'no',
+      },
+    })
+  }
+
+  // ---- single-shot path (legacy) ----
+  try {
+    const { rows, metadata, usedFallbackCity: ufc, actualCity: ac } = await withTimeout(
+      runScrape({ productName, barcode, locationName, maxRows }, () => {}, startTime),
+      SCRAPER_CONFIG.PRICES_TIMEOUT_MS,
+      'Request timed out',
+    )
+    const duration = Date.now() - startTime
+    const result = buildPricesResult({
+      rows, metadata, duration,
+      usedFallbackCity: ufc, actualCity: ac, staleness: 'live',
+    })
+    setCachedPrices(cacheKey, { rows, metadata, usedFallbackCity: ufc, actualCity: ac })
+      .catch(err => logScraperError('cache.set-fire-and-forget', err, { cacheKey }))
+    recordRequest(duration)
+    decrementInFlight()
+    return NextResponse.json(result, { status: 200 })
+  } catch (rawErr) {
+    const sErr = rawErr instanceof ScraperError ? rawErr : toScraperError(rawErr)
+    recordError(sErr.code)
+    await cleanupOnError()
+    return NextResponse.json(
+      {
+        ok: false,
+        error: userMessageFor(sErr.code),
+        errorCode: sErr.code,
+        duration: Date.now() - startTime,
+      },
+      { status: sErr.code === 'PRODUCT_NOT_FOUND' ? 404 : 500 },
+    )
   }
 }

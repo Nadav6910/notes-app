@@ -4,8 +4,16 @@ import puppeteer, { Browser, Page } from 'puppeteer-core'
 import chromium from '@sparticuz/chromium'
 import fs from 'node:fs'
 import path from 'node:path'
-import { SCRAPER_CONFIG, SCRAPER_URLS, validateScraperUrl } from '@/lib/scraper-config'
+import {
+  SCRAPER_CONFIG,
+  SCRAPER_URLS,
+  validateScraperUrl,
+  BLOCKED_SCRAPER_HOSTS,
+  BLOCKED_RESOURCE_TYPES,
+} from '@/lib/scraper-config'
 import { checkRateLimit, getClientIp, rateLimitResponse, RATE_LIMITS } from '@/lib/rate-limit'
+import { toScraperError, userMessageFor } from '@/lib/scraper-errors'
+import { logScraperError, logScraperEvent } from '@/lib/scraper-logger'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -183,16 +191,12 @@ async function hardenPage(page: Page) {
   await page.setViewport({ width: 1280, height: 900 })
 
   await page.setRequestInterception(true)
-  const blockedHosts = [
-    'facebook.com', 'staticxx.facebook.com', 'connect.facebook.net',
-    'google-analytics.com', 'googletagmanager.com', 'g.doubleclick.net',
-    'hotjar.com', 'fullstory.com',
-  ]
   page.on('request', req => {
     const t = req.resourceType()
     const url = req.url()
-    if (t === 'image' || t === 'font' || t === 'media') return req.abort()
-    if (blockedHosts.some(h => url.includes(h))) return req.abort()
+    // Autocomplete doesn't need product images, so block them too
+    if (t === 'image' || BLOCKED_RESOURCE_TYPES.has(t)) return req.abort()
+    if (BLOCKED_SCRAPER_HOSTS.some(h => url.includes(h))) return req.abort()
     req.continue()
   })
 
@@ -240,13 +244,15 @@ async function releasePage(keepAliveMs: number) {
         ul.removeAttribute('data-stamp')
       })
     })
-  } catch {}
-  
+  } catch (err) {
+    logScraperEvent('warn', 'release-page', 'page reset failed', { errMsg: (err as any)?.message })
+  }
+
   // Only start keep-alive timer if no active requests
   if (activeRequests === 0) {
     keepAlive(keepAliveMs)
   }
-  
+
   if (release) release()
   lock = null
 }
@@ -256,7 +262,7 @@ async function ensureJQueryUI(page: Page) {
   await page.waitForFunction(() => {
     const $ = (window as any).jQuery
     return !!$ && !!$.fn && typeof $.fn.autocomplete === 'function'
-  })
+  }, { timeout: SCRAPER_CONFIG.JQUERY_READY_TIMEOUT_MS })
 
   await page.evaluate((addrSel, prodSel) => {
     // @ts-ignore
@@ -599,11 +605,13 @@ async function setupAddressIfNeeded(page: Page, locationName: string): Promise<{
 
   if (addrResult.hasResults) {
     await clickFirstByListId(page, addrResult.listId)
-    // Quick wait for address to register (reduced from 5s)
+    // Quick wait for address to register
     await page.waitForFunction(() => {
       const city = document.querySelector<HTMLInputElement>('#shopping_address_city_id')
       return !!(city && city.value && city.value !== '0')
-    }, { timeout: 2000 }).catch(() => {}) // Ignore timeout, proceed anyway
+    }, { timeout: 2000 }).catch(err => {
+      logScraperEvent('debug', 'autocomplete.address-register-wait-timeout', (err as any)?.message ?? String(err))
+    })
 
     // Cache the successful resolution
     setCachedCity(locationName, actualCity)
@@ -687,8 +695,7 @@ export async function POST(req: Request) {
           return NextResponse.json(result, { status: 200 })
         }
       } catch (fastErr) {
-        // Fast path failed, continue to full flow
-        console.log('[auto-complete] Fast path failed, trying full flow')
+        logScraperEvent('debug', 'autocomplete.fast-path-failed', (fastErr as any)?.message ?? String(fastErr))
       }
 
       // Full flow: Set up address first, then search
@@ -720,14 +727,16 @@ export async function POST(req: Request) {
       return NextResponse.json(result, { status: 200 })
     }
     catch (err: any) {
-      // Retry logic for certain errors
-      const isRetryable = err?.message?.includes('timeout') ||
-                          err?.message?.includes('net::') ||
-                          err?.message?.includes('disconnected')
+      const sErr = toScraperError(err)
+      const canRetry = sErr.retryable && retryCount < SCRAPER_CONFIG.MAX_RETRIES
 
-      if (isRetryable && retryCount < SCRAPER_CONFIG.MAX_RETRIES) {
+      if (canRetry) {
+        const delay = SCRAPER_CONFIG.RETRY_BASE_DELAY_MS *
+          Math.pow(SCRAPER_CONFIG.RETRY_BACKOFF_FACTOR, retryCount)
         retryCount++
-        console.log(`[auto-complete-products-search] Retry ${retryCount}/${SCRAPER_CONFIG.MAX_RETRIES}`)
+        logScraperEvent('warn', 'autocomplete.retry', `attempt ${retryCount}/${SCRAPER_CONFIG.MAX_RETRIES}`, {
+          code: sErr.code, delayMs: delay,
+        })
 
         // Force cleanup before retry
         try { await warmPage?.close() } catch {}
@@ -737,11 +746,11 @@ export async function POST(req: Request) {
         if (release) release()
         lock = null
 
-        await new Promise(r => setTimeout(r, SCRAPER_CONFIG.RETRY_DELAY_MS))
+        await new Promise(r => setTimeout(r, delay))
         return executeSearch()
       }
 
-      throw err
+      throw sErr
     }
   }
 
@@ -753,26 +762,8 @@ export async function POST(req: Request) {
     )
   } catch (err: any) {
     activeRequests = Math.max(0, activeRequests - 1)
-    console.error('[auto-complete-products-search] Error:', err?.message || err)
-
-    // Categorize errors for better user feedback
-    const isTimeout = err?.message?.includes('timeout') || err?.name === 'TimeoutError'
-    const isNetwork = err?.message?.includes('net::') || err?.code === 'ENOTFOUND'
-    const isDisconnected = err?.message?.includes('disconnected')
-
-    let errorCode = 'UNKNOWN_ERROR'
-    let message = 'Failed to fetch suggestions. Please try again.'
-
-    if (isTimeout) {
-      errorCode = 'TIMEOUT'
-      message = 'Search timed out. Please try again.'
-    } else if (isNetwork) {
-      errorCode = 'NETWORK_ERROR'
-      message = 'Network error. Please check your connection.'
-    } else if (isDisconnected) {
-      errorCode = 'BROWSER_DISCONNECTED'
-      message = 'Connection lost. Please try again.'
-    }
+    const sErr = toScraperError(err)
+    logScraperError('autocomplete.failed', sErr, { duration: Date.now() - startTime })
 
     // Force cleanup on error
     try { await warmPage?.close() } catch {}
@@ -787,10 +778,10 @@ export async function POST(req: Request) {
 
     return NextResponse.json({
       ok: false,
-      error: message,
-      errorCode,
+      error: userMessageFor(sErr.code),
+      errorCode: sErr.code,
       retries: retryCount,
-      duration: Date.now() - startTime
+      duration: Date.now() - startTime,
     }, { status: 500 })
   }
 }
