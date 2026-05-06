@@ -20,6 +20,18 @@ import { generalCategories, foodCategories } from '@/text/noteCategories'
 import { useDebouncedValue } from '../../app/hooks/useDebouncedValue'
 import { useHebrewCity } from '@/app/hooks/useHebrewCity'
 import { SCRAPER_CONFIG } from '@/lib/scraper-config'
+import ScrapeProgress, { type ScrapeProgressEvent } from './ScrapeProgress'
+
+const RECENT_PRODUCTS_KEY = 'chp:recent-products'
+const RECENT_PRODUCTS_MAX = 8
+
+function formatAge(date: Date): string {
+  const sec = Math.max(0, Math.round((Date.now() - date.getTime()) / 1000))
+  if (sec < 60) return 'just now'
+  if (sec < 3600) return `${Math.floor(sec / 60)}m ago`
+  if (sec < 86400) return `${Math.floor(sec / 3600)}h ago`
+  return `${Math.floor(sec / 86400)}d ago`
+}
 
 const Transition = forwardRef(function Transition (
   props: TransitionProps & { children: React.ReactElement<any, any> },
@@ -60,8 +72,10 @@ type ProductMetadata = {
   locationText: string | null
 }
 
+type Staleness = 'fresh' | 'stale' | 'live'
+
 type GetPricesResponse =
-  | { ok: true, count: number, rows: StorePriceRow[], metadata?: ProductMetadata, fromCache?: boolean, duration?: number, usedFallbackCity?: boolean, actualCity?: string }
+  | { ok: true, count: number, rows: StorePriceRow[], metadata?: ProductMetadata, fromCache?: boolean, duration?: number, usedFallbackCity?: boolean, actualCity?: string, staleness?: Staleness, cacheCreatedAt?: string }
   | { ok: false, error: string, errorCode?: string, retries?: number, duration?: number }
 
 type AutocompleteResponse =
@@ -91,6 +105,13 @@ export default function AddNoteItemPopup (
   const [productMetadata, setProductMetadata] = useState<ProductMetadata | null>(null)
   const [sortBy, setSortBy] = useState<'chain' | 'price'>('price')
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
+
+  // Streaming progress state for ScrapeProgress
+  const [scrapeEvents, setScrapeEvents] = useState<ScrapeProgressEvent[]>([])
+  const [pricesStaleness, setPricesStaleness] = useState<Staleness | null>(null)
+  const [pricesCacheCreatedAt, setPricesCacheCreatedAt] = useState<Date | null>(null)
+  const [retryCountUI, setRetryCountUI] = useState(0)
+  const MAX_USER_RETRIES = 3
 
   const [acOpen, setAcOpen] = useState(false)
   const [acLoading, setAcLoading] = useState(false)
@@ -150,7 +171,7 @@ export default function AddNoteItemPopup (
     }
   }
 
-  const fetchPrices = useCallback(async (prod?: SelectedProduct | null, isRetry = false) => {
+  const fetchPrices = useCallback(async (prod?: SelectedProduct | null, isRetry = false, force = false) => {
 
     if (!comparePrices) return
 
@@ -168,7 +189,10 @@ export default function AddNoteItemPopup (
     setPricesFromCache(false)
     setPricesFetchDuration(null)
     setProductMetadata(null)
-    
+    setPricesStaleness(null)
+    setPricesCacheCreatedAt(null)
+    setScrapeEvents([])
+
     if (!isRetry) {
       setPricesRows(null)
     }
@@ -178,53 +202,127 @@ export default function AddNoteItemPopup (
       ac.abort()
     }, REQUEST_TIMEOUT_MS)
 
+    const handleSuccess = (data: Extract<GetPricesResponse, { ok: true }>) => {
+      setPricesRows(data.rows)
+      setPricesFromCache(data.fromCache || false)
+      setPricesFetchDuration(data.duration || null)
+      setActualCityUsed(data.usedFallbackCity ? data.actualCity || null : null)
+      setProductMetadata(data.metadata || null)
+      setPricesStaleness(data.staleness ?? null)
+      setPricesCacheCreatedAt(data.cacheCreatedAt ? new Date(data.cacheCreatedAt) : null)
+      setRetryCountUI(0)
+
+      // Persist this product to recent searches (best-effort)
+      try {
+        if (typeof window !== 'undefined' && p) {
+          const stored = window.localStorage.getItem(RECENT_PRODUCTS_KEY)
+          const list: SelectedProduct[] = stored ? JSON.parse(stored) : []
+          const filtered = list.filter(x => x.name !== p.name)
+          const next = [p, ...filtered].slice(0, RECENT_PRODUCTS_MAX)
+          window.localStorage.setItem(RECENT_PRODUCTS_KEY, JSON.stringify(next))
+        }
+      } catch {}
+    }
+
     try {
-      const res = await fetch('/api/get-product-prices', {
+      const url = `/api/get-product-prices${force ? '?stream=1&force=1' : '?stream=1'}`
+      const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          productName: p.name,           // original (uncropped) name
+          productName: p.name,
           barcode: p.barcode,
           locationName: city,
         }),
-        signal: ac.signal
+        signal: ac.signal,
       })
+
+      const contentType = res.headers.get('content-type') || ''
+      const isStream = contentType.includes('application/x-ndjson') && res.body
+
+      if (!isStream) {
+        // Cache hit or fallback: server returned single-shot JSON.
+        clearTimeout(timeoutId)
+        const data: GetPricesResponse = await res.json()
+        if (ac.signal.aborted) return
+        if (data.ok) handleSuccess(data)
+        else {
+          setPricesRows([])
+          setPricesError(data.error || 'Failed to load prices')
+          setPricesErrorCode(data.errorCode || null)
+        }
+        return
+      }
+
+      // Streaming path: consume NDJSON.
+      const reader = res.body!.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+      let finalResult: Extract<GetPricesResponse, { ok: true }> | null = null
+      let finalError: { code: string; message: string } | null = null
+
+      while (true) {
+        const { value, done } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+
+        let nl: number
+        while ((nl = buffer.indexOf('\n')) >= 0) {
+          const line = buffer.slice(0, nl).trim()
+          buffer = buffer.slice(nl + 1)
+          if (!line) continue
+          try {
+            const ev = JSON.parse(line) as ScrapeProgressEvent
+            setScrapeEvents(prev => [...prev, ev])
+            if (ev.step === 'done' && ev.result) {
+              finalResult = ev.result as Extract<GetPricesResponse, { ok: true }>
+            } else if (ev.step === 'error' && ev.error) {
+              finalError = ev.error
+            }
+          } catch {
+            // tolerate malformed line
+          }
+        }
+      }
 
       clearTimeout(timeoutId)
 
-      const data: GetPricesResponse = await res.json()
-      
       if (ac.signal.aborted) return
-      
-      if (data.ok) {
-        setPricesRows(data.rows)
-        setPricesFromCache(data.fromCache || false)
-        setPricesFetchDuration(data.duration || null)
-        setActualCityUsed(data.usedFallbackCity ? data.actualCity || null : null)
-        setProductMetadata(data.metadata || null)
+
+      if (finalResult) {
+        handleSuccess(finalResult)
+      } else if (finalError) {
+        setPricesRows([])
+        setPricesError(finalError.message)
+        setPricesErrorCode(finalError.code)
       } else {
         setPricesRows([])
-        setPricesError(data.error || 'Failed to load prices')
-        setPricesErrorCode(data.errorCode || null)
+        setPricesError('Stream ended without a result')
+        setPricesErrorCode('UNKNOWN_ERROR')
       }
-    } 
-    
+    }
+
     catch (e: any) {
-      if (ac.signal.aborted) {
-        setPricesError('Request was cancelled or timed out')
-        setPricesErrorCode('TIMEOUT')
-      } else {
-        setPricesError(e?.message || 'Network error')
-        setPricesErrorCode('NETWORK_ERROR')
+      if (ac.signal.aborted || e?.name === 'AbortError') {
+        // Don't show an error for user-initiated cancels.
+        return
       }
+      setPricesError(e?.message || 'Network error')
+      setPricesErrorCode('NETWORK_ERROR')
       setPricesRows([])
-    } 
-    
+    }
+
     finally {
       clearTimeout(timeoutId)
       setPricesLoading(false)
     }
   }, [comparePrices, selectedProduct, city])
+
+  const refreshPrices = useCallback(() => {
+    if (retryCountUI >= MAX_USER_RETRIES) return
+    setRetryCountUI(c => c + 1)
+    fetchPrices(selectedProduct, true, true)
+  }, [fetchPrices, selectedProduct, retryCountUI])
 
   // value the user sees in the input
   const itemNameLive = watch('itemName', '')
@@ -305,11 +403,13 @@ export default function AddNoteItemPopup (
         }
       } catch (e: any) {
         clearTimeout(timeoutId)
-        if (!ac.signal.aborted) {
+        if (ac.signal.aborted || e?.name === 'AbortError') {
+          // user cancelled or new query in flight — silently drop
+        } else {
           setHadError(true)
-          setAcError(ac.signal.aborted ? 'Search timed out' : (e?.message || 'Network error'))
+          setAcError(e?.message || 'Network error')
           setOptions([])
-          setAcOpen(true)  // force open to show empty-state text
+          setAcOpen(true)
         }
       } finally {
         setAcLoading(false)
@@ -340,6 +440,10 @@ export default function AddNoteItemPopup (
       setPricesFromCache(false)
       setPricesFetchDuration(null)
       setSearchAttempts(0)
+      setScrapeEvents([])
+      setPricesStaleness(null)
+      setPricesCacheCreatedAt(null)
+      setRetryCountUI(0)
     }
   }, [comparePrices])
 
@@ -798,64 +902,72 @@ export default function AddNoteItemPopup (
             {/* Prices table / states */}
             {comparePrices && (pricesLoading || pricesError || pricesRows) && (
               <Box sx={{ maxHeight: '350px', overflowY: 'auto', pr: 0.5, mt: 1 }}>
-                {/* Loading state with skeleton */}
+                {/* Animated step indicator while a live scrape is running */}
                 {pricesLoading && (
-                  <Box sx={{ p: 1 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                      <CircularProgress size={18} sx={{ color: 'var(--secondary-color)' }} />
-                      <Typography sx={{ color: 'var(--primary-color)' }}>
-                        Searching prices...
-                      </Typography>
-                    </Box>
-                    <LinearProgress 
-                      sx={{ 
-                        mb: 2, 
-                        bgcolor: 'var(--borders-color)',
-                        '& .MuiLinearProgress-bar': { bgcolor: 'var(--secondary-color)' }
-                      }} 
-                    />
-                    {/* Skeleton rows */}
-                    {[1, 2, 3].map(i => (
-                      <Box key={i} sx={{ display: 'flex', gap: 2, mb: 1 }}>
-                        <Skeleton 
-                          variant="text" 
-                          width="60%" 
-                          sx={{ bgcolor: 'var(--borders-color)' }} 
-                        />
-                        <Skeleton 
-                          variant="text" 
-                          width="20%" 
-                          sx={{ bgcolor: 'var(--borders-color)' }} 
-                        />
-                      </Box>
-                    ))}
+                  <Box sx={{ p: 0.5, mb: 1.5 }}>
+                    <ScrapeProgress events={scrapeEvents} active={pricesLoading} />
                   </Box>
                 )}
 
-                {/* Error state with retry */}
-                {!pricesLoading && pricesError && (
-                  <Alert 
-                    severity="error"
-                    sx={{ 
-                      bgcolor: 'transparent',
-                      color: 'var(--primary-color)',
-                      border: '1px solid var(--error-color, #f44336)',
-                      '& .MuiAlert-icon': { color: 'var(--error-color, #f44336)' }
+                {/* Stale-cache banner: shown when results came from L1/L2 cache
+                    and are older than the fresh TTL */}
+                {!pricesLoading && pricesStaleness === 'stale' && pricesRows && pricesRows.length > 0 && (
+                  <Alert
+                    severity="info"
+                    sx={{
+                      mb: 1,
+                      bgcolor: 'var(--warn-soft, transparent)',
+                      color: 'var(--text, var(--primary-color))',
+                      border: '1px solid var(--warn, var(--borders-color))',
+                      '& .MuiAlert-icon': { color: 'var(--warn, var(--secondary-color))' },
                     }}
                     action={
-                      <Button 
-                        color="inherit" 
+                      <Button
+                        color="inherit"
                         size="small"
-                        onClick={() => fetchPrices(selectedProduct, true)}
                         startIcon={<MdRefresh />}
+                        onClick={refreshPrices}
+                        disabled={retryCountUI >= MAX_USER_RETRIES}
                       >
-                        Retry
+                        Refresh
                       </Button>
                     }
                   >
                     <Typography variant="body2">
-                      {pricesError}
+                      {pricesCacheCreatedAt
+                        ? `Last checked ${formatAge(pricesCacheCreatedAt)}`
+                        : 'Showing cached prices'}
                     </Typography>
+                  </Alert>
+                )}
+
+                {/* Error state with retry (capped) */}
+                {!pricesLoading && pricesError && pricesErrorCode !== 'PRODUCT_NOT_FOUND' && (
+                  <Alert
+                    severity="error"
+                    sx={{
+                      bgcolor: 'transparent',
+                      color: 'var(--primary-color)',
+                      border: '1px solid var(--danger, #f44336)',
+                      '& .MuiAlert-icon': { color: 'var(--danger, #f44336)' }
+                    }}
+                    action={
+                      retryCountUI < MAX_USER_RETRIES ? (
+                        <Button
+                          color="inherit"
+                          size="small"
+                          onClick={() => {
+                            setRetryCountUI(c => c + 1)
+                            fetchPrices(selectedProduct, true, false)
+                          }}
+                          startIcon={<MdRefresh />}
+                        >
+                          Retry ({MAX_USER_RETRIES - retryCountUI} left)
+                        </Button>
+                      ) : null
+                    }
+                  >
+                    <Typography variant="body2">{pricesError}</Typography>
                     {pricesErrorCode && (
                       <Typography variant="caption" sx={{ opacity: 0.7, display: 'block' }}>
                         Error code: {pricesErrorCode}

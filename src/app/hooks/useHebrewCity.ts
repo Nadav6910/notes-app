@@ -10,11 +10,35 @@ type UseHebrewCityOptions = {
   fallback?: string
 }
 
+export type CityStatus = 'idle' | 'detecting' | 'resolved' | 'fallback' | 'manual'
+
 type CityState = {
   city: string | null
   loading: boolean
   error: string | null
-  source: 'gps' | 'ip' | 'fallback' | null
+  source: 'gps' | 'ip' | 'fallback' | 'manual' | null
+}
+
+const LS_LAST_CITY_KEY = 'chp:last-location'
+
+function readLastCityFromStorage(): { city: string; source: 'manual' | 'gps' | 'ip' | 'fallback' } | null {
+  if (typeof window === 'undefined') return null
+  try {
+    const raw = window.localStorage.getItem(LS_LAST_CITY_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    if (parsed && typeof parsed.city === 'string' && parsed.city) {
+      return { city: parsed.city, source: parsed.source ?? 'manual' }
+    }
+  } catch {}
+  return null
+}
+
+function writeLastCityToStorage(city: string, source: 'manual' | 'gps' | 'ip' | 'fallback') {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(LS_LAST_CITY_KEY, JSON.stringify({ city, source, ts: Date.now() }))
+  } catch {}
 }
 
 /** common Israeli cities + spelling variations */
@@ -170,11 +194,15 @@ async function cityFromIP(signal?: AbortSignal) {
 export function useHebrewCity(
   { preferGPS = true, geolocationTimeoutMs = 6000, enabled = true, fallback = 'תל אביב' }: UseHebrewCityOptions = {}
 ) {
+  // Warm-start from localStorage so repeat visits skip the detection wait.
+  // Only used when enabled — disabled means we want the explicit fallback.
+  const persisted = enabled ? readLastCityFromStorage() : null
+
   const [state, setState] = useState<CityState>({
-    city: enabled ? null : fallback,
-    loading: enabled,            // when disabled, immediately not loading
+    city: persisted?.city ?? (enabled ? null : fallback),
+    loading: enabled && !persisted,
     error: null,
-    source: enabled ? null : 'fallback'
+    source: persisted?.source ?? (enabled ? null : 'fallback'),
   })
 
   const abortRef = useRef<AbortController | null>(null)
@@ -240,6 +268,7 @@ export function useHebrewCity(
         try {
           const city = await getViaGPS(ac.signal)
           if (city) {
+            writeLastCityToStorage(city, 'gps')
             setSafely(s => ({ ...s, city, loading: false, source: 'gps', error: null }))
             return
           }
@@ -253,6 +282,7 @@ export function useHebrewCity(
 
       const city2 = await cityFromIP(ac.signal)
       if (city2) {
+        writeLastCityToStorage(city2, 'ip')
         setSafely(s => ({ ...s, city: city2, loading: false, source: 'ip', error: null }))
         return
       }
@@ -276,13 +306,25 @@ export function useHebrewCity(
     }
   }, [enabled, preferGPS, getViaGPS, fallback])
 
+  // User explicitly picked a city (manual fallback select) — persist it and skip detection.
+  const setManualCity = useCallback((city: string) => {
+    abortRef.current?.abort('manual')
+    writeLastCityToStorage(city, 'manual')
+    setSafely(s => ({ ...s, city, loading: false, source: 'manual', error: null }))
+  }, [])
+
   useEffect(() => {
     mountedRef.current = true
-    refresh()
+    // If we warm-started from localStorage, skip the initial detection and trust
+    // that value. The user can still tap "refresh" or change it manually.
+    if (!persisted) {
+      refresh()
+    }
     return () => {
       mountedRef.current = false
       abortRef.current?.abort('cleanup')
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refresh])
 
   // when toggling from enabled -> disabled, immediately cancel and set fallback
@@ -296,5 +338,14 @@ export function useHebrewCity(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, fallback])
 
-  return { ...state, refresh }
+  // Derived `status` field — UI consumes this instead of inferring from
+  // (city, loading, error, source).
+  const status: CityStatus =
+    !enabled               ? 'idle' :
+    state.loading          ? 'detecting' :
+    state.source === 'gps' || state.source === 'ip' ? 'resolved' :
+    state.source === 'manual' ? 'manual' :
+    'fallback'
+
+  return { ...state, status, refresh, setManualCity }
 }
