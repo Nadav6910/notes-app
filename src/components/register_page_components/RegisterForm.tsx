@@ -75,68 +75,75 @@ export default function RegisterForm() {
                 className={styles.formContainer}
             >
                 <div className={styles.inputContainer}>
-                    <input
-                        className={`${styles.RegisterInput} ${errors.name ? styles.inputInvalid : ''}`}
-                        {...register('name',
-                        {
-                            required: {value: true, message: "Name must be provided"},
+                    <input 
+                        className={styles.RegisterInput}
+                        {...register('name', 
+                        { 
+                            required: {value: true, message: "Name must be provided"}, 
                             minLength: {value: 2, message: "Name must be at least 2 characters"},
                             maxLength: {value: 20, message: "Name must be shorter then 20 characters"}
-                        })}
+                        })} 
                         type='text'
                         placeholder='Name'
-                        aria-invalid={errors.name ? 'true' : 'false'}
+                        
+                        style={{borderColor: errors.name && "red"}} 
                     />
                     <div className={styles.inputIcon}><BiUserPin /></div>
                 </div>
-                {errors.name && (
-                    <span className={styles.fieldError} role="alert">{errors.name?.message}</span>
-                )}
+                {
+                    errors.name &&
+                    <span style={{color: "red", fontSize: "0.8rem"}}>
+                        {errors.name?.message}
+                    </span>
+                }
 
                 <div className={styles.inputContainer}>
-                    <input
-                        className={`${styles.RegisterInput} ${errors.userName || userExistsError ? styles.inputInvalid : ''}`}
-                        {...register('userName',
-                        {
-                            required: {value: true, message: "Username must be provided"},
+                    <input 
+                        className={styles.RegisterInput}
+                        {...register('userName', 
+                        { 
+                            required: {value: true, message: "Username must be provided"}, 
                             minLength: {value: 3, message: "Username must be at least 3 characters"},
                             maxLength: {value: 20, message: "Username must be shorter then 20 characters"}
-                        })}
+                        })} 
                         type='text'
                         placeholder='Username'
-                        aria-invalid={errors.userName || userExistsError ? 'true' : 'false'}
+                        
+                        style={{borderColor: errors.userName || userExistsError ? "red" : undefined}} 
                     />
                     <div className={styles.inputIcon}><AiOutlineUser /></div>
                 </div>
-                {(errors.userName || userExistsError) && (
-                    <span className={styles.fieldError} role="alert">
+                {
+                    errors.userName || userExistsError ?
+                    <span style={{color: "red", fontSize: "0.8rem"}}>
                         {errors.userName?.message ?? "This username is already taken!"}
-                    </span>
-                )}
+                    </span> : null
+                }
 
                 <div className={styles.inputContainer}>
-                    <input
-                        className={`${styles.RegisterInput} ${errors.password ? styles.inputInvalid : ''}`}
-                        {...register('password',
-                        {
-                            required: {value: true, message: "Password must be provided"},
+                    <input 
+                        className={styles.RegisterInput}
+                        {...register('password', 
+                        { 
+                            required: {value: true, message: "Password must be provided"}, 
                             minLength: {value: 8, message: "Password must be at least 8 characters"},
                             pattern: {
-                                value: /^(?=.*[a-zA-Z])(?=.*\d).+$/,
+                                value: /^(?=.*[a-zA-Z])(?=.*\d).+$/, 
                                 message: "Password must contain 1 letter and 1 digit"
                             }
-                        })}
+                        })} 
                         type='password'
                         placeholder='Password'
-                        aria-invalid={errors.password ? 'true' : 'false'}
+                        style={{borderColor: errors.password && "red"}} 
                     />
                     <div className={styles.inputIcon}><RiLockPasswordLine /></div>
                 </div>
-                {errors.password && (
-                    <span className={styles.fieldError} role="alert">
+                {
+                    errors.password && 
+                    <span style={{color: "red", fontSize: "0.8rem"}}>
                         {errors.password?.message ?? "Password is incorrect!"}
                     </span>
-                )}
+                }
 
                 <button className={styles.RegisterSubmitBtn} type='submit'>
                     {

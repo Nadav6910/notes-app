@@ -131,25 +131,21 @@ html, body, input, textarea, button, select {
 body {
   display: flex;
   flex-direction: column;
-  padding: 0 var(--space-6) var(--space-4);
+  padding-left: 5em;
+  padding-right: 5em;
+  padding-bottom: 1em;
   background-image: var(--background-color);
   background-blend-mode: normal, multiply;
   min-height: 100vh;
-  max-width: var(--container-max);
+  max-width: 85em;
   margin: auto;
   overflow-x: hidden;
-  color: var(--text, var(--primary-color));
 }
 
-@media (max-width: 768px) {
+@media only screen and (max-width: 915px) {
   body {
-    padding: 0 var(--space-4) var(--space-4);
-  }
-}
-
-@media (max-width: 480px) {
-  body {
-    padding: 0 var(--space-3) var(--space-3);
+    padding-left: 1em;
+    padding-right: 1em;
   }
 }
 

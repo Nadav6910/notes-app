@@ -80,10 +80,11 @@ export default function NoteCard({noteName, noteType, createdAt, noteId, entries
                 className={styles.cardWrap}
                 style={{display: "block", maxWidth: "32em"}}
                 whileHover={{
-                    y: -2,
-                    scale: 1.005,
+                    y: -8,
+                    boxShadow: "0px 12px 24px -8px rgba(0,0,0,0.25)",
+                    scale: 1.02
                 }}
-                transition={{ type: "spring", stiffness: 280, damping: 22 }}
+                transition={{ type: "spring", stiffness: 300, damping: 20 }}
             >
                 <Card className={styles.cardContainer}>
                     {/* Accent bar based on note type */}

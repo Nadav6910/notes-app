@@ -114,7 +114,7 @@
     top: 0;
     width: 5em;
     height: 5px;
-    background-color: var(--ok, #10b981);
+    background-color: #1a861a;
     border-bottom-left-radius: 20px;
     border-bottom-right-radius: 20px;
 }
@@ -125,7 +125,7 @@
     top: 0;
     width: 5em;
     height: 5px;
-    background-color: var(--warn, #f59e0b);
+    background-color: rgb(165, 165, 31);
     border-bottom-left-radius: 20px;
     border-bottom-right-radius: 20px;
 }
@@ -137,7 +137,7 @@
     top: 0;
     width: 5em;
     height: 5px;
-    background-color: var(--danger, #ef4444);
+    background-color: rgb(147, 30, 30);
     border-bottom-left-radius: 20px;
     border-bottom-right-radius: 20px;
 }
@@ -938,54 +938,45 @@
     display: flex;
     align-items: center;
     flex-wrap: wrap;
-    gap: var(--space-1, 0.25rem);
-    padding: var(--space-2, 0.5rem) var(--space-3, 0.75rem);
-    background: var(--glass-bg, var(--note-card-background-card-item));
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    border: 1px solid var(--glass-border, var(--borders-color));
+    gap: 0.25em;
+    padding: 0.5em 0.75em;
+    background-color: var(--note-card-background-card-item);
+    border: 1px solid var(--borders-color);
     border-bottom: none;
-    border-radius: var(--radius-lg, 14px) var(--radius-lg, 14px) 0 0;
+    border-radius: 12px 12px 0 0;
     width: 100%;
-    position: sticky;
-    top: var(--navbar-height, 64px);
-    z-index: 5;
 }
 
 .toolbarGroup {
     display: flex;
     align-items: center;
-    gap: 2px;
-    padding: 2px;
+    gap: 0.15em;
 }
 
 .toolbarButton {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 32px;
-    height: 32px;
+    width: 2em;
+    height: 2em;
     padding: 0;
     border: none;
-    border-radius: var(--radius-sm, 6px);
+    border-radius: 6px;
     background-color: transparent;
-    color: var(--text, var(--primary-color));
+    color: var(--primary-color);
     cursor: pointer;
-    transition: background-color var(--duration-fast, 120ms) var(--ease-out),
-                color var(--duration-fast, 120ms),
-                transform var(--duration-fast, 120ms),
-                opacity var(--duration-fast, 120ms);
-    opacity: 0.78;
+    transition: all 0.15s ease;
+    opacity: 0.7;
 }
 
 .toolbarButton:hover {
-    background-color: var(--surface-2, var(--secondary-color-faded));
-    color: var(--accent, var(--secondary-color));
+    background-color: var(--secondary-color-faded);
+    color: var(--secondary-color);
     opacity: 1;
 }
 
 .toolbarButton:active {
-    transform: scale(0.94);
+    transform: scale(0.92);
 }
 
 .toolbarButton:disabled {
@@ -995,16 +986,15 @@
 
 .toolbarButton:disabled:hover {
     background-color: transparent;
-    color: var(--text, var(--primary-color));
+    color: var(--primary-color);
     transform: none;
 }
 
 .toolbarDivider {
     width: 1px;
-    height: 22px;
-    background-color: var(--border, var(--borders-color));
-    margin: 0 var(--space-2, 0.5rem);
-    opacity: 0.7;
+    height: 1.5em;
+    background-color: var(--borders-color);
+    margin: 0 0.4em;
 }
 
 .toolbarSpacer {
@@ -1044,8 +1034,8 @@
 
 /* ===== Toolbar Button Active State ===== */
 .toolbarButtonActive {
-    background-color: var(--accent-soft, var(--secondary-color-faded)) !important;
-    color: var(--accent, var(--secondary-color)) !important;
+    background-color: var(--secondary-color-faded) !important;
+    color: var(--secondary-color) !important;
     opacity: 1 !important;
 }
 

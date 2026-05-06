@@ -17,104 +17,52 @@
 .formContainer {
     display: flex;
     flex-direction: column;
-    gap: var(--space-4, 1rem);
-    width: 22em;
-    max-width: 100%;
-    padding: var(--space-6, 1.5rem);
-    background: var(--glass-bg, var(--note-card-background-card-item));
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    border: 1px solid var(--glass-border, var(--borders-color));
-    border-radius: var(--radius-xl, 20px);
-    box-shadow: var(--shadow-lg);
+    gap: 1em;
+    width: 20em;
     margin-bottom: 1em;
 }
 
 .inputContainer {
-    position: relative;
     display: flex;
 }
 
 .inputIcon {
     position: absolute;
-    left: var(--space-4, 1rem);
-    top: 50%;
-    transform: translateY(-50%);
-    color: var(--text-muted, var(--primary-color));
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    pointer-events: none;
-    transition: color var(--duration-base, 200ms);
-}
-
-.inputContainer:focus-within .inputIcon {
-    color: var(--accent, var(--secondary-color));
+    padding: 1.35em;
 }
 
 .RegisterInput {
     width: 100%;
-    min-height: 48px;
-    border: 1px solid var(--border, var(--borders-color));
-    background-color: var(--surface-2, var(--note-card-background-card-item));
-    color: var(--text, var(--primary-color));
-    border-radius: var(--radius-md, 10px);
-    padding: var(--space-3, 0.75rem) var(--space-4, 1rem) var(--space-3, 0.75rem) calc(var(--space-4, 1rem) * 2.5);
-    font-size: 0.95rem;
-    transition: border-color var(--duration-fast, 120ms),
-                box-shadow var(--duration-fast, 120ms),
-                background var(--duration-base, 200ms);
+    border: 1px solid var(--borders-color);
+    background-color: var(--note-card-background-card-item);
+    border-radius: 5px;
+    padding: 1.2em;
+    padding-left: 3em;
+    font-size: 1rem;
 }
 
-.RegisterInput:focus {
+.RegisterInput:focus { 
     outline: none !important;
-    border-color: var(--accent, var(--secondary-color));
-    box-shadow: 0 0 0 3px var(--accent-soft, transparent);
-}
-
-.inputInvalid {
-    border-color: var(--danger, #ef4444) !important;
-    box-shadow: 0 0 0 3px var(--danger-soft, rgba(239, 68, 68, 0.12));
-}
-
-.fieldError {
-    color: var(--danger, #ef4444);
-    font-size: 0.78rem;
-    margin-top: -0.5em;
-    padding-left: var(--space-1, 0.25rem);
+    border-color: var(--secondary-color);
 }
 
 .RegisterSubmitBtn {
-    border: none;
-    border-radius: var(--radius-md, 10px);
-    background: var(--accent, var(--secondary-color));
-    color: var(--primary-color-text-contrast, white);
-    padding: var(--space-3, 0.75rem) var(--space-5, 1.25rem);
-    min-height: 48px;
+    border: 1px solid var(--primary-color);
+    border-radius: 5px;
+    background-color: transparent;
+    padding: 1.2em;
     cursor: pointer;
-    font-size: 0.98rem;
-    font-weight: 600;
-    box-shadow: 0 4px 14px -4px var(--accent-ring, rgba(20, 184, 166, 0.4));
-    transition: filter var(--duration-fast, 120ms),
-                transform var(--duration-fast, 120ms),
-                box-shadow var(--duration-base, 200ms);
 }
 
-.RegisterSubmitBtn[type=submit] {
-    font-size: 1rem;
-    font-weight: 600;
+.RegisterSubmitBtn[type=submit]
+{
+    font-size: 1.1rem; 
+    font-weight: 200;
 }
 
 .RegisterSubmitBtn:hover {
-    filter: brightness(1.06);
-    transform: translateY(-1px);
-    box-shadow: 0 6px 18px -4px var(--accent-ring, rgba(20, 184, 166, 0.5));
-}
-
-.RegisterSubmitBtn:disabled {
-    cursor: not-allowed;
-    opacity: 0.7;
-    transform: none;
+    border: 1px solid var(--secondary-color);
+    color: var(--secondary-color);
 }
 
 .loginPageLink {
