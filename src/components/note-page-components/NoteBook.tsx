@@ -40,10 +40,21 @@ import Placeholder from '@tiptap/extension-placeholder'
 import Typography from '@tiptap/extension-typography'
 import Youtube from '@tiptap/extension-youtube'
 import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight'
-import { common, createLowlight } from 'lowlight'
+import { createLowlight } from 'lowlight'
+// Importing the full `common` set bundles ~35 language grammars (~80KB
+// minified). Most users never paste anything but JS/TS/HTML/CSS/JSON, so
+// we register a small curated subset and lose negligible coverage.
+import javascript from 'highlight.js/lib/languages/javascript'
+import typescript from 'highlight.js/lib/languages/typescript'
+import xml from 'highlight.js/lib/languages/xml' // also covers HTML
+import css from 'highlight.js/lib/languages/css'
+import json from 'highlight.js/lib/languages/json'
+import bash from 'highlight.js/lib/languages/bash'
+import python from 'highlight.js/lib/languages/python'
+import markdown from 'highlight.js/lib/languages/markdown'
 
-// Create lowlight instance with common languages
-const lowlight = createLowlight(common)
+const lowlight = createLowlight()
+lowlight.register({ javascript, typescript, xml, html: xml, css, json, bash, sh: bash, python, markdown })
 
 // Custom Link extension to avoid duplicate warnings
 const CustomLink = Link.extend({
