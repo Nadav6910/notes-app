@@ -65,17 +65,25 @@
 
 /* ===== Card Container ===== */
 .cardContainer {
-    background-color: var(--note-card-background-card-item) !important;
+    background: var(--glass-bg, var(--note-card-background-card-item)) !important;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
     max-width: 32em;
-    border-radius: 12px;
+    border-radius: var(--radius-lg, 14px) !important;
     overflow: hidden;
     position: relative;
-    border: 1px solid transparent;
-    transition: border-color 0.3s ease;
+    border: 1px solid var(--glass-border, transparent);
+    box-shadow: var(--shadow-sm);
+    transition: border-color var(--duration-base, 200ms) var(--ease-out),
+                box-shadow var(--duration-base, 200ms) var(--ease-out),
+                transform var(--duration-fast, 120ms) var(--ease-out);
 }
 
 .cardContainer:hover {
-    border-color: var(--secondary-color-faded);
+    border-color: var(--accent-soft, var(--secondary-color-faded));
+    box-shadow: var(--shadow-lg);
+    outline: 1px solid var(--accent-soft, var(--secondary-color-faded));
+    outline-offset: 2px;
 }
 
 /* ===== Card Accent Bar ===== */
@@ -84,17 +92,17 @@
     top: 0;
     left: 0;
     right: 0;
-    height: 4px;
+    height: 3px;
     z-index: 1;
-    background: linear-gradient(90deg, var(--secondary-color), var(--secondary-color));
+    background: linear-gradient(90deg, var(--accent, var(--secondary-color)), color-mix(in srgb, var(--accent, var(--secondary-color)) 60%, transparent));
 }
 
 .cardAccent[data-note-type="Items list"] {
-    background: linear-gradient(90deg, #19a29b, #2dd4c8);
+    background: linear-gradient(90deg, var(--accent, #14b8a6), color-mix(in srgb, var(--accent, #14b8a6) 50%, transparent));
 }
 
 .cardAccent[data-note-type="Notebook"] {
-    background: linear-gradient(90deg, #8b5cf6, #a78bfa);
+    background: linear-gradient(90deg, #8b5cf6, color-mix(in srgb, #8b5cf6 50%, transparent));
 }
 
 /* ===== SVG Container ===== */

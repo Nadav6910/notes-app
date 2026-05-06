@@ -2,42 +2,97 @@
 .navbarContainer {
     display: flex;
     align-items: center;
-    height: 5em;
+    min-height: var(--navbar-height, 64px);
+    padding: var(--space-2, 0.5rem) var(--space-2, 0.5rem);
+    margin: 0 calc(var(--space-6) * -1);
+    padding-left: var(--space-6);
+    padding-right: var(--space-6);
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    background: var(--bg-elevated, rgba(255, 255, 255, 0.6));
+    border-bottom: 1px solid var(--glass-border, var(--borders-color));
+    transition: background var(--duration-base, 200ms);
+}
+
+@media (max-width: 768px) {
+    .navbarContainer {
+        margin: 0 calc(var(--space-4) * -1);
+        padding-left: var(--space-4);
+        padding-right: var(--space-4);
+    }
+}
+
+@media (max-width: 480px) {
+    .navbarContainer {
+        margin: 0 calc(var(--space-3) * -1);
+        padding-left: var(--space-3);
+        padding-right: var(--space-3);
+    }
 }
 
 .mainLogo {
-    font-size: 1.8rem;
+    font-size: 1.55rem;
     text-decoration: none;
-    color: var(--primary-color);
+    color: var(--text, var(--primary-color));
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2, 0.5rem);
 }
 
 .notebookIcon {
-    color: var(--secondary-color);
+    color: var(--accent, var(--secondary-color));
 }
 
 .linksContainer {
     display: flex;
     align-items: center;
-    gap: 1em;
+    gap: var(--space-3, 0.75rem);
     margin-left: auto;
 }
 
 .loginLink, .registerLink {
-    display: flex;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
-    font-size: 0.95rem;
+    min-height: 38px;
+    padding: var(--space-2) var(--space-5);
+    font-size: 0.9rem;
+    font-weight: 600;
     text-decoration: none;
-    color: var(--primary-color);
-    border: 1px solid var(--primary-color);
-    padding: 0.4em;
-    border-radius: 8px;
-    width: 5em;
+    border-radius: var(--radius-full, 9999px);
+    transition: transform var(--duration-fast, 120ms) var(--ease-out),
+                box-shadow var(--duration-base, 200ms) var(--ease-out),
+                background var(--duration-base, 200ms),
+                color var(--duration-base, 200ms);
 }
 
-.loginLink:hover, .registerLink:hover {
-    color: var(--secondary-color);
-    border: 1px solid var(--secondary-color);
+.loginLink {
+    color: var(--text, var(--primary-color));
+    background: transparent;
+    border: 1px solid var(--border-strong, var(--borders-color));
+}
+
+.loginLink:hover {
+    color: var(--accent, var(--secondary-color));
+    border-color: var(--accent, var(--secondary-color));
+    background: var(--accent-soft, transparent);
+}
+
+.registerLink {
+    color: var(--primary-color-text-contrast, white);
+    background: var(--accent, var(--secondary-color));
+    border: 1px solid var(--accent, var(--secondary-color));
+    box-shadow: 0 4px 14px -4px var(--accent-ring, rgba(20, 184, 166, 0.4));
+}
+
+.registerLink:hover {
+    background: var(--accent-hover, var(--secondary-color));
+    border-color: var(--accent-hover, var(--secondary-color));
+    box-shadow: 0 6px 20px -4px var(--accent-ring, rgba(20, 184, 166, 0.5));
+    transform: translateY(-1px);
 }
 
 .menuIcon {

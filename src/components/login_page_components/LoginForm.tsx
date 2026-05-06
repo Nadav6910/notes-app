@@ -75,44 +75,41 @@ export default function LoginForm() {
                 className={styles.formContainer}
             >
                 <div className={styles.inputContainer}>
-                    <input 
-                        className={styles.loginInput}
-                        {...register('userName', 
-                        { 
-                            required: {value: true, message: "Username must be provided"}, 
-                        })} 
+                    <input
+                        className={`${styles.loginInput} ${errors.userName || userNameErr ? styles.inputInvalid : ''}`}
+                        {...register('userName',
+                        {
+                            required: {value: true, message: "Username must be provided"},
+                        })}
                         type='text'
                         placeholder='Username'
-                        
-                        style={{borderColor: errors.userName || userNameErr ? "red" : undefined}} 
+                        aria-invalid={errors.userName || userNameErr ? 'true' : 'false'}
                     />
                     <div className={styles.inputIcon}><AiOutlineUser /></div>
                 </div>
-                {
-                    errors.userName || userNameErr ?
-                    <span style={{color: "red", fontSize: "0.8rem"}}>
+                {(errors.userName || userNameErr) && (
+                    <span className={styles.fieldError} role="alert">
                         {errors.userName?.message ?? "Username is incorrect!"}
-                    </span> : null
-                }
+                    </span>
+                )}
                 <div className={styles.inputContainer}>
-                    <input 
-                        className={styles.loginInput}
-                        {...register('password', 
-                        { 
-                            required: {value: true, message: "Password must be provided"}, 
-                        })} 
+                    <input
+                        className={`${styles.loginInput} ${errors.password || passwordErr ? styles.inputInvalid : ''}`}
+                        {...register('password',
+                        {
+                            required: {value: true, message: "Password must be provided"},
+                        })}
                         type='password'
                         placeholder='Password'
-                        style={{borderColor: errors.password || passwordErr ? "red" : undefined}} 
+                        aria-invalid={errors.password || passwordErr ? 'true' : 'false'}
                     />
                     <div className={styles.inputIcon}><RiLockPasswordLine /></div>
                 </div>
-                {
-                    errors.password || passwordErr ? 
-                    <span style={{color: "red", fontSize: "0.8rem"}}>
+                {(errors.password || passwordErr) && (
+                    <span className={styles.fieldError} role="alert">
                         {errors.password?.message ?? "Password is incorrect!"}
-                    </span> : null
-                }
+                    </span>
+                )}
                 <p className={styles.forgotPassLink}>Forgot Password?</p>
 
                 <button className={styles.loginSubmitBtn} type='submit'>
