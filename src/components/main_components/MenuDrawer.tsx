@@ -108,7 +108,7 @@ export default function MenuDrawer({isSession, userName, userImage}: NavbarDrawe
                 <ListItem disablePadding>
                     <ListItemButton sx={{gap: "1em"}} onClick={() => router.push('/profile')}>
                         <ListItemIcon sx={{display: "contents"}}>
-                            <CgProfile style={{color: theme.theme === "dark" ? "white" : "black"}} />
+                            <CgProfile style={{color: "var(--primary-color)"}} />
                         </ListItemIcon>
                         <ListItemText primary={"Profile"} />
                     </ListItemButton>
@@ -116,7 +116,7 @@ export default function MenuDrawer({isSession, userName, userImage}: NavbarDrawe
                 <ListItem disablePadding>
                     <ListItemButton sx={{gap: "1em"}} onClick={() => router.push('/my-notes')}>
                         <ListItemIcon sx={{display: "contents"}}>
-                            <CgNotes style={{color: theme.theme === "dark" ? "white" : "black"}} />
+                            <CgNotes style={{color: "var(--primary-color)"}} />
                         </ListItemIcon>
                         <ListItemText primary={"My Notes"} />
                     </ListItemButton>
@@ -146,7 +146,7 @@ export default function MenuDrawer({isSession, userName, userImage}: NavbarDrawe
             <ListItem disablePadding>
                 <ListItemButton sx={{gap: "1em"}} onClick={() => router.push('/login')}>
                     <ListItemIcon sx={{display: "contents"}}>
-                        <CgLogIn style={{color: theme.theme === "dark" ? "white" : "black"}} />
+                        <CgLogIn style={{color: "var(--primary-color)"}} />
                     </ListItemIcon>
                     <ListItemText primary={"Login"} />
                 </ListItemButton>
@@ -154,7 +154,7 @@ export default function MenuDrawer({isSession, userName, userImage}: NavbarDrawe
             <ListItem disablePadding>
                 <ListItemButton sx={{gap: "1em"}} onClick={() => router.push('/register')}>
                     <ListItemIcon sx={{display: "contents"}}>
-                        <GiArchiveRegister style={{color: theme.theme === "dark" ? "white" : "black"}} />
+                        <GiArchiveRegister style={{color: "var(--primary-color)"}} />
                     </ListItemIcon>
                     <ListItemText primary={"Register"} />
                 </ListItemButton>

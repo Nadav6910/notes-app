@@ -314,7 +314,11 @@ export default function AddNoteItemPopup (
 
     finally {
       clearTimeout(timeoutId)
-      setPricesLoading(false)
+      // Same guard as the autocomplete: if a newer fetchPrices call has
+      // already taken over, don't clobber its loading state.
+      if (pricesAbortRef.current === ac) {
+        setPricesLoading(false)
+      }
     }
   }, [comparePrices, selectedProduct, city])
 
@@ -373,7 +377,7 @@ export default function AddNoteItemPopup (
       setHadError(false)
       setAcError(null)
       setSearchAttempts(prev => prev + 1)
-      
+
       try {
         const res = await fetch('/api/auto-complete-products-search', {
           method: 'POST',
@@ -385,9 +389,9 @@ export default function AddNoteItemPopup (
         clearTimeout(timeoutId)
 
         const data: AutocompleteResponse = await res.json()
-        
+
         if (ac.signal.aborted) return
-        
+
         if (data.ok) {
           const raw: AutocompleteSuggestion[] = data.suggestions ?? []
           const trimmed = raw.length > 1 ? raw.slice(0, -1) : raw   // drop "view more"
@@ -412,7 +416,14 @@ export default function AddNoteItemPopup (
           setAcOpen(true)
         }
       } finally {
-        setAcLoading(false)
+        // Only clear the loading flag if THIS request is still the active
+        // one. Otherwise an aborted request would clobber the loading state
+        // of the new in-flight request that just took its place — that's
+        // why typing/deleting a letter sometimes hid the spinner without
+        // ever showing results.
+        if (abortRef.current === ac) {
+          setAcLoading(false)
+        }
       }
     }
 
