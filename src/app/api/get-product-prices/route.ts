@@ -789,7 +789,7 @@ export interface ScrapeProgressEvent {
 }
 
 const STEP_LABELS: Record<ScrapeProgressStep, string> = {
-  launching: 'Opening chp.co.il',
+  launching: 'Exploring the web',
   locating: 'Confirming your location',
   'searching-product': 'Searching product',
   submitting: 'Comparing stores',

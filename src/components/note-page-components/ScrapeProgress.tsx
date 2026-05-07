@@ -33,10 +33,10 @@ type StepDef = {
 }
 
 const STEPS: StepDef[] = [
-  { key: 'locating',          title: 'Locating you',         hint: 'Confirming city with the site', emoji: '🛰️' },
-  { key: 'launching',         title: 'Opening chp.co.il',    hint: 'Launching browser session',     emoji: '🚀' },
+  { key: 'locating',          title: 'Locating you',         hint: 'Confirming your area',          emoji: '🛰️' },
+  { key: 'launching',         title: 'Exploring the web',    hint: 'Launching browser session',     emoji: '🚀' },
   { key: 'searching-product', title: 'Searching product',    hint: 'Autocomplete + submit',         emoji: '🔎' },
-  { key: 'submitting',        title: 'Comparing stores',     hint: 'Letting the site do its work',  emoji: '📡' },
+  { key: 'submitting',        title: 'Comparing stores',     hint: 'Letting the page do its work',  emoji: '📡' },
   { key: 'extracting',        title: 'Extracting prices',    hint: 'Parsing the results table',     emoji: '📊' },
   { key: 'done',              title: 'Done',                 hint: 'Handing off to the table',      emoji: '✅' },
 ]

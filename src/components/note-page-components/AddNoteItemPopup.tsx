@@ -197,8 +197,11 @@ export default function AddNoteItemPopup (
       setPricesRows(null)
     }
 
-    // Client-side timeout
+    // Client-side timeout — track the cause so we can distinguish a real
+    // timeout (show error) from a supersede abort (silent drop).
+    let abortedByTimeout = false
     const timeoutId = setTimeout(() => {
+      abortedByTimeout = true
       ac.abort()
     }, REQUEST_TIMEOUT_MS)
 
@@ -304,7 +307,13 @@ export default function AddNoteItemPopup (
 
     catch (e: any) {
       if (ac.signal.aborted || e?.name === 'AbortError') {
-        // Don't show an error for user-initiated cancels.
+        // Real client-side timeouts get a visible error; user-initiated
+        // cancels (popup close, new product picked) stay silent.
+        if (abortedByTimeout && pricesAbortRef.current === ac) {
+          setPricesError('Price lookup took too long. Please try again.')
+          setPricesErrorCode('TIMEOUT')
+          setPricesRows([])
+        }
         return
       }
       setPricesError(e?.message || 'Network error')
@@ -367,12 +376,20 @@ export default function AddNoteItemPopup (
     const ac = new AbortController()
     abortRef.current = ac
 
-    // Client-side timeout
+    // Track whether the abort was caused by our client-side timeout
+    // vs. a newer query superseding this one. Only timeouts should
+    // surface as a visible error; supersedes are meant to be silent.
+    let abortedByTimeout = false
     const timeoutId = setTimeout(() => {
+      abortedByTimeout = true
       ac.abort()
     }, REQUEST_TIMEOUT_MS)
 
     const run = async () => {
+      // Open the dropdown immediately so the loading row is visible while
+      // the request is in flight, even on the very first query (where
+      // acOpen would otherwise still be false from initial state).
+      setAcOpen(true)
       setAcLoading(true)
       setHadError(false)
       setAcError(null)
@@ -408,7 +425,16 @@ export default function AddNoteItemPopup (
       } catch (e: any) {
         clearTimeout(timeoutId)
         if (ac.signal.aborted || e?.name === 'AbortError') {
-          // user cancelled or new query in flight — silently drop
+          // If our 25s client-side timeout fired, surface a real error
+          // instead of silently leaving the dropdown empty. If the abort
+          // was just a newer query taking over, drop quietly — the new
+          // request owns the UI now.
+          if (abortedByTimeout && abortRef.current === ac) {
+            setHadError(true)
+            setAcError('Search took too long. Please try again.')
+            setOptions([])
+            setAcOpen(true)
+          }
         } else {
           setHadError(true)
           setAcError(e?.message || 'Network error')
@@ -499,13 +525,14 @@ export default function AddNoteItemPopup (
                       setAcOpen(false)
                     }
                   }}
-                  // open only if: we explicitly opened it AND user typed 3+ AND it's Hebrew,
-                  // OR we had an error (to show "No items found" for Hebrew queries)
-                  open={
-                    acOpen &&
-                    canOpen(itemNameLive) &&
-                    (options.length > 0 || hadError || acLoading)
-                  }
+                  // Open whenever we explicitly opened it AND the input is a
+                  // valid Hebrew query (>=3 chars). Don't gate on
+                  // (options || error || loading) — that gate caused the
+                  // dropdown to silently vanish whenever the API returned
+                  // zero suggestions or a request was quietly aborted, so
+                  // the user saw nothing instead of "Searching..." or
+                  // "No products found".
+                  open={acOpen && canOpen(itemNameLive)}
                   options={options}
                   loading={acLoading}
                   loadingText={
