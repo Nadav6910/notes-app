@@ -152,11 +152,16 @@ function isInIsrael(lat: number, lon: number): boolean {
   )
 }
 
-// Coordinates of major Israeli cities for nearest-neighbour fallback. Used
-// when reverse geocoding returns a small town we don't know how to map to
-// Hebrew \u2014 we'd rather pin to a known major city than blindly fall back
-// to "\u05EA\u05DC \u05D0\u05D1\u05D9\u05D1" for everyone.
+// Coordinates of major Israeli cities for nearest-neighbour fallback.
+// Reverse geocoders (BigDataCloud, Nominatim, etc.) often confuse cities
+// inside tightly-packed clusters like the Krayot near Haifa \u2014 they return
+// "\u05E7\u05E8\u05D9\u05D9\u05EA \u05D1\u05D9\u05D0\u05DC\u05D9\u05E7" when the user is actually 800m away in "\u05E7\u05E8\u05D9\u05D9\u05EA \u05D9\u05DD". By
+// snapping to the closest of these known coordinates we get the right
+// answer regardless of what the upstream geocoder said.
+//
+// Coordinates are city centers (Wikipedia / Google Maps).
 const ISRAELI_CITY_COORDS: Array<{ he: string; lat: number; lon: number }> = [
+  // major metros
   { he: '\u05EA\u05DC \u05D0\u05D1\u05D9\u05D1',         lat: 32.0853, lon: 34.7818 },
   { he: '\u05D9\u05E8\u05D5\u05E9\u05DC\u05D9\u05DD',         lat: 31.7683, lon: 35.2137 },
   { he: '\u05D7\u05D9\u05E4\u05D4',           lat: 32.7940, lon: 34.9896 },
@@ -177,24 +182,47 @@ const ISRAELI_CITY_COORDS: Array<{ he: string; lat: number; lon: number }> = [
   { he: '\u05E0\u05E6\u05E8\u05EA',           lat: 32.7000, lon: 35.2950 },
   { he: '\u05D8\u05D1\u05E8\u05D9\u05D4',          lat: 32.7903, lon: 35.5310 },
   { he: '\u05D0\u05D9\u05DC\u05EA',           lat: 29.5577, lon: 34.9519 },
+  // Tel Aviv conurbation (Gush Dan)
   { he: '\u05E8\u05DE\u05EA \u05D2\u05DF',          lat: 32.0680, lon: 34.8240 },
   { he: '\u05D1\u05E0\u05D9 \u05D1\u05E8\u05E7',         lat: 32.0808, lon: 34.8338 },
   { he: '\u05D7\u05D5\u05DC\u05D5\u05DF',          lat: 32.0167, lon: 34.7792 },
   { he: '\u05D1\u05EA \u05D9\u05DD',          lat: 32.0244, lon: 34.7508 },
   { he: '\u05D2\u05D1\u05E2\u05EA\u05D9\u05D9\u05DD',         lat: 32.0700, lon: 34.8120 },
-  { he: '\u05E7\u05E8\u05D9\u05D9\u05EA \u05D2\u05EA',        lat: 31.6100, lon: 34.7642 },
   { he: '\u05E7\u05E8\u05D9\u05D9\u05EA \u05D0\u05D5\u05E0\u05D5',      lat: 32.0631, lon: 34.8559 },
-  { he: '\u05E2\u05DB\u05D5',            lat: 32.9281, lon: 35.0818 },
-  { he: '\u05E0\u05D4\u05E8\u05D9\u05D4',          lat: 33.0058, lon: 35.0950 },
-  { he: '\u05E7\u05E8\u05D9\u05D9\u05EA \u05E9\u05DE\u05D5\u05E0\u05D4',     lat: 33.2074, lon: 35.5697 },
-  { he: '\u05D3\u05D9\u05DE\u05D5\u05E0\u05D4',         lat: 31.0700, lon: 35.0322 },
-  { he: '\u05E6\u05E4\u05EA',            lat: 32.9658, lon: 35.4983 },
-  { he: '\u05E2\u05E4\u05D5\u05DC\u05D4',          lat: 32.6078, lon: 35.2897 },
   { he: '\u05D0\u05D5\u05E8 \u05D9\u05D4\u05D5\u05D3\u05D4',       lat: 32.0319, lon: 34.8553 },
   { he: '\u05D9\u05D4\u05D5\u05D3',           lat: 32.0333, lon: 34.8833 },
   { he: '\u05E8\u05D0\u05E9 \u05D4\u05E2\u05D9\u05DF',       lat: 32.0850, lon: 34.9500 },
   { he: '\u05D4\u05D5\u05D3 \u05D4\u05E9\u05E8\u05D5\u05DF',       lat: 32.1500, lon: 34.8917 },
   { he: '\u05E0\u05E1 \u05E6\u05D9\u05D5\u05E0\u05D4',        lat: 31.9333, lon: 34.7989 },
+  { he: '\u05D1\u05D0\u05E8 \u05D9\u05E2\u05E7\u05D1',        lat: 31.9437, lon: 34.8369 },
+  { he: '\u05E9\u05D5\u05D4\u05DD',           lat: 31.9956, lon: 34.9586 },
+  // Krayot \u2014 Haifa cluster (the user's pain point: cities 1\u20133km apart)
+  { he: '\u05E7\u05E8\u05D9\u05D9\u05EA \u05D9\u05DD',        lat: 32.8392, lon: 35.0686 },
+  { he: '\u05E7\u05E8\u05D9\u05D9\u05EA \u05D1\u05D9\u05D0\u05DC\u05D9\u05E7',    lat: 32.8267, lon: 35.0867 },
+  { he: '\u05E7\u05E8\u05D9\u05D9\u05EA \u05DE\u05D5\u05E6\u05E7\u05D9\u05DF',    lat: 32.8347, lon: 35.0833 },
+  { he: '\u05E7\u05E8\u05D9\u05D9\u05EA \u05D0\u05EA\u05D0',       lat: 32.8064, lon: 35.1106 },
+  { he: '\u05E0\u05E9\u05E8',            lat: 32.7669, lon: 35.0444 },
+  { he: '\u05D8\u05D9\u05E8\u05EA \u05DB\u05E8\u05DE\u05DC',       lat: 32.7611, lon: 34.9723 },
+  // Galilee + north
+  { he: '\u05E2\u05DB\u05D5',            lat: 32.9281, lon: 35.0818 },
+  { he: '\u05E0\u05D4\u05E8\u05D9\u05D4',          lat: 33.0058, lon: 35.0950 },
+  { he: '\u05E7\u05E8\u05D9\u05D9\u05EA \u05E9\u05DE\u05D5\u05E0\u05D4',     lat: 33.2074, lon: 35.5697 },
+  { he: '\u05E6\u05E4\u05EA',            lat: 32.9658, lon: 35.4983 },
+  { he: '\u05DB\u05E8\u05DE\u05D9\u05D0\u05DC',         lat: 32.9171, lon: 35.2950 },
+  { he: '\u05DE\u05E2\u05DC\u05D5\u05EA-\u05EA\u05E8\u05E9\u05D9\u05D7\u05D0',    lat: 33.0167, lon: 35.2806 },
+  { he: '\u05D9\u05E7\u05E0\u05E2\u05DD',          lat: 32.6608, lon: 35.1100 },
+  // valleys / center-east
+  { he: '\u05E2\u05E4\u05D5\u05DC\u05D4',          lat: 32.6078, lon: 35.2897 },
+  { he: '\u05DE\u05D2\u05D3\u05DC \u05D4\u05E2\u05DE\u05E7',       lat: 32.6750, lon: 35.2400 },
+  { he: '\u05D1\u05D9\u05EA \u05E9\u05D0\u05DF',         lat: 32.4969, lon: 35.4983 },
+  // south
+  { he: '\u05E7\u05E8\u05D9\u05D9\u05EA \u05D2\u05EA',        lat: 31.6100, lon: 34.7642 },
+  { he: '\u05E7\u05E8\u05D9\u05D9\u05EA \u05DE\u05DC\u05D0\u05DB\u05D9',     lat: 31.7300, lon: 34.7500 },
+  { he: '\u05D3\u05D9\u05DE\u05D5\u05E0\u05D4',         lat: 31.0700, lon: 35.0322 },
+  { he: '\u05E2\u05E8\u05D3',            lat: 31.2589, lon: 35.2125 },
+  { he: '\u05E9\u05D3\u05E8\u05D5\u05EA',          lat: 31.5253, lon: 34.5953 },
+  { he: '\u05E0\u05EA\u05D9\u05D1\u05D5\u05EA',         lat: 31.4231, lon: 34.5887 },
+  { he: '\u05D0\u05D5\u05E4\u05E7\u05D9\u05DD',         lat: 31.3142, lon: 34.6203 },
 ]
 
 // Haversine great-circle distance in km.
@@ -221,18 +249,47 @@ function nearestIsraeliCity(lat: number, lon: number): string | null {
   return best ? best.he : null
 }
 
-// Reverse geocode a coordinate to a Hebrew city name, trying multiple
-// providers and only accepting Israeli results. We try BigDataCloud first
-// (no key, returns Hebrew when asked) and fall back to OSM Nominatim.
-// As a last resort, snap the coords to the nearest known major city.
-async function reverseGeocodeHebrew(lat: number, lon: number, signal?: AbortSignal): Promise<string | null> {
+// Reverse geocode a coordinate to a Hebrew city name.
+//
+// Strategy ordering:
+//   1. If we have an accurate GPS fix (accuracy <=500m) AND the snapped
+//      nearest-city is within 4km, TRUST the snap. Reverse geocoders
+//      routinely confuse cities that share a postal/admin boundary
+//      (e.g. the Krayot near Haifa: \u05e7\u05e8\u05d9\u05d9\u05ea \u05d9\u05dd vs \u05e7\u05e8\u05d9\u05d9\u05ea \u05d1\u05d9\u05d0\u05dc\u05d9\u05e7 are 1.5km
+//      apart but geocoders almost always return the larger one).
+//      A precise GPS fix + haversine to a known major city is more
+//      reliable than a coarse admin-area lookup.
+//   2. Otherwise try BigDataCloud (Hebrew-aware, no key) and Nominatim
+//      and only accept Israeli results.
+//   3. Last resort: snap to nearest major city anyway, even if accuracy
+//      is poor \u2014 at least the user gets a usable city.
+async function reverseGeocodeHebrew(
+  lat: number,
+  lon: number,
+  signal?: AbortSignal,
+  accuracyMeters?: number,
+): Promise<string | null> {
   if (!isInIsrael(lat, lon)) {
     // The GPS fix isn't in Israel \u2014 we don't trust it. Return null so the
     // caller falls through to IP-based detection.
     return null
   }
 
-  // Provider 1: BigDataCloud reverse-geocode (Hebrew-aware, no key)
+  // 1. High-confidence GPS short-circuit. If we have a precise fix and a
+  //    known city is right on top of us, use it without asking the network.
+  if (typeof accuracyMeters === 'number' && accuracyMeters > 0 && accuracyMeters <= 500) {
+    let best: { he: string; d: number } | null = null
+    for (const c of ISRAELI_CITY_COORDS) {
+      const d = haversineKm(lat, lon, c.lat, c.lon)
+      if (!best || d < best.d) best = { he: c.he, d }
+    }
+    if (best && best.d <= 4) {
+      return best.he
+    }
+    // else fall through to network reverse-geocoders
+  }
+
+  // 2a. Provider 1: BigDataCloud reverse-geocode (Hebrew-aware, no key)
   try {
     const r = await fetch(
       `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=he`,
@@ -243,8 +300,11 @@ async function reverseGeocodeHebrew(lat: number, lon: number, signal?: AbortSign
       // Only trust the result if BDC also says we're in Israel
       const cc: string | undefined = j.countryCode || j.countryInfo?.iso3?.slice(0, 2)
       if (!cc || cc.toUpperCase() === 'IL') {
+        // Prefer the most specific name (locality) over the broader
+        // (city/principalSubdivision). BDC sometimes labels the whole
+        // metropolitan area with the largest city's name.
         const candidate: string | null =
-          j.city || j.locality ||
+          j.locality || j.city ||
           j.localityInfo?.administrative?.[0]?.name ||
           j.principalSubdivision || null
         const mapped = normalizeCityHe(candidate)
@@ -255,7 +315,7 @@ async function reverseGeocodeHebrew(lat: number, lon: number, signal?: AbortSign
     // try next provider
   }
 
-  // Provider 2: OSM Nominatim \u2014 public, no key, supports `accept-language=he`
+  // 2b. Provider 2: OSM Nominatim \u2014 most precise free option, no key.
   try {
     const r = await fetch(
       `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}&accept-language=he&zoom=14`,
@@ -277,8 +337,7 @@ async function reverseGeocodeHebrew(lat: number, lon: number, signal?: AbortSign
     // fall through to nearest-city snap
   }
 
-  // Last resort: snap to the closest major city we know about. The user
-  // gets a usable scrape result instead of a generic default.
+  // 3. Last resort: snap to the closest major city we know about.
   return nearestIsraeliCity(lat, lon)
 }
 
@@ -423,7 +482,7 @@ export function useHebrewCity(
       throw new Error(`GPS fix too inaccurate (${Math.round(accuracy)}m)`)
     }
 
-    const city = await reverseGeocodeHebrew(latitude, longitude, signal)
+    const city = await reverseGeocodeHebrew(latitude, longitude, signal, accuracy)
     if (!city) throw new Error('reverse-geocode returned empty')
     return city
   }, [geolocationTimeoutMs])

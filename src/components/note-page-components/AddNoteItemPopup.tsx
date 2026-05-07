@@ -814,6 +814,48 @@ export default function AddNoteItemPopup (
               )}
             />
 
+            {/* Always-visible inline status. The MUI Autocomplete dropdown
+                can be suppressed by Dialog/popper interactions, so we
+                render this guaranteed status bar below the input — the
+                user always sees "Searching...", "No products found",
+                or the error message regardless of dropdown state. */}
+            {comparePrices && isHebrew(itemNameLive) && itemNameLive.trim().length >= 3 && (
+              <Box
+                sx={{
+                  mt: -0.5,
+                  px: 1,
+                  py: 0.5,
+                  fontSize: '0.82rem',
+                  color: 'var(--primary-color)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 0.75,
+                  minHeight: '1.6em',
+                }}
+                role="status"
+                aria-live="polite"
+              >
+                {acLoading ? (
+                  <>
+                    <CircularProgress size={12} sx={{ color: 'var(--secondary-color)' }} />
+                    <span style={{ opacity: 0.8 }}>Searching products…</span>
+                  </>
+                ) : hadError ? (
+                  <span style={{ color: '#d32f2f' }}>
+                    ⚠️ {acError || 'Search failed.'} — try a different word.
+                  </span>
+                ) : searchAttempts > 0 && options.length === 0 ? (
+                  <span style={{ opacity: 0.85 }}>
+                    🔍 No products found for &quot;{itemNameLive.trim()}&quot;.
+                  </span>
+                ) : options.length > 0 ? (
+                  <span style={{ opacity: 0.7 }}>
+                    {options.length} {options.length === 1 ? 'result' : 'results'}
+                  </span>
+                ) : null}
+              </Box>
+            )}
+
             {/* check box to enable price comparison */}
             <Box>
               <FormControl component='fieldset' variant='standard'>
