@@ -863,7 +863,28 @@ export default function AddNoteItemPopup (
                   control={
                     <Checkbox
                       checked={comparePrices}
-                      onChange={(e) => setComparePrices(e.target.checked)}
+                      onChange={(e) => {
+                        const checked = e.target.checked
+                        // Prime the geolocation prompt in user-gesture context.
+                        // Browsers (especially mobile Safari and some Chromes)
+                        // sometimes silently suppress the permission popup if
+                        // getCurrentPosition is called from a useEffect — i.e.
+                        // outside the synchronous click handler. Calling it
+                        // here, with empty handlers, ensures the popup
+                        // appears reliably. The hook's own useEffect runs
+                        // milliseconds later and either re-uses the cached
+                        // permission or piggybacks on the same fix.
+                        if (checked && typeof navigator !== 'undefined' && navigator.geolocation) {
+                          try {
+                            navigator.geolocation.getCurrentPosition(
+                              () => {},
+                              () => {},
+                              { enableHighAccuracy: true, timeout: 12_000, maximumAge: 30_000 },
+                            )
+                          } catch {}
+                        }
+                        setComparePrices(checked)
+                      }}
                       sx={{ color: 'var(--secondary-color)', '&.Mui-checked': { color: 'var(--secondary-color)' } }}
                     />
                   }

@@ -20,11 +20,11 @@ type CityState = {
 }
 
 const LS_LAST_CITY_KEY = 'chp:last-location'
-// How long we trust a persisted detection before re-running. 30 min is short
-// enough that a user who travelled (say, drove from Tel Aviv to קריית ים)
-// gets re-detected on their next session, and long enough that revisits
-// during the same shopping trip are instant.
-const PERSISTED_CITY_TTL_MS = 30 * 60 * 1000
+// How long we trust a persisted detection before re-running. Kept short so a
+// wrong IP-side detection doesn't follow the user around indefinitely;
+// repeat usage within the same shopping trip still warm-starts instantly.
+const PERSISTED_GPS_TTL_MS = 30 * 60 * 1000   // GPS results are accurate, trust longer
+const PERSISTED_IP_TTL_MS  = 10 * 60 * 1000   // IP results are coarse, re-check sooner
 
 function readLastCityFromStorage(): { city: string; source: 'manual' | 'gps' | 'ip' | 'fallback' } | null {
   if (typeof window === 'undefined') return null
@@ -36,9 +36,12 @@ function readLastCityFromStorage(): { city: string; source: 'manual' | 'gps' | '
     // Never trust a persisted "fallback" — that's the literal default city
     // we used because detection failed last time. We want a fresh attempt.
     if (parsed.source === 'fallback') return null
-    // TTL: stale persisted values get re-detected.
+    // Per-source TTL: GPS results are trusted for longer than IP results.
     const ts = typeof parsed.ts === 'number' ? parsed.ts : 0
-    if (Date.now() - ts > PERSISTED_CITY_TTL_MS) return null
+    const ttl = parsed.source === 'gps' || parsed.source === 'manual'
+      ? PERSISTED_GPS_TTL_MS
+      : PERSISTED_IP_TTL_MS
+    if (Date.now() - ts > ttl) return null
     return { city: parsed.city, source: parsed.source ?? 'manual' }
   } catch {}
   return null
@@ -314,9 +317,14 @@ async function reverseGeocodeHebrew(
   //     return the actual municipality (e.g. "\u05e7\u05e8\u05d9\u05d9\u05ea \u05d9\u05dd"), whereas
   //     BigDataCloud often broadens to the metropolitan name (e.g. "\u05d7\u05d9\u05e4\u05d4"
   //     or whichever Krayot city is largest).
+  //
+  //     zoom=16 (admin-level "suburb"/"neighbourhood") gives finer
+  //     granularity than the default 14 (metro/county) \u2014 important for
+  //     distinguishing the Krayot cluster where the cities are 1-3km
+  //     apart and admin polygons partly overlap.
   try {
     const r = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}&accept-language=he&zoom=14`,
+      `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}&accept-language=he&zoom=16&addressdetails=1`,
       { signal, headers: { 'Accept': 'application/json' } },
     )
     if (r.ok) {
@@ -331,6 +339,21 @@ async function reverseGeocodeHebrew(
           j.address?.suburb || j.address?.county || null
         const mapped = normalizeCityHe(candidate)
         if (mapped) return mapped
+
+        // Last-ditch: scan the full address object and the comma-split
+        // display_name for any token that's a known Hebrew Israeli city.
+        // OSM occasionally puts the actual city in `state_district` or
+        // `region` for tightly-packed clusters.
+        const knownHe = new Set(Object.values(EN_TO_HE))
+        const addressTokens = j.address ? Object.values(j.address) : []
+        const displayTokens = typeof j.display_name === 'string'
+          ? j.display_name.split(',').map((s: string) => s.trim())
+          : []
+        for (const tok of [...addressTokens, ...displayTokens]) {
+          if (typeof tok !== 'string') continue
+          const cleaned = tok.replace(/[0-9]/g, '').replace(/-/g, ' ').replace(/\s+/g, ' ').trim()
+          if (knownHe.has(cleaned)) return cleaned
+        }
       }
     }
   } catch {
@@ -501,24 +524,52 @@ export function useHebrewCity(
     //    is typically accurate to ~1km — good enough for picking a city.
     // We also cap maximumAge at 30s so we don't act on a stale fix from
     //  a previous location (e.g. user travelled since last lookup).
+    //
+    // Important: getCurrentPosition does not natively support AbortSignal.
+    // Without manual signal-handling here, an aborted request still
+    // resolves later in the background and overwrites state with a
+    // stale detection. We listen for the abort and reject early.
     const requestPosition = (highAccuracy: boolean, timeoutMs: number) =>
       new Promise<GeolocationPosition>((resolve, reject) => {
+        if (signal?.aborted) {
+          const e = new Error('aborted')
+          ;(e as any).name = 'AbortError'
+          reject(e)
+          return
+        }
+
         let done = false
-        const timer = setTimeout(() => {
-          if (!done) reject(new Error('geolocation timeout'))
-        }, timeoutMs)
+        const finish = (fn: () => void) => {
+          if (done) return
+          done = true
+          clearTimeout(timer)
+          signal?.removeEventListener('abort', onAbort)
+          fn()
+        }
+
+        const timer = setTimeout(
+          () => finish(() => reject(new Error('geolocation timeout'))),
+          timeoutMs,
+        )
+        const onAbort = () => finish(() => {
+          const e = new Error('aborted')
+          ;(e as any).name = 'AbortError'
+          reject(e)
+        })
+        signal?.addEventListener('abort', onAbort, { once: true })
 
         navigator.geolocation.getCurrentPosition(
-          p => { done = true; clearTimeout(timer); resolve(p) },
-          err => { done = true; clearTimeout(timer); reject(err) },
-          { enableHighAccuracy: highAccuracy, timeout: timeoutMs, maximumAge: 30_000 }
+          p => finish(() => resolve(p)),
+          err => finish(() => reject(err)),
+          { enableHighAccuracy: highAccuracy, timeout: timeoutMs, maximumAge: 30_000 },
         )
       })
 
     let pos: GeolocationPosition
     try {
       pos = await requestPosition(true, highTimeout)
-    } catch {
+    } catch (e: any) {
+      if (e?.name === 'AbortError') throw e
       // Fall back to a low-accuracy fix
       pos = await requestPosition(false, lowTimeout)
     }
