@@ -141,51 +141,206 @@ function normalizeCityHe(s: string | null | undefined): string | null {
   return null
 }
 
-async function reverseGeocodeHebrew(lat: number, lon: number, signal?: AbortSignal) {
-  const url = `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=he`
-  const r = await fetch(url, { signal })
-  if (!r.ok) throw new Error('reverse-geocode failed')
-  const j = await r.json()
-  const candidate: string | null =
-    j.city || j.locality ||
-    j.localityInfo?.administrative?.[0]?.name ||
-    j.principalSubdivision || null
-  return normalizeCityHe(candidate)
+// Israeli national bounds (approximate). Used to reject reverse-geocode
+// results that are clearly outside Israel \u2014 e.g. a stale roaming GPS fix
+// or an IP geolocation that pinned us to a neighbouring country.
+const ISRAEL_BOUNDS = { latMin: 29.45, latMax: 33.45, lonMin: 34.20, lonMax: 35.95 }
+function isInIsrael(lat: number, lon: number): boolean {
+  return (
+    lat >= ISRAEL_BOUNDS.latMin && lat <= ISRAEL_BOUNDS.latMax &&
+    lon >= ISRAEL_BOUNDS.lonMin && lon <= ISRAEL_BOUNDS.lonMax
+  )
 }
 
-async function cityFromIP(signal?: AbortSignal) {
-  const sources = [
-    { 
-      url: 'https://ipwho.is/?lang=he', 
-      parser: (j: any) => j?.success ? j.city : null 
-    },
-    { 
-      url: 'https://ip-api.com/json/?fields=status,city&lang=he', 
-      parser: (j: any) => j?.status === 'success' ? j.city : null 
-    },
-    { 
-      url: 'https://ipapi.co/json/', 
-      parser: (j: any) => j?.city 
+// Coordinates of major Israeli cities for nearest-neighbour fallback. Used
+// when reverse geocoding returns a small town we don't know how to map to
+// Hebrew \u2014 we'd rather pin to a known major city than blindly fall back
+// to "\u05EA\u05DC \u05D0\u05D1\u05D9\u05D1" for everyone.
+const ISRAELI_CITY_COORDS: Array<{ he: string; lat: number; lon: number }> = [
+  { he: '\u05EA\u05DC \u05D0\u05D1\u05D9\u05D1',         lat: 32.0853, lon: 34.7818 },
+  { he: '\u05D9\u05E8\u05D5\u05E9\u05DC\u05D9\u05DD',         lat: 31.7683, lon: 35.2137 },
+  { he: '\u05D7\u05D9\u05E4\u05D4',           lat: 32.7940, lon: 34.9896 },
+  { he: '\u05D1\u05D0\u05E8 \u05E9\u05D1\u05E2',         lat: 31.2528, lon: 34.7915 },
+  { he: '\u05E8\u05D0\u05E9\u05D5\u05DF \u05DC\u05E6\u05D9\u05D5\u05DF',     lat: 31.9646, lon: 34.8044 },
+  { he: '\u05E4\u05EA\u05D7 \u05EA\u05E7\u05D5\u05D5\u05D4',       lat: 32.0871, lon: 34.8867 },
+  { he: '\u05E0\u05EA\u05E0\u05D9\u05D4',          lat: 32.3328, lon: 34.8597 },
+  { he: '\u05D0\u05E9\u05D3\u05D5\u05D3',          lat: 31.8014, lon: 34.6435 },
+  { he: '\u05D0\u05E9\u05E7\u05DC\u05D5\u05DF',         lat: 31.6688, lon: 34.5713 },
+  { he: '\u05E8\u05D7\u05D5\u05D1\u05D5\u05EA',         lat: 31.8947, lon: 34.8094 },
+  { he: '\u05DE\u05D5\u05D3\u05D9\u05E2\u05D9\u05DF',         lat: 31.8983, lon: 35.0104 },
+  { he: '\u05E8\u05DE\u05DC\u05D4',           lat: 31.9290, lon: 34.8667 },
+  { he: '\u05DC\u05D5\u05D3',            lat: 31.9510, lon: 34.8950 },
+  { he: '\u05DB\u05E4\u05E8 \u05E1\u05D1\u05D0',        lat: 32.1750, lon: 34.9070 },
+  { he: '\u05E8\u05E2\u05E0\u05E0\u05D4',          lat: 32.1848, lon: 34.8713 },
+  { he: '\u05D4\u05E8\u05E6\u05DC\u05D9\u05D4',         lat: 32.1620, lon: 34.8468 },
+  { he: '\u05D7\u05D3\u05E8\u05D4',           lat: 32.4339, lon: 34.9196 },
+  { he: '\u05E0\u05E6\u05E8\u05EA',           lat: 32.7000, lon: 35.2950 },
+  { he: '\u05D8\u05D1\u05E8\u05D9\u05D4',          lat: 32.7903, lon: 35.5310 },
+  { he: '\u05D0\u05D9\u05DC\u05EA',           lat: 29.5577, lon: 34.9519 },
+  { he: '\u05E8\u05DE\u05EA \u05D2\u05DF',          lat: 32.0680, lon: 34.8240 },
+  { he: '\u05D1\u05E0\u05D9 \u05D1\u05E8\u05E7',         lat: 32.0808, lon: 34.8338 },
+  { he: '\u05D7\u05D5\u05DC\u05D5\u05DF',          lat: 32.0167, lon: 34.7792 },
+  { he: '\u05D1\u05EA \u05D9\u05DD',          lat: 32.0244, lon: 34.7508 },
+  { he: '\u05D2\u05D1\u05E2\u05EA\u05D9\u05D9\u05DD',         lat: 32.0700, lon: 34.8120 },
+  { he: '\u05E7\u05E8\u05D9\u05D9\u05EA \u05D2\u05EA',        lat: 31.6100, lon: 34.7642 },
+  { he: '\u05E7\u05E8\u05D9\u05D9\u05EA \u05D0\u05D5\u05E0\u05D5',      lat: 32.0631, lon: 34.8559 },
+  { he: '\u05E2\u05DB\u05D5',            lat: 32.9281, lon: 35.0818 },
+  { he: '\u05E0\u05D4\u05E8\u05D9\u05D4',          lat: 33.0058, lon: 35.0950 },
+  { he: '\u05E7\u05E8\u05D9\u05D9\u05EA \u05E9\u05DE\u05D5\u05E0\u05D4',     lat: 33.2074, lon: 35.5697 },
+  { he: '\u05D3\u05D9\u05DE\u05D5\u05E0\u05D4',         lat: 31.0700, lon: 35.0322 },
+  { he: '\u05E6\u05E4\u05EA',            lat: 32.9658, lon: 35.4983 },
+  { he: '\u05E2\u05E4\u05D5\u05DC\u05D4',          lat: 32.6078, lon: 35.2897 },
+  { he: '\u05D0\u05D5\u05E8 \u05D9\u05D4\u05D5\u05D3\u05D4',       lat: 32.0319, lon: 34.8553 },
+  { he: '\u05D9\u05D4\u05D5\u05D3',           lat: 32.0333, lon: 34.8833 },
+  { he: '\u05E8\u05D0\u05E9 \u05D4\u05E2\u05D9\u05DF',       lat: 32.0850, lon: 34.9500 },
+  { he: '\u05D4\u05D5\u05D3 \u05D4\u05E9\u05E8\u05D5\u05DF',       lat: 32.1500, lon: 34.8917 },
+  { he: '\u05E0\u05E1 \u05E6\u05D9\u05D5\u05E0\u05D4',        lat: 31.9333, lon: 34.7989 },
+]
+
+// Haversine great-circle distance in km.
+function haversineKm(aLat: number, aLon: number, bLat: number, bLon: number): number {
+  const toRad = (d: number) => d * Math.PI / 180
+  const R = 6371
+  const dLat = toRad(bLat - aLat)
+  const dLon = toRad(bLon - aLon)
+  const lat1 = toRad(aLat)
+  const lat2 = toRad(bLat)
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2
+  return 2 * R * Math.asin(Math.sqrt(h))
+}
+
+// Find the closest known major city to a coordinate. Returns null if the
+// coordinate isn't in Israel.
+function nearestIsraeliCity(lat: number, lon: number): string | null {
+  if (!isInIsrael(lat, lon)) return null
+  let best: { he: string; d: number } | null = null
+  for (const c of ISRAELI_CITY_COORDS) {
+    const d = haversineKm(lat, lon, c.lat, c.lon)
+    if (!best || d < best.d) best = { he: c.he, d }
+  }
+  return best ? best.he : null
+}
+
+// Reverse geocode a coordinate to a Hebrew city name, trying multiple
+// providers and only accepting Israeli results. We try BigDataCloud first
+// (no key, returns Hebrew when asked) and fall back to OSM Nominatim.
+// As a last resort, snap the coords to the nearest known major city.
+async function reverseGeocodeHebrew(lat: number, lon: number, signal?: AbortSignal): Promise<string | null> {
+  if (!isInIsrael(lat, lon)) {
+    // The GPS fix isn't in Israel \u2014 we don't trust it. Return null so the
+    // caller falls through to IP-based detection.
+    return null
+  }
+
+  // Provider 1: BigDataCloud reverse-geocode (Hebrew-aware, no key)
+  try {
+    const r = await fetch(
+      `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=he`,
+      { signal },
+    )
+    if (r.ok) {
+      const j = await r.json()
+      // Only trust the result if BDC also says we're in Israel
+      const cc: string | undefined = j.countryCode || j.countryInfo?.iso3?.slice(0, 2)
+      if (!cc || cc.toUpperCase() === 'IL') {
+        const candidate: string | null =
+          j.city || j.locality ||
+          j.localityInfo?.administrative?.[0]?.name ||
+          j.principalSubdivision || null
+        const mapped = normalizeCityHe(candidate)
+        if (mapped) return mapped
+      }
     }
+  } catch {
+    // try next provider
+  }
+
+  // Provider 2: OSM Nominatim \u2014 public, no key, supports `accept-language=he`
+  try {
+    const r = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}&accept-language=he&zoom=14`,
+      { signal, headers: { 'Accept': 'application/json' } },
+    )
+    if (r.ok) {
+      const j = await r.json()
+      const cc: string | undefined = j.address?.country_code
+      if (!cc || cc.toUpperCase() === 'IL') {
+        const candidate: string | null =
+          j.address?.city || j.address?.town ||
+          j.address?.village || j.address?.municipality ||
+          j.address?.suburb || j.address?.county || null
+        const mapped = normalizeCityHe(candidate)
+        if (mapped) return mapped
+      }
+    }
+  } catch {
+    // fall through to nearest-city snap
+  }
+
+  // Last resort: snap to the closest major city we know about. The user
+  // gets a usable scrape result instead of a generic default.
+  return nearestIsraeliCity(lat, lon)
+}
+
+async function cityFromIP(signal?: AbortSignal): Promise<string | null> {
+  // Each provider gets its own short timeout so a single slow one doesn't
+  // dominate. We try them sequentially because most of the time the first
+  // one resolves and we don't want to fan out unnecessarily.
+  const sources: Array<{ url: string; parser: (j: any) => { city?: string; country?: string; lat?: number; lon?: number } }> = [
+    {
+      url: 'https://ipwho.is/?lang=he',
+      parser: (j: any) => j?.success
+        ? { city: j.city, country: j.country_code, lat: j.latitude, lon: j.longitude }
+        : {},
+    },
+    {
+      url: 'https://ip-api.com/json/?fields=status,country,countryCode,city,lat,lon&lang=he',
+      parser: (j: any) => j?.status === 'success'
+        ? { city: j.city, country: j.countryCode, lat: j.lat, lon: j.lon }
+        : {},
+    },
+    {
+      url: 'https://ipapi.co/json/',
+      parser: (j: any) => ({ city: j?.city, country: j?.country_code, lat: j?.latitude, lon: j?.longitude }),
+    },
   ]
-  
+
   for (const { url, parser } of sources) {
     try {
-      const r = await fetch(url, { signal, cache: 'no-cache' })
-      if (r.ok) {
+      // Local AbortController chained off the parent so a slow source can't
+      // hold us up for more than 4s.
+      const innerAc = new AbortController()
+      const onParentAbort = () => innerAc.abort()
+      signal?.addEventListener('abort', onParentAbort, { once: true })
+      const innerTimer = setTimeout(() => innerAc.abort(), 4_000)
+
+      try {
+        const r = await fetch(url, { signal: innerAc.signal, cache: 'no-cache' })
+        clearTimeout(innerTimer)
+        signal?.removeEventListener('abort', onParentAbort)
+        if (!r.ok) continue
         const j = await r.json()
-        const city = normalizeCityHe(parser(j))
-        if (city) {
-          // Validate it's an Israeli city (in Hebrew)
-          const isIsraeliCity = Object.values(EN_TO_HE).includes(city)
-          const hasHebrew = /[\u0590-\u05FF]/.test(city)
-          if (isIsraeliCity || hasHebrew) {
-            return city
-          }
+        const { city, country, lat, lon } = parser(j)
+        // Insist on country=IL when the provider gave us one
+        if (country && country.toUpperCase() !== 'IL') continue
+        // If we have GPS-grade lat/lon from the IP provider AND it's in Israel,
+        // prefer reverse geocoding it (more accurate than the city string)
+        if (typeof lat === 'number' && typeof lon === 'number' && isInIsrael(lat, lon)) {
+          const mapped = await reverseGeocodeHebrew(lat, lon, signal)
+          if (mapped) return mapped
         }
+        const mapped = normalizeCityHe(city)
+        if (mapped) {
+          const isIsraeliCity = Object.values(EN_TO_HE).includes(mapped)
+          const hasHebrew = /[\u0590-\u05FF]/.test(mapped)
+          if (isIsraeliCity || hasHebrew) return mapped
+        }
+      } finally {
+        clearTimeout(innerTimer)
+        signal?.removeEventListener('abort', onParentAbort)
       }
     } catch {
-      // Continue to next source
+      // try next provider
     }
   }
   return null
@@ -229,20 +384,45 @@ export function useHebrewCity(
       }
     }
 
-    const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
-      let done = false
-      const timer = setTimeout(() => {
-        if (!done) reject(new Error('geolocation timeout'))
-      }, geolocationTimeoutMs)
+    // Two-pass GPS strategy:
+    // 1. Try high-accuracy with a short timeout. On most modern phones/laptops
+    //    this returns a real GPS fix accurate to ~10m.
+    // 2. If that times out (e.g. indoors with no GPS lock, or browser is
+    //    being slow), fall back to a low-accuracy fix from cell/wifi which
+    //    is typically accurate to ~1km — good enough for picking a city.
+    // We also cap maximumAge at 30s so we don't act on a stale fix from
+    //  a previous location (e.g. user travelled since last lookup).
+    const requestPosition = (highAccuracy: boolean, timeoutMs: number) =>
+      new Promise<GeolocationPosition>((resolve, reject) => {
+        let done = false
+        const timer = setTimeout(() => {
+          if (!done) reject(new Error('geolocation timeout'))
+        }, timeoutMs)
 
-      navigator.geolocation.getCurrentPosition(
-        p => { done = true; clearTimeout(timer); resolve(p) },
-        err => { done = true; clearTimeout(timer); reject(err) },
-        { enableHighAccuracy: false, timeout: geolocationTimeoutMs, maximumAge: 60_000 }
-      )
-    })
+        navigator.geolocation.getCurrentPosition(
+          p => { done = true; clearTimeout(timer); resolve(p) },
+          err => { done = true; clearTimeout(timer); reject(err) },
+          { enableHighAccuracy: highAccuracy, timeout: timeoutMs, maximumAge: 30_000 }
+        )
+      })
 
-    const { latitude, longitude } = pos.coords
+    let pos: GeolocationPosition
+    try {
+      pos = await requestPosition(true, geolocationTimeoutMs)
+    } catch {
+      // Fall back to a low-accuracy fix with a slightly longer timeout
+      pos = await requestPosition(false, Math.max(geolocationTimeoutMs, 4000))
+    }
+
+    const { latitude, longitude, accuracy } = pos.coords
+
+    // If the fix is wildly inaccurate (>20km radius) AND outside Israel,
+    // don't trust it — fall back to IP. Inside-Israel low-accuracy fixes
+    // are still useful because of nearestIsraeliCity().
+    if (accuracy > 20_000 && !isInIsrael(latitude, longitude)) {
+      throw new Error(`GPS fix too inaccurate (${Math.round(accuracy)}m)`)
+    }
+
     const city = await reverseGeocodeHebrew(latitude, longitude, signal)
     if (!city) throw new Error('reverse-geocode returned empty')
     return city

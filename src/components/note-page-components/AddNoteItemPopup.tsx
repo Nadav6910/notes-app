@@ -407,7 +407,18 @@ export default function AddNoteItemPopup (
 
         const data: AutocompleteResponse = await res.json()
 
-        if (ac.signal.aborted) return
+        if (ac.signal.aborted) {
+          // Aborted between fetch and json. If it was our own timeout
+          // (rare race window) surface it; otherwise it's a supersede
+          // and the next request owns the UI.
+          if (abortedByTimeout && abortRef.current === ac) {
+            setHadError(true)
+            setAcError('Search took too long. Please try again.')
+            setOptions([])
+            setAcOpen(true)
+          }
+          return
+        }
 
         if (data.ok) {
           const raw: AutocompleteSuggestion[] = data.suggestions ?? []
@@ -543,15 +554,24 @@ export default function AddNoteItemPopup (
                   }
                   noOptionsText={
                     hadError ? (
-                      <Box sx={{ py: 1 }}>
-                        <Typography sx={{ color: 'var(--primary-color)', opacity: 0.8 }}>
-                          {acError || 'No products found'}
+                      <Box sx={{ py: 1.5, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                        <Typography sx={{ color: 'var(--primary-color)', opacity: 0.95, fontWeight: 600 }}>
+                          ⚠️ {acError || 'Search failed'}
                         </Typography>
-                        <Typography variant="caption" sx={{ color: 'var(--primary-color)', opacity: 0.6 }}>
-                          Try a different search term or check your connection
+                        <Typography variant="caption" sx={{ color: 'var(--primary-color)', opacity: 0.7 }}>
+                          Try a different search term or tap the input to retry.
                         </Typography>
                       </Box>
-                    ) : 'No products found'
+                    ) : (
+                      <Box sx={{ py: 1.5, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                        <Typography sx={{ color: 'var(--primary-color)', opacity: 0.95, fontWeight: 600 }}>
+                          🔍 No products found
+                        </Typography>
+                        <Typography variant="caption" sx={{ color: 'var(--primary-color)', opacity: 0.7 }}>
+                          Try a different word, or check spelling.
+                        </Typography>
+                      </Box>
+                    )
                   }
                   filterOptions={(x) => x}
                   getOptionLabel={(o) => typeof o === 'string' ? o : o.primary}
