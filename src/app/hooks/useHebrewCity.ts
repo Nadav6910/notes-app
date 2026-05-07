@@ -20,6 +20,11 @@ type CityState = {
 }
 
 const LS_LAST_CITY_KEY = 'chp:last-location'
+// How long we trust a persisted detection before re-running. 30 min is short
+// enough that a user who travelled (say, drove from Tel Aviv to קריית ים)
+// gets re-detected on their next session, and long enough that revisits
+// during the same shopping trip are instant.
+const PERSISTED_CITY_TTL_MS = 30 * 60 * 1000
 
 function readLastCityFromStorage(): { city: string; source: 'manual' | 'gps' | 'ip' | 'fallback' } | null {
   if (typeof window === 'undefined') return null
@@ -27,9 +32,14 @@ function readLastCityFromStorage(): { city: string; source: 'manual' | 'gps' | '
     const raw = window.localStorage.getItem(LS_LAST_CITY_KEY)
     if (!raw) return null
     const parsed = JSON.parse(raw)
-    if (parsed && typeof parsed.city === 'string' && parsed.city) {
-      return { city: parsed.city, source: parsed.source ?? 'manual' }
-    }
+    if (!parsed || typeof parsed.city !== 'string' || !parsed.city) return null
+    // Never trust a persisted "fallback" — that's the literal default city
+    // we used because detection failed last time. We want a fresh attempt.
+    if (parsed.source === 'fallback') return null
+    // TTL: stale persisted values get re-detected.
+    const ts = typeof parsed.ts === 'number' ? parsed.ts : 0
+    if (Date.now() - ts > PERSISTED_CITY_TTL_MS) return null
+    return { city: parsed.city, source: parsed.source ?? 'manual' }
   } catch {}
   return null
 }
@@ -196,11 +206,13 @@ const ISRAELI_CITY_COORDS: Array<{ he: string; lat: number; lon: number }> = [
   { he: '\u05E0\u05E1 \u05E6\u05D9\u05D5\u05E0\u05D4',        lat: 31.9333, lon: 34.7989 },
   { he: '\u05D1\u05D0\u05E8 \u05D9\u05E2\u05E7\u05D1',        lat: 31.9437, lon: 34.8369 },
   { he: '\u05E9\u05D5\u05D4\u05DD',           lat: 31.9956, lon: 34.9586 },
-  // Krayot \u2014 Haifa cluster (the user's pain point: cities 1\u20133km apart)
-  { he: '\u05E7\u05E8\u05D9\u05D9\u05EA \u05D9\u05DD',        lat: 32.8392, lon: 35.0686 },
-  { he: '\u05E7\u05E8\u05D9\u05D9\u05EA \u05D1\u05D9\u05D0\u05DC\u05D9\u05E7',    lat: 32.8267, lon: 35.0867 },
-  { he: '\u05E7\u05E8\u05D9\u05D9\u05EA \u05DE\u05D5\u05E6\u05E7\u05D9\u05DF',    lat: 32.8347, lon: 35.0833 },
-  { he: '\u05E7\u05E8\u05D9\u05D9\u05EA \u05D0\u05EA\u05D0',       lat: 32.8064, lon: 35.1106 },
+  // Krayot \u2014 Haifa cluster (the user's pain point: cities 1\u20133km apart).
+  // Coords from Wikipedia centroids; the cluster is so tight that even
+  // small errors here send users to the wrong neighbour.
+  { he: '\u05E7\u05E8\u05D9\u05D9\u05EA \u05D9\u05DD',        lat: 32.8453, lon: 35.0697 },  // northernmost
+  { he: '\u05E7\u05E8\u05D9\u05D9\u05EA \u05DE\u05D5\u05E6\u05E7\u05D9\u05DF',    lat: 32.8389, lon: 35.0786 },  // SE of \u05E7\u05E8\u05D9\u05D9\u05EA \u05D9\u05DD
+  { he: '\u05E7\u05E8\u05D9\u05D9\u05EA \u05D1\u05D9\u05D0\u05DC\u05D9\u05E7',    lat: 32.8294, lon: 35.0867 },  // S of \u05DE\u05D5\u05E6\u05E7\u05D9\u05DF
+  { he: '\u05E7\u05E8\u05D9\u05D9\u05EA \u05D0\u05EA\u05D0',       lat: 32.8064, lon: 35.1106 },  // SE of the cluster
   { he: '\u05E0\u05E9\u05E8',            lat: 32.7669, lon: 35.0444 },
   { he: '\u05D8\u05D9\u05E8\u05EA \u05DB\u05E8\u05DE\u05DC',       lat: 32.7611, lon: 34.9723 },
   // Galilee + north
@@ -275,21 +287,57 @@ async function reverseGeocodeHebrew(
     return null
   }
 
-  // 1. High-confidence GPS short-circuit. If we have a precise fix and a
-  //    known city is right on top of us, use it without asking the network.
+  // 1. High-confidence GPS short-circuit. If we have a precise fix and
+  //    the closest known city is unambiguously close (<2km AND clearly
+  //    closer than the runner-up), use it without asking the network.
+  //    The 2km radius is tight enough to avoid Krayot-style mis-snaps
+  //    where the user is near a cluster boundary.
   if (typeof accuracyMeters === 'number' && accuracyMeters > 0 && accuracyMeters <= 500) {
-    let best: { he: string; d: number } | null = null
-    for (const c of ISRAELI_CITY_COORDS) {
-      const d = haversineKm(lat, lon, c.lat, c.lon)
-      if (!best || d < best.d) best = { he: c.he, d }
-    }
-    if (best && best.d <= 4) {
+    const ranked = ISRAELI_CITY_COORDS
+      .map(c => ({ he: c.he, d: haversineKm(lat, lon, c.lat, c.lon) }))
+      .sort((a, b) => a.d - b.d)
+
+    const best = ranked[0]
+    const second = ranked[1]
+    // Use the snap if the winner is within 2km AND meaningfully closer
+    // than the runner-up (>=300m gap, so we don't pick wrong in clusters
+    // where two cities are equidistant). When ambiguous, fall through
+    // to Nominatim/BDC for an admin-aware decision.
+    if (best && best.d <= 2 && (!second || second.d - best.d >= 0.3)) {
       return best.he
     }
     // else fall through to network reverse-geocoders
   }
 
-  // 2a. Provider 1: BigDataCloud reverse-geocode (Hebrew-aware, no key)
+  // 2a. Provider 1: OSM Nominatim. We try Nominatim FIRST because for
+  //     Israeli cities its `address.town`/`address.city` fields tend to
+  //     return the actual municipality (e.g. "\u05e7\u05e8\u05d9\u05d9\u05ea \u05d9\u05dd"), whereas
+  //     BigDataCloud often broadens to the metropolitan name (e.g. "\u05d7\u05d9\u05e4\u05d4"
+  //     or whichever Krayot city is largest).
+  try {
+    const r = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}&accept-language=he&zoom=14`,
+      { signal, headers: { 'Accept': 'application/json' } },
+    )
+    if (r.ok) {
+      const j = await r.json()
+      const cc: string | undefined = j.address?.country_code
+      if (!cc || cc.toUpperCase() === 'IL') {
+        // Try the most-specific fields first so cluster cities are
+        // picked over the metro name.
+        const candidate: string | null =
+          j.address?.town || j.address?.city ||
+          j.address?.village || j.address?.municipality ||
+          j.address?.suburb || j.address?.county || null
+        const mapped = normalizeCityHe(candidate)
+        if (mapped) return mapped
+      }
+    }
+  } catch {
+    // try next provider
+  }
+
+  // 2b. Provider 2: BigDataCloud reverse-geocode (Hebrew-aware, no key)
   try {
     const r = await fetch(
       `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=he`,
@@ -307,28 +355,6 @@ async function reverseGeocodeHebrew(
           j.locality || j.city ||
           j.localityInfo?.administrative?.[0]?.name ||
           j.principalSubdivision || null
-        const mapped = normalizeCityHe(candidate)
-        if (mapped) return mapped
-      }
-    }
-  } catch {
-    // try next provider
-  }
-
-  // 2b. Provider 2: OSM Nominatim \u2014 most precise free option, no key.
-  try {
-    const r = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}&accept-language=he&zoom=14`,
-      { signal, headers: { 'Accept': 'application/json' } },
-    )
-    if (r.ok) {
-      const j = await r.json()
-      const cc: string | undefined = j.address?.country_code
-      if (!cc || cc.toUpperCase() === 'IL') {
-        const candidate: string | null =
-          j.address?.city || j.address?.town ||
-          j.address?.village || j.address?.municipality ||
-          j.address?.suburb || j.address?.county || null
         const mapped = normalizeCityHe(candidate)
         if (mapped) return mapped
       }
@@ -431,17 +457,41 @@ export function useHebrewCity(
       throw new Error('geolocation not available')
     }
 
-    // Check permission first (if supported)
+    // Detect the current permission state so we can adapt our timeouts:
+    //   'granted' → permission already given, the fix usually returns in
+    //               <1s, no prompt to wait on. Use a tight timeout.
+    //   'prompt'  → first-ever attempt. The browser's permission popup
+    //               appears asynchronously and the user has to click
+    //               "Allow" — this can easily take 5–10s. Be patient.
+    //   'denied'  → fail fast. The popup will not appear and
+    //               getCurrentPosition will reject silently.
+    //   unknown   → Safari/older browsers without the Permissions API.
+    //               Be patient (treat like 'prompt').
+    let permissionState: 'granted' | 'prompt' | 'denied' | 'unknown' = 'unknown'
     if ('permissions' in navigator) {
       try {
         const result = await (navigator.permissions as any).query({ name: 'geolocation' })
-        if (result.state === 'denied') {
-          throw new Error('geolocation permission denied')
-        }
+        permissionState = result.state
       } catch {
-        // Some browsers don't support permissions API, continue anyway
+        permissionState = 'unknown'
       }
     }
+    if (permissionState === 'denied') {
+      throw new Error('geolocation permission denied')
+    }
+
+    // Adaptive timeouts. Important: when permission is 'prompt' the user is
+    // staring at a browser popup; cutting them off after 6s means we
+    // never get the GPS fix and silently fall back to IP geolocation
+    // (which is what was making first-open default to Tel Aviv).
+    const PROMPT_HIGH_TIMEOUT_MS = 12_000
+    const PROMPT_LOW_TIMEOUT_MS  = 6_000
+    const GRANTED_HIGH_TIMEOUT_MS = Math.max(geolocationTimeoutMs, 5_000)
+    const GRANTED_LOW_TIMEOUT_MS  = 3_500
+
+    const isPrompt = permissionState !== 'granted'
+    const highTimeout = isPrompt ? PROMPT_HIGH_TIMEOUT_MS : GRANTED_HIGH_TIMEOUT_MS
+    const lowTimeout  = isPrompt ? PROMPT_LOW_TIMEOUT_MS  : GRANTED_LOW_TIMEOUT_MS
 
     // Two-pass GPS strategy:
     // 1. Try high-accuracy with a short timeout. On most modern phones/laptops
@@ -467,10 +517,10 @@ export function useHebrewCity(
 
     let pos: GeolocationPosition
     try {
-      pos = await requestPosition(true, geolocationTimeoutMs)
+      pos = await requestPosition(true, highTimeout)
     } catch {
-      // Fall back to a low-accuracy fix with a slightly longer timeout
-      pos = await requestPosition(false, Math.max(geolocationTimeoutMs, 4000))
+      // Fall back to a low-accuracy fix
+      pos = await requestPosition(false, lowTimeout)
     }
 
     const { latitude, longitude, accuracy } = pos.coords
