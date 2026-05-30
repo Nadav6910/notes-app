@@ -1,28 +1,41 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/prisma'
- 
-export async function POST(request: Request, response: NextResponse) {
+import { requireAuth, isErrorResponse } from '@/lib/auth'
+import { badRequest, serverError } from '@/lib/http'
+
+export async function POST(request: Request) {
+
+    // Verify authentication
+    const authResult = await requireAuth()
+    if (isErrorResponse(authResult)) {
+        return authResult
+    }
+    const session = authResult
 
     // get body data
-    const { view, userId } = await request.json()
+    const { view } = await request.json()
+
+    // validate body (NotesView enum)
+    if (view !== 'card' && view !== 'list') {
+        return badRequest("Invalid view")
+    }
 
     try {
-        
-        // create note
+
+        // update the authenticated user's notes view
         await prisma.user.update({
             where: {
-                id: userId
+                id: session.user.id
             },
             data: {
                 notesView: view
             }
         })
 
-        return NextResponse.json({massage: "notes view changed"})
-    } 
-    
+        return NextResponse.json({message: "notes view changed"})
+    }
+
     catch (error: any) {
-        console.log(error)
-        return NextResponse.json({error: error.message})
+        return serverError(error)
     }
 }

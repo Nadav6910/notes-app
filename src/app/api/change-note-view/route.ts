@@ -1,14 +1,33 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/prisma'
- 
-export async function POST(request: Request, response: NextResponse) {
+import { requireAuth, isErrorResponse, verifyNoteOwnership } from '@/lib/auth'
+import { isNonEmptyString, badRequest, forbidden, serverError } from '@/lib/http'
+
+export async function POST(request: Request) {
+
+    // Verify authentication
+    const authResult = await requireAuth()
+    if (isErrorResponse(authResult)) {
+        return authResult
+    }
+    const session = authResult
 
     // get body data
     const { view, noteId } = await request.json()
 
+    // validate body
+    if (!isNonEmptyString(noteId) || !isNonEmptyString(view)) {
+        return badRequest()
+    }
+
+    // Verify note ownership
+    if (!(await verifyNoteOwnership(session.user.id, noteId))) {
+        return forbidden("You don't own this note")
+    }
+
     try {
-        
-        // create note
+
+        // update note view
         await prisma.note.update({
             where: {
                 noteId: noteId
@@ -18,11 +37,10 @@ export async function POST(request: Request, response: NextResponse) {
             }
         })
 
-        return NextResponse.json({massage: "note view changed"})
-    } 
-    
+        return NextResponse.json({message: "note view changed"})
+    }
+
     catch (error: any) {
-        console.log(error)
-        return NextResponse.json({error: error.message})
+        return serverError(error)
     }
 }

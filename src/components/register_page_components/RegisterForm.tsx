@@ -24,7 +24,7 @@ export default function RegisterForm() {
     const [openError, setOpenError] = useState(false)
 
     const handleClose = () => {
-        setOpenSuccess(true)
+        setOpenSuccess(false)
         router.push('/login')
     }
     
