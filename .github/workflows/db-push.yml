@@ -1,0 +1,46 @@
+name: DB Push
+
+# Syncs the Prisma schema to the database (MongoDB has no migration history,
+# so `prisma db push` is the mechanism). Runs only on production deploys and
+# only when the schema actually changes, so it stays a near no-op that simply
+# creates any new indexes.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'prisma/schema.prisma'
+      - '.github/workflows/db-push.yml'
+
+# Never run two schema pushes at once.
+concurrency:
+  group: db-push
+  cancel-in-progress: false
+
+jobs:
+  db-push:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+    steps:
+      - name: Verify DATABASE_URL secret is configured
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "::error::DATABASE_URL secret is not set. Add it under repo Settings → Secrets and variables → Actions, and allow the database to accept connections from GitHub-hosted runners."
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Index-only changes are non-destructive and idempotent. If a future
+      # schema change is destructive, this step will fail rather than drop
+      # data (no --accept-data-loss), prompting a deliberate decision.
+      - name: Push Prisma schema (creates indexes)
+        run: npx prisma db push --skip-generate
