@@ -32,6 +32,8 @@ model Note {
   noteView  String
   createdAt DateTime @default(now())
   user      User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
 }
 
 model Entry {
@@ -44,4 +46,8 @@ model Entry {
   createdAt DateTime  @default(now())
   lastEdit  DateTime? @updatedAt
   note      Note      @relation(fields: [noteId], references: [noteId], onDelete: Cascade)
+
+  // Compound index backs both the noteId filter and the createdAt sort
+  // used when loading a note's entries (getNoteEntries)
+  @@index([noteId, createdAt])
 }

@@ -67,33 +67,11 @@ export const authOptions: NextAuthOptions = {
         if (account.provider === "google" || account.provider === "github") {
           
           try {
-            // Check if user exists
-            const userData = await prisma.user.findUnique({where: {userName: user?.email}})
-            
-            if (userData) {
-        
-              user.id = userData.id
-              
-              if (userData.profileImage) {
-                user.image = userData.profileImage
-              }
-
-              // update db with new image
-              else {
-                await prisma.user.update({
-                  where: {id: userData.id},
-                  data: {
-                    profileImage: user?.image
-                  }
-                })
-              }
-
-              return user
-            }
-
-            // create user
-            const newUser = await prisma.user.create({
-              data: {
+            // Upsert avoids a read-then-create race when two sign-ins arrive at once
+            const dbUser = await prisma.user.upsert({
+              where: {userName: user?.email},
+              update: {},
+              create: {
                 name: user?.name,
                 userName: user?.email,
                 password: "social-account",
@@ -102,11 +80,22 @@ export const authOptions: NextAuthOptions = {
               }
             })
 
-            user.id = newUser.id
+            user.id = dbUser.id
+
+            if (dbUser.profileImage) {
+              user.image = dbUser.profileImage
+            }
+            // existing user without a stored image: backfill from the provider
+            else if (user?.image) {
+              await prisma.user.update({
+                where: {id: dbUser.id},
+                data: {profileImage: user.image}
+              })
+            }
 
             return user
           }
-          
+
           catch (error) {
             console.log(error)
           }
@@ -124,9 +113,12 @@ export const authOptions: NextAuthOptions = {
       session: async ({session, token}: any) => {
         
         if (session.user && token.sub) {
-          // get user data
-          const userData = await prisma.user.findUnique({where: {id: token.sub}})
-          session.user.id = token.sub 
+          // fetch only the field we need (avoids loading the full user row)
+          const userData = await prisma.user.findUnique({
+            where: {id: token.sub},
+            select: {profileImage: true}
+          })
+          session.user.id = token.sub
 
           if (userData) {
             session.user.image = userData.profileImage
